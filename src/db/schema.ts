@@ -13,7 +13,7 @@ export const users = pgTable('users', {
   isActive: boolean('is_active').notNull().default(true),
   permissions: jsonb('permissions').notNull().default([]),
   status: text('status').notNull().default('active'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const barangays = pgTable('barangays', {
@@ -37,8 +37,8 @@ export const farmers = pgTable('farmers', {
   isActive: boolean('is_active').notNull().default(true),
   isArchived: boolean('is_archived').notNull().default(false),
   metadata: jsonb('metadata').notNull().default({}),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 export const swineRecords = pgTable('swine_records', {
@@ -86,7 +86,7 @@ export const issuedCertificates = pgTable('issued_certificates', {
   validUntil: text('valid_until'),
   status: text('status').notNull().default('VALID'),
   metadata: jsonb('metadata').notNull().default({}),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const messages = pgTable('messages', {
@@ -113,7 +113,7 @@ export const mediaFiles = pgTable('media_files', {
   category: text('category').notNull().default('OTHER'),
   altText: text('alt_text'),
   uploadedBy: text('uploaded_by'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const systemSettings = pgTable('system_settings', {
