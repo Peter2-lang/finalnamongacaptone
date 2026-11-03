@@ -220,7 +220,8 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    await supabase?.auth.signOut();
+    const result = await supabase?.auth.signOut();
+    if (result?.error) throw new Error('Unable to sign out. Please retry.');
     storageService.setSessionToken(null);
     storageService.setCurrentUser(null);
   },

@@ -40,8 +40,7 @@ export async function getAllMessages(filter?: { role?: string; barangay?: string
 
     return list;
   } catch (err) {
-    console.error('Database query error in getAllMessages:', err);
-    return [];
+    throw new Error('Unable to retrieve messages from the database.', { cause: err });
   }
 }
 

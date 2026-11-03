@@ -66,6 +66,8 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   >('articles');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+  const [documentError, setDocumentError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Modals
@@ -82,8 +84,8 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
     storageService.fetchAsfRegulationsFromApi().then(documents => {
       if (active) setRegulations(documents);
     }).catch(error => {
-      if (active) setSuccessToast(error instanceof Error ? error.message : 'Unable to load legal documents.');
-    });
+      if (active) setDocumentError(error instanceof Error ? error.message : 'Unable to load legal documents.');
+    }).finally(() => { if (active) setIsLoadingDocuments(false); });
     return () => { active = false; };
   }, []);
 
@@ -224,6 +226,8 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
 
   return (
     <div className="space-y-6">
+      {isLoadingDocuments && <p role="status">Loading legal documents…</p>}
+      {documentError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-lg">{documentError}</p>}
       {/* Toast notification */}
       {successToast && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 border border-emerald-700 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-medium">

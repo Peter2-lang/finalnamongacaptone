@@ -2272,7 +2272,7 @@ export function createApp() {
       return res.json({ success: true, count: list.length, data: list });
     } catch (err: any) {
       console.warn('Error retrieving messages from database:', err?.message || err);
-      return res.json({ success: true, count: 0, data: [] });
+      return res.status(503).json({ success: false, error: 'Messages database unavailable.' });
     }
   });
 
@@ -2325,7 +2325,7 @@ export function createApp() {
           return res.status(403).json({ success: false, error: 'Access Denied: You cannot delete messages sent by another user.' });
         }
       }
-      await deleteMessageById(id);
+      if (!await deleteMessageById(id)) throw new Error('Message could not be deleted.');
       return res.json({ success: true, message: 'Message deleted.' });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to delete message.' });
@@ -2729,7 +2729,7 @@ export function createApp() {
       const versions = (await getSystemSetting('master_config_versions', [])) || [];
       return res.json({ success: true, versions });
     } catch {
-      return res.json({ success: true, versions: [] });
+      return res.status(503).json({ success: false, error: 'Configuration history unavailable.' });
     }
   });
 
@@ -2797,7 +2797,7 @@ export function createApp() {
       const auditLogs = (await getSystemSetting('master_config_audit_logs', [])) || [];
       return res.json({ success: true, auditLogs });
     } catch {
-      return res.json({ success: true, auditLogs: [] });
+      return res.status(503).json({ success: false, error: 'Configuration audit unavailable.' });
     }
   });
 

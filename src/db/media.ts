@@ -38,8 +38,7 @@ export async function getAllMedia(category?: string): Promise<MediaItemRecord[]>
 
     return list;
   } catch (err) {
-    console.error('Database query error in getAllMedia:', err);
-    return [];
+    throw new Error('Unable to retrieve media from the database.', { cause: err });
   }
 }
 
