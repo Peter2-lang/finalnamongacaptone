@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, integer, jsonb, numeric, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
@@ -51,9 +51,10 @@ export const swineRecords = pgTable('swine_records', {
   farmName: text('farm_name'),
   farmerContact: text('farmer_contact'),
   barangay: text('barangay').notNull(),
-  birthDate: text('birth_date'),
+  // Existing Supabase column is DATE; string mode preserves YYYY-MM-DD on reads.
+  birthDate: date('birth_date', { mode: 'string' }),
   ageDays: integer('age_days'),
-  ageMonths: text('age_months'),
+  ageMonths: integer('age_months'),
   estimatedWeightKg: text('estimated_weight_kg'),
   actualWeightKg: text('actual_weight_kg'),
   swineType: text('swine_type').notNull().default('FATTER_GROWER'),
@@ -62,12 +63,13 @@ export const swineRecords = pgTable('swine_records', {
   biosecurityWarning: boolean('biosecurity_warning').notNull().default(false),
   status: text('status').notNull().default('HEALTHY'),
   readyToSell: boolean('ready_to_sell').notNull().default(false),
-  priceEstimate: text('price_estimate'),
+  // Keep decimal values as strings to avoid floating point loss.
+  priceEstimate: numeric('price_estimate'),
   photoUrl: text('photo_url'),
   isArchived: boolean('is_archived').notNull().default(false),
   registeredAt: text('registered_at').notNull(),
   customFields: jsonb('custom_fields'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const issuedCertificates = pgTable('issued_certificates', {
@@ -119,7 +121,7 @@ export const systemSettings = pgTable('system_settings', {
   // Keep the application-facing property names while mapping normalized SQL columns.
   key: text('setting_key').notNull().unique(),
   value: jsonb('setting_value').notNull().default({}),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 export const auditLogs = pgTable('audit_logs', {
