@@ -70,9 +70,10 @@
   ],
   "installCommand": "npm ci --include=dev",
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "maxDuration": 60,
-      "memory": 1024
+      "memory": 1024,
+      "includeFiles": "build/vercel.cjs"
     }
   }
 }

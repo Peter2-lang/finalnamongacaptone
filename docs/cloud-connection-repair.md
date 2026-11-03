@@ -2,7 +2,7 @@
 
 ## Evidence and limits
 
-Architecture: React/Vite PWA -> same-origin `/api/*` -> `api/index.ts` -> Express (`src/server/vercelEntry.ts`, `src/server/app.ts`) -> node-postgres shared pool and Drizzle -> PostgreSQL. Supabase JS handles Auth and Storage; adding Supabase API keys alone never configured PostgreSQL.
+Architecture: React/Vite PWA -> same-origin `/api/*` -> `api/index.js` -> `build/vercel.cjs` -> Express (`src/server/vercelEntry.ts`, `src/server/app.ts`) -> node-postgres shared pool and Drizzle -> PostgreSQL. Supabase JS handles Auth and Storage; adding Supabase API keys alone never configured PostgreSQL.
 
 Before this repair, importing `api/index.ts` without DATABASE_URL exited with:
 
@@ -42,7 +42,7 @@ No production URL, Vercel function logs, or Supabase connection credentials were
 
 SUPABASE_DATABASE_URL and POSTGRES_URL remain supported database aliases, with DATABASE_URL taking precedence. SQL_HOST is not a runtime connection option. Use one consistent project across database, Auth, browser and Storage configuration. Modern opaque keys do not expose their project reference, so obtain them from that same project's dashboard.
 
-Use Node 22.x (package engines), project root as the root directory, `npm ci --include=dev`, `npm run build`, and output `dist`. Vercel discovers `api/index.ts` before the build and routes `/api/*` to it. Do not deploy this Express/pg backend as an Edge function. Local test environment currently uses Node 24; Node 22 production validation remains required.
+Use Node 22.x (package engines), project root as the root directory, `npm ci --include=dev`, `npm run build`, and output `dist`. Vercel discovers tracked `api/index.js` before the build and includes generated `build/vercel.cjs` and routes `/api/*` to it. Do not deploy this Express/pg backend as an Edge function. Local test environment currently uses Node 24; Node 22 production validation remains required.
 
 Sources: [Supabase connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres), [node-postgres SSL parameter precedence](https://node-postgres.com/features/ssl), [Vercel Node runtime](https://vercel.com/docs/functions/runtimes/node-js).
 
@@ -79,3 +79,5 @@ Existing queued updates use last-write-wins upserts; there is no durable per-ope
 - `npm run build`: passed, including Vite assets, generated Workbox service worker and bundled Node server.
 - `git diff --check`: passed.
 - Tests required permission to bind a localhost server because the sandbox initially returned EPERM. No live database connection was used by regression tests.
+
+The subsequently confirmed production module-load crash is investigated and repaired in [Vercel module-resolution repair](vercel-module-resolution.md). Its builder reproduction identifies an emitted `.ts` import pointing at a packaged `.js` file; this supersedes the earlier unconfirmed production diagnosis.

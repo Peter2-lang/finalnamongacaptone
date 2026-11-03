@@ -1,3 +1,4 @@
+import { DEMO_ACCOUNTS } from '../../data/demoAccounts';
 import React, { useState, useEffect } from 'react';
 import {
   Lock,
@@ -137,6 +138,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <span className="leading-snug">{errorMsg}</span>
+            </div>
+          )}
+
+          {import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+              <p className="text-xs font-bold text-emerald-900">Demo accounts</p>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_ACCOUNTS.map(account => (
+                  <button key={account.username} type="button" disabled={isLoading}
+                    onClick={() => { setUsernameOrEmail(account.username); setPassword(''); setErrorMsg(''); }}
+                    className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
+                    {account.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-emerald-800">Select a role, then enter its demo password to sign in.</p>
             </div>
           )}
 

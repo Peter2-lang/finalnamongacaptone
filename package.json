@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=build/server.cjs",
+    "build": "vite build && npm run build:backend",
     "start": "node build/server.cjs",
     "preview": "vite preview",
-    "clean": "node -e \"for (const p of ['dist','build','api/index.js','api/index.js.map']) require('node:fs').rmSync(p,{recursive:true,force:true})\"",
+    "clean": "node -e \"for (const p of ['dist','build']) require('node:fs').rmSync(p,{recursive:true,force:true})\"",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "build:backend": "node scripts/build-backend.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

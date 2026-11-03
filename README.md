@@ -20,7 +20,7 @@ npm run build
 NODE_ENV=production npm start
 ```
 
-`npm run build` produces static `dist/` and a standalone `build/server.cjs`, both generated and ignored. The source-controlled `api/index.ts` exports the Express app; Vercel discovers and bundles that TypeScript function itself. Keeping the standalone server outside `dist/` prevents publishing server source and its source map as static files. Alternatively, after building, run `NODE_ENV=production npx tsx server.ts`.
+`npm run build` produces static `dist/`, standalone `build/server.cjs`, and the serverless `build/vercel.cjs`. Generated output is ignored. The source-controlled JavaScript launcher `api/index.js` loads the compiled serverless bundle; `vercel.json` explicitly includes it. All application TypeScript imports are resolved at build time rather than left for the Node ESM loader. Keeping both server artifacts outside `dist/` prevents publishing backend code as static files. `npm run build:backend` builds just the two backend artifacts. Alternatively, after building, run `NODE_ENV=production npx tsx server.ts`.
 
 ## Supabase configuration
 
@@ -37,7 +37,7 @@ npx supabase db push
 npx supabase db lint --linked
 ```
 
-Migration 012 creates legal documents and immutable API-written audit entries with RLS enabled. It seeds the official regulations once and preserves subsequent edits/deletions. Browser roles have no direct write policies for these tables: use the authenticated API. Startup initialization is a memoized, idempotent compatibility check, not a replacement for migrations.
+Migration 012 creates legal documents and immutable API-written audit entries with RLS enabled. It seeds the official regulations once and preserves subsequent edits/deletions. Browser roles have no direct write policies for these tables: use the authenticated API. Normal startup performs no schema migrations; health uses read-only schema probes.
 
 Create accounts using Supabase Auth and link `users.auth_user_id` to each Auth UUID. Application roles are `super_admin`, `admin`, `focal` (barangay personnel) and `agent`. Set `active=true`, `is_active=true`, `status=active` and assign a barangay for focal accounts. Farmers are registry entities; a separate farmer login role is not implemented. No real passwords are seeded.
 
@@ -64,7 +64,7 @@ Optional `SUPABASE_LANDING_MEDIA_BUCKET` overrides the default public bucket. Ne
 
 ## Vercel deployment
 
-Project settings: Framework **Vite** (or Other), install **npm ci --include=dev**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets `/api/index`, backed by source-controlled `api/index.ts`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
+Project settings: Framework **Vite** (or Other), install **npm ci --include=dev**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets `/api/index`, backed by source-controlled `api/index.js` and generated `build/vercel.cjs`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
 
 The install command must include `--include=dev`: Vite, esbuild and the Vite plugins are build-time devDependencies. Plain `npm ci` can omit them when `NODE_ENV=production` or npm is configured to omit dev dependencies, causing `vite: command not found`. Keep `NODE_ENV=production` for deployment; explicitly install the build tools before building. See [npm ci configuration](https://docs.npmjs.com/cli/v10/commands/npm-ci/).
 
@@ -84,3 +84,5 @@ npx vercel deploy
 Review the preview: `/api/health` must report `database: connected`; sign in and test every role, writes, uploads, exports, PWA updates and deep-link refreshes. Unknown `/api/*` paths always return JSON; protected paths require Bearer authentication. Review `npx vercel logs PREVIEW_URL`. Only after production approval run `npx vercel --prod`.
 
 See [the audit report](docs/AUDIT.md) for findings, validation and remaining verification work. The standalone HTTP smoke script is `node --import tsx scripts/smoke-startup.ts`; it uses a deliberately unavailable test database and does not verify real Supabase persistence.
+
+For the reproduced Vercel TypeScript import crash, bundle verification, and redeployment procedure, see [Vercel module-resolution repair](docs/vercel-module-resolution.md).

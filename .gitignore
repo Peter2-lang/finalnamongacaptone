@@ -10,5 +10,3 @@ coverage/
 .vercel
 
 dev-dist/
-api/index.js
-api/index.js.map
