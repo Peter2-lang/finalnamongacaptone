@@ -34,7 +34,7 @@ export function createBackendHealthCheck(options: { fetcher?: typeof fetch; time
       if (!body || typeof body !== 'object' || !('service' in body) || body.service !== 'hinunangan-swine-registry' || !('database' in body)) {
         return { healthy: false, error: 'The health endpoint did not return the expected API JSON. Check the deployment routing; it may be serving a page instead.' };
       }
-      if (body.database === 'schema_error') return { healthy: false, error: 'The API is reachable, but the database schema check failed. Have an administrator review the schema and pending migrations before applying changes.' };
+      if (body.database === 'schema_error' || ('schema' in body && (body.schema === 'not_ready' || body.schema === 'error')) || ('database_error_kind' in body && body.database_error_kind === 'schema_error')) return { healthy: false, error: 'The API is reachable, but the database schema check failed. Have an administrator review the schema and pending migrations before applying changes.' };
       if (body.database !== 'connected') {
         const kind = 'database_error_kind' in body && typeof body.database_error_kind === 'string' ? body.database_error_kind : '';
         return { healthy: false, error: databaseErrors[kind] || 'The API is reachable, but the database is unavailable. Check DATABASE_URL and the Supabase project status.' };
@@ -42,7 +42,7 @@ export function createBackendHealthCheck(options: { fetcher?: typeof fetch; time
       if ('configuration_error' in body && body.configuration_error) return { healthy: false, error: body.configuration_error === 'project_mismatch'
         ? 'The API is reachable, but frontend, backend, and database Supabase projects do not match.'
         : 'The API is reachable, but Supabase authentication configuration is missing or invalid.' };
-      if (!response.ok || !('status' in body) || body.status !== 'healthy' || !('cloud' in body) || body.cloud !== 'online' || !('authentication' in body) || body.authentication !== 'available') {
+      if (!response.ok || ('schema' in body && body.schema !== 'ready') || !('status' in body) || body.status !== 'healthy' || !('cloud' in body) || body.cloud !== 'online' || !('authentication' in body) || body.authentication !== 'available') {
         return { healthy: false, error: 'The API is reachable, but required cloud authentication checks did not succeed. Check Supabase server configuration and availability.' };
       }
       return { healthy: true, error: null };

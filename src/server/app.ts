@@ -209,6 +209,7 @@ export function createApp() {
 
   app.get(['/health', '/api/health'], async (_req, res) => {
     let dbStatus = 'disconnected';
+    let schemaStatus: 'not_checked' | 'ready' | 'not_ready' | 'error' = 'not_checked';
     let configurationError = getSupabaseProjectConfigurationError();
     const databaseProject = getConfiguredDatabaseProjectRef();
     if (databaseProject && supabaseAuthProjectRef && databaseProject !== supabaseAuthProjectRef) configurationError = 'project_mismatch';
@@ -218,15 +219,21 @@ export function createApp() {
     let schemaFailure: ReturnType<typeof getSchemaProbeFailure>;
     try {
       const client = await pool.connect();
-      dbStatus = 'connected';
       try {
-        await verifyDatabaseSchema(client);
-      } catch (err: any) {
-        dbStatus = /^(42P01|42703)$/.test(err?.code || '') ? 'schema_error' : 'error';
-        databaseErrorCode = getDatabaseErrorCode(err);
-        databaseErrorKind = getDatabaseErrorKind(err);
-        databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;
-        schemaFailure = getSchemaProbeFailure(err);
+        // Establish query connectivity independently of the application's columns.
+        await client.query('SELECT 1');
+        dbStatus = 'connected';
+        try {
+          await verifyDatabaseSchema(client);
+          schemaStatus = 'ready';
+        } catch (err: any) {
+          schemaStatus = /^(42P01|42703)$/.test(err?.code || '') ? 'not_ready' : 'error';
+          databaseErrorCode = getDatabaseErrorCode(err);
+          databaseErrorKind = getDatabaseErrorKind(err);
+          databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;
+          schemaFailure = getSchemaProbeFailure(err);
+          if (['network_unreachable', 'connection_refused', 'connection_timeout', 'host_not_found', 'tls_error'].includes(databaseErrorKind || '')) dbStatus = 'error';
+        }
       } finally {
         client.release();
       }
@@ -273,9 +280,9 @@ export function createApp() {
       authAdminError = getSupabaseAdminConfigError() || 'Supabase Auth Admin client is not initialized.';
     }
 
-    const healthy = dbStatus === 'connected' && !configurationError && authAdminStatus === 'valid';
+    const healthy = dbStatus === 'connected' && schemaStatus === 'ready' && !configurationError && authAdminStatus === 'valid';
     if (!healthy) console.error('[HEALTH] dependency_check_failed', {
-      database: dbStatus, code: databaseErrorCode, kind: databaseErrorKind,
+      database: dbStatus, schemaStatus, code: databaseErrorCode, kind: databaseErrorKind,
       configuration: configurationError, auth: authAdminStatus,
       tlsReason: databaseTlsReason, connection: getDatabaseConnectionInfo(),
       schema: schemaFailure,
@@ -285,12 +292,14 @@ export function createApp() {
       status: healthy ? 'healthy' : 'unhealthy',
       service: 'hinunangan-swine-registry',
       database: dbStatus,
+      schema: schemaStatus,
       cloud: healthy ? 'online' : 'unavailable',
       authentication: authAdminStatus === 'valid' && !configurationError ? 'available' : 'unavailable',
       ...(configurationError ? { configuration_error: configurationError } : {}),
       ...(databaseErrorCode ? { database_error_code: databaseErrorCode } : {}),
       ...(databaseErrorKind ? { database_error_kind: databaseErrorKind } : {}),
       ...(databaseTlsReason ? { database_tls_reason: databaseTlsReason } : {}),
+      ...(schemaFailure ? { schema_error: { table: schemaFailure.table, ...(schemaFailure.column ? { column: schemaFailure.column } : {}) } } : {}),
       timestamp: new Date().toISOString(),
     });
   });

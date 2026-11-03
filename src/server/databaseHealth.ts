@@ -8,11 +8,18 @@ export class DatabaseSchemaProbeError extends Error {
   readonly statement: string;
   constructor(error: unknown, table: string, columns: string[], statement: string) {
     super('Required database schema probe failed.', { cause: error });
-    const original = error as { code?: string; column?: string; message?: string };
+    const original = error as { code?: string; column?: string; message?: string; position?: string };
     this.code = original?.code;
     this.table = table;
     // Return only an identifier from our own known contract, never raw PG text.
-    const candidate = original?.column || original?.message?.match(/column "([^"]+)" does not exist/)?.[1]?.split('.').pop();
+    const position = /^\d+$/.test(original?.position || '') ? Number(original.position) - 1 : -1;
+    const fromPosition = columns.find(column => {
+      const quoted = `"${column.replaceAll('"', '""')}"`;
+      const start = statement.indexOf(quoted);
+      return position >= start && position < start + quoted.length;
+    });
+    const fromMessage = original?.message?.match(/column (?:(?:"[^"\n]+"|[a-z_][a-z_0-9]*)\.)?"?([a-z_][a-z_0-9]*)"? does not exist/i)?.[1];
+    const candidate = fromPosition || original?.column || fromMessage;
     this.column = candidate && columns.includes(candidate) ? candidate : undefined;
     this.statement = statement;
   }

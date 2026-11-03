@@ -76,3 +76,14 @@ test('connected database alone is insufficient for cloud health', async () => {
   const check = createBackendHealthCheck({ fetcher: async () => Response.json({ service: 'hinunangan-swine-registry', database: 'connected' }) });
   assert.equal((await check()).healthy, false);
 });
+
+test('connected database with schema not ready remains unavailable for synchronization', async () => {
+  for (const status of [200, 503]) {
+    const check = createBackendHealthCheck({ fetcher: async () => Response.json({
+      service: 'hinunangan-swine-registry', status: 'healthy', database: 'connected', schema: 'not_ready', cloud: 'online', authentication: 'available',
+    }, { status }) });
+    const result = await check();
+    assert.equal(result.healthy, false);
+    assert.match(result.error!, /schema check failed/);
+  }
+});

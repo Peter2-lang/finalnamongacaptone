@@ -212,6 +212,11 @@ export async function persistLocalDatabase(): Promise<void> {}
 let initialization: Promise<boolean> | undefined;
 
 export function initPostgresTables(): Promise<boolean> {
+  // This legacy helper contains compatibility DDL, including a DROP COLUMN.
+  // Production schema changes must be explicitly reviewed migrations instead.
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return Promise.reject(Object.assign(new Error('Automatic schema initialization is disabled in production. Use reviewed migrations.'), { code: 'SCHEMA_INITIALIZATION_DISABLED' }));
+  }
   return initialization ??= initializePostgresTables();
 }
 

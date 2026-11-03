@@ -29,3 +29,19 @@ test('42703 captures the exact generated SELECT and only a known missing identif
     return true;
   });
 });
+
+test('schema identifiers are determined from PostgreSQL positions and qualified names', async () => {
+  for (const style of ['position', 'qualified', 'unqualified']) {
+    const client = { query: async (sql: string) => {
+      if (!sql.includes('public."media_files"')) return { rows: [] };
+      const error = Object.assign(new Error(style === 'qualified' ? 'column media_files.file_url does not exist' : style === 'unqualified' ? 'column "file_url" does not exist' : 'private diagnostic text'), {
+        code: '42703', ...(style === 'position' ? { position: String(sql.indexOf('"file_url"') + 1) } : {}),
+      });
+      throw error;
+    } } as unknown as Pick<PoolClient, 'query'>;
+    await assert.rejects(verifyDatabaseSchema(client), (error: unknown) => {
+      assert.equal(getSchemaProbeFailure(error)?.column, 'file_url');
+      return true;
+    });
+  }
+});
