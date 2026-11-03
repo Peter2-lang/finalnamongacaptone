@@ -163,6 +163,16 @@ class OfflineSyncEngine {
       if (pending.length > 0) {
         await this.syncNow();
       } else {
+        // When there is nothing to sync, stop showing an old sign-in warning.
+        // Verify the current session before clearing an authenticated user's
+        // previous error; no offline data is touched.
+        if (!storageService.getCurrentUser()) this.lastError = null;
+        else if (this.lastError) {
+          try {
+            await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
+            this.lastError = null;
+          } catch { /* Preserve a real authorization failure until sign-in. */ }
+        }
         this.syncState = this.lastError ? 'ERROR' : this.lastSyncedAt ? 'SYNCED' : 'ONLINE';
         this.broadcastStatus(0);
       }
