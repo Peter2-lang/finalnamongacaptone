@@ -2,7 +2,7 @@
 
 Audit date: 2026-11-03 (UTC). Branch: `fix/system-functional-repair-20261103`.
 
-**Release decision: NOT READY.** Source repairs and isolated tests do not establish that every production workflow works. Live role authentication, database mutation persistence, RLS enforcement, uploads, genuine offline reconnection and multi-device tests require an authorized isolated Supabase environment and four role accounts. No genuine records were changed, no migrations applied, and production was not released.
+**Release decision: NOT READY.** Source repairs and isolated tests do not establish that every production workflow works. Live role authentication, database mutation persistence, dashboard cloud-count agreement, RLS enforcement, uploads, genuine offline reconnection and multi-device tests require an authorized isolated Supabase environment and four role accounts. No genuine records were changed, no migrations applied, and production was not released.
 
 ## Scope and inventory
 
@@ -19,7 +19,7 @@ The initial working tree already contained dashboard, queue, authentication guar
 | Authentication | Disabled accounts | Source check | No comprehensive live account evidence | Preserved active/status checks | Inactive fixture receives 403 through real middleware | PASS |
 | Authentication | Valid/invalid login, persistence, refresh, logout, reset/change password | Source inspected | Live role accounts unavailable | No authentication bypass or production accounts created | Browser uses intercepted fixture sessions only; real login NOT VERIFIED | BLOCKED |
 | Accounts | Create/edit/delete/reset; profile linking; privilege escalation | Source inventoried | Live Auth administration and four role fixtures unavailable | Existing server account management checks preserved | Anonymous route protection only; lifecycle NOT VERIFIED | BLOCKED |
-| Dashboard | Committed records and role/barangay scope | Existing unverified changes | Local drafts and out-of-scope rows could affect totals/charts | Shared committed scope, excluded drafts banner, scoped API queries | Fixture API read scope and farmer identity regressions | FIXED |
+| Dashboard | Committed records and role/barangay scope | Existing unverified changes | Local drafts and out-of-scope rows could affect totals/charts | Shared committed scope, excluded drafts banner, scoped API queries | Scope/identity regressions pass; complete cloud KPI agreement not exercised | NOT VERIFIED |
 | Dashboard | Valuation | Hardcoded fallback prices in charts | Missing prices became invented asset values | Use recorded prices, zero for unavailable values | Source reviewed; full chart interaction NOT VERIFIED | NOT VERIFIED |
 | Dashboard | Live create/update/delete and multiple devices | Source inspected | Realtime exists but live delivery unavailable | Preserve authorized refetch subscription | No live write/realtime test | BLOCKED |
 | Swine | Create authorization and identifiers | Source inspected | Client-supplied UUID could overwrite an existing row through upsert | Server-generated UUID for direct create; sequence allocation failures return 503 | Validation and authorization regressions; genuine create blocked | NOT VERIFIED |
@@ -71,7 +71,7 @@ The initial working tree already contained dashboard, queue, authentication guar
 - The repository's linked project ref is `wuxivpxsnixabfvlunvg`. Supabase `get_project` returned `You do not have permission to perform this action`. The connected projects named maoni and Capstone are different projects and were not substituted.
 - Vercel project: `prj_kCOL4Ayv8ymN7S4zZO2csOpLXfn8`; team: `team_HoosLmQKmgVqMiUxDwSHSQoW`. Environment metadata confirms production/preview keys for database URL, CA, Supabase URL/publishable/server secret and Google Maps configuration. Values were not printed. Presence does not prove correctness or isolation. Vercel metadata flags readable-secret issues for DATABASE_URL, SUPABASE_SECRET_KEY and GEMINI_API_KEY; configuration was not changed.
 - The inspected production deployment is `dpl_5EPuzkSKm3wSU5LLNwFRhoGwV4kA`, deployed from main commit `0bd949b0677095d70349783c66fbe13a08d2eb92`. Its `/api/health` returned HTTP 200 with `database: connected`, `schema: ready`, `cloud: online`, `authentication: available` at `2026-11-03T19:23:35.076Z`. This is the pre-existing production build, not these repairs.
-- Local runtime is Node 24.22.2, whereas package.json declares Node 22.x. Vercel project metadata reports Node 26.x. Final release should use and verify the declared supported runtime. No runtime setting was changed during this audit.
+- Local runtime is Node 24.22.2, whereas package.json declares Node 22.x. Vercel project metadata reports Node 26.x, but Preview build logs confirm package.json overrides that setting and the build used Node 22.x. Local tests ran on Node 24.22.2. No runtime setting was changed during this audit.
 - `npm ci` reports 14 dependency vulnerabilities (2 low, 12 moderate). No blind force upgrade was performed.
 - Browser tests intercept Supabase Auth and API requests; they demonstrate rendering/navigation with role fixtures, not actual Supabase password login, RLS, Google Maps authorization, Storage upload, database persistence or service-worker/offline caching. Service workers are blocked in that suite.
 - Driver-fixture transaction tests execute actual application methods and SQL generation, but do not verify PostgreSQL constraints, database role grants or deployed RLS.
@@ -81,7 +81,7 @@ The initial working tree already contained dashboard, queue, authentication guar
 
 1. Supply access to the linked project and designate an isolated test environment; provision four role fixtures there without embedding credentials in source.
 2. Verify all action-register rows with live fixtures; extend browser coverage to CRUD, certificate logo refresh, reports, GIS and offline PWA operation.
-3. Implement reviewed per-recipient message receipts, full multi-device conflict handling and attachment upload/access flows.
+3. Implement reviewed per-recipient message receipts, full multi-device conflict handling and attachment upload/access flows. Verify a separate committed KPI snapshot during pending offline edits: excluding a locally edited row is not proof of the current cloud count.
 4. Verify every assigned admin permission and perform separate RLS tests.
 5. Review dependency findings, runtime mismatch and proposed deployment/migration impacts; release production only after these gates pass and approval is given.
 
@@ -104,3 +104,16 @@ Browser environment initially lacked Chromium shared libraries. `npx playwright 
 Application changes: `src/server/app.ts`, `src/server/swineMutationValidation.ts`, `src/server/messageAuthorization.ts`, `src/server/biosecurityValidation.ts`, `src/server/moduleItems.ts`, `src/db/swine.ts`, `src/db/messages.ts`, `src/services/storageService.ts`, `src/services/indexedDbService.ts`, `src/services/offlineSyncEngine.ts`, `src/services/syncAuthorization.ts`, `src/hooks/useCloudItems.ts`, `src/utils/farmerIdentity.ts`, `src/utils/rbacPermissions.ts`, `src/types.ts`, and the dashboard, messaging, certificate logo, transmittal letter, marketing and dispatch components. Test/inventory tooling: `package.json`, `package-lock.json`, `.gitignore`, `playwright.config.ts`, `tests/browser/system.spec.ts`, `scripts/inventory-system.mjs`, and the new adjacent regression tests.
 
 No SQL migration or production environment change was applied.
+
+## Deployment record
+
+- Code commit: `dbebfa3bd7e20811a1fbd94f25798683682a1dff`, pushed on `fix/system-functional-repair-20261103`.
+- Preview deployment: `dpl_2xWA44MG1tiWYoLWC7KAmpWU6CEv`, status **READY**.
+- Verified immutable Preview URL: https://lguhinunanganswineregistry-4p96ilr3p-peter2-langs-projects.vercel.app
+- Preview `/api/health`: HTTP **200** at `2026-11-03T19:46:46.540Z`; `status=healthy`, `database=connected`, `schema=ready`, `authentication=available`, `cloud=online`. See evidence/preview-health.json.
+- Vercel build completed successfully in 39 seconds; output deployment became ready roughly 62 seconds after creation. Build logs confirm Node 22.x overrides the project setting. Existing `memory` configuration is ignored under Active CPU billing; this warning did not fail the build.
+- Authenticated Preview CRUD and real four-role flows: **BLOCKED** pending an identified isolated test environment and authorized role accounts. No production or Preview data writes were used as tests.
+- An additional request for production `/api/users` through the Vercel connector was blocked at its share-link authentication stage; it is not evidence of an application-level 401. The exhaustive application route denials were verified locally with fixtures.
+- Production merge, promotion, release and post-release workflow testing: **NOT PERFORMED**. Release remains blocked by the documented security/data-consistency gates. The pre-existing production deployment was not replaced.
+
+The documentation follow-up commit records this result without changing the tested application code. The immutable Preview URL above identifies the exact application commit that was health-checked.
