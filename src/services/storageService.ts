@@ -749,6 +749,11 @@ export const storageService = {
     }
     currentAuthUser = user;
     if (!user) currentAuthToken = null;
+    // Resume device-local queue sync after the application profile and token
+    // have both been established. Never sync solely because /api/health works.
+    if (user && currentAuthToken && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('da_auth_profile_changed'));
+    }
   },
 
   getSessionToken(): string | null {
