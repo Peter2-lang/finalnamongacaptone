@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, Database, Settings } from 'lucide-react';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,6 +23,8 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const settingsId = useId();
+  const [settingsPosition, setSettingsPosition] = useState({ top: 12, right: 12, maxHeight: 240 });
 
   const cloudIsReachable = isBrowserOnline && isBackendReachable && !isSimulatedOffline;
   const visibleError = syncError || (!cloudIsReachable ? lastError : null);
@@ -146,38 +148,58 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
             </button>
           )}
 
-          <details className="relative">
-            <summary
-              className="flex min-h-11 w-11 cursor-pointer list-none items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-700 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"
-              aria-label="Sync settings"
-              title="Sync settings"
+          <button
+            type="button"
+            popoverTarget={settingsId}
+            onClick={event => {
+              const bounds = event.currentTarget.getBoundingClientRect();
+              const width = Math.min(288, window.innerWidth - 24);
+              const left = Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12));
+              const menuHeight = isSimulatedOffline ? 112 : 64;
+              const top = window.innerHeight - bounds.bottom >= menuHeight + 16
+                ? bounds.bottom + 4
+                : Math.max(12, bounds.top - menuHeight - 4);
+              setSettingsPosition({ top, right: window.innerWidth - left - width, maxHeight: Math.max(44, window.innerHeight - top - 12) });
+            }}
+            className="flex min-h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-700 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-emerald-700"
+            aria-label="Sync settings"
+            title="Sync settings"
+          >
+            <Settings className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {/* Native popovers use the top layer, escaping the header's stacking context and ancestor clipping. */}
+          <div
+            id={settingsId}
+            popover="auto"
+            aria-label="Sync settings options"
+            style={settingsPosition}
+            className="fixed inset-auto m-0 w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 text-stone-800 shadow-xl"
+          >
+            <button
+              type="button"
+              onClick={event => {
+                event.currentTarget.closest<HTMLElement>('[popover]')?.hidePopover();
+                setIsSyncModalOpen(true);
+              }}
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-semibold text-stone-800 hover:bg-stone-100"
             >
-              <Settings className="h-4 w-4" aria-hidden="true" />
-            </summary>
-            <div className="absolute right-0 top-full z-50 mt-1 w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
+              <Database className="h-4 w-4" />
+              Open Sync Center and Settings
+            </button>
+            {isSimulatedOffline && (
               <button
                 type="button"
                 onClick={event => {
-                  setIsSyncModalOpen(true);
-                  event.currentTarget.closest('details')?.removeAttribute('open');
+                  event.currentTarget.closest<HTMLElement>('[popover]')?.hidePopover();
+                  toggleSimulateOffline();
                 }}
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-semibold text-stone-800 hover:bg-stone-100"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
               >
-                <Database className="h-4 w-4" />
-                Open Sync Center and Settings
+                <Wifi className="h-4 w-4" />
+                End offline simulation
               </button>
-              {isSimulatedOffline && (
-                <button
-                  type="button"
-                  onClick={toggleSimulateOffline}
-                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
-                >
-                  <Wifi className="h-4 w-4" />
-                  End offline simulation
-                </button>
-              )}
-            </div>
-          </details>
+            )}
+          </div>
         </div>
       </section>
 
