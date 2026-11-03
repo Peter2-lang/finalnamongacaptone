@@ -115,8 +115,10 @@ export const mediaFiles = pgTable('media_files', {
 });
 
 export const systemSettings = pgTable('system_settings', {
-  key: text('key').primaryKey(),
-  value: jsonb('value'),
+  id: uuid('id').defaultRandom().primaryKey(),
+  // Keep the application-facing property names while mapping normalized SQL columns.
+  key: text('setting_key').notNull().unique(),
+  value: jsonb('setting_value').notNull().default({}),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 

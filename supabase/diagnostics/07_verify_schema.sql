@@ -149,9 +149,10 @@ WITH required(table_name,column_name,expected_type) AS (VALUES ('audit_logs','ac
 ('swine_records','registered_at','text'),
 ('swine_records','status','text'),
 ('swine_records','swine_type','text'),
-('system_settings','key','text'),
+('system_settings','id','uuid'),
+('system_settings','setting_key','text'),
+('system_settings','setting_value','jsonb'),
 ('system_settings','updated_at','timestamp'),
-('system_settings','value','jsonb'),
 ('users','active','boolean'),
 ('users','assigned_barangay','text'),
 ('users','auth_user_id','uuid'),
@@ -185,7 +186,7 @@ comparison AS (SELECT r.*,a.actual_type,
  ELSE 'incompatible' END AS status
  FROM required r LEFT JOIN normalized a USING(table_name,column_name)) SELECT * FROM comparison ORDER BY table_name,column_name;
 -- All below are release blockers, not instructions to create guessed relationships.
-WITH required(table_name,column_name) AS (VALUES ('users','id'),('swine_records','id'),('issued_certificates','id'),('messages','id'),('media_files','id'),('system_settings','key'),('registry_schema','id'),('legal_documents','id'),('certificate_templates','code')), indexes AS (SELECT t.relname AS table_name, i.relname AS index_name,
+WITH required(table_name,column_name) AS (VALUES ('users','id'),('swine_records','id'),('issued_certificates','id'),('messages','id'),('media_files','id'),('system_settings','setting_key'),('registry_schema','id'),('legal_documents','id'),('certificate_templates','code')), indexes AS (SELECT t.relname AS table_name, i.relname AS index_name,
   x.indisunique AS is_unique, x.indisvalid AS is_valid, x.indisready AS is_ready,
   x.indimmediate AS is_immediate, pg_get_expr(x.indpred,x.indrelid) AS predicate,
   pg_get_expr(x.indexprs,x.indrelid) AS expression,
@@ -196,7 +197,7 @@ WITH required(table_name,column_name) AS (VALUES ('users','id'),('swine_records'
 FROM pg_index x JOIN pg_class t ON t.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid
 WHERE t.relnamespace='public'::regnamespace ORDER BY t.relname,i.relname)
  SELECT r.* FROM required r WHERE NOT EXISTS(SELECT 1 FROM indexes i WHERE i.table_name=r.table_name AND i.is_unique AND i.is_valid AND i.is_ready AND i.is_immediate AND i.predicate IS NULL AND i.expression IS NULL AND i.columns=ARRAY[r.column_name]);
-WITH required(table_name,column_name) AS (VALUES ('barangays','id'),('certificate_templates','id'),('farmers','id')), actual AS (SELECT c.relname AS table_name, a.attname AS column_name,
+WITH required(table_name,column_name) AS (VALUES ('barangays','id'),('certificate_templates','id'),('farmers','id'),('system_settings','id')), actual AS (SELECT c.relname AS table_name, a.attname AS column_name,
   pg_catalog.format_type(a.atttypid,a.atttypmod) AS data_type,
   a.attnotnull AS not_null, a.attidentity AS identity_kind, a.attgenerated AS generated_kind, pg_get_expr(d.adbin,d.adrelid) AS column_default,
   EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) AS primary_key
@@ -355,9 +356,10 @@ WITH required(table_name,column_name,expected_type) AS (VALUES ('audit_logs','ac
 ('swine_records','registered_at','text'),
 ('swine_records','status','text'),
 ('swine_records','swine_type','text'),
-('system_settings','key','text'),
+('system_settings','id','uuid'),
+('system_settings','setting_key','text'),
+('system_settings','setting_value','jsonb'),
 ('system_settings','updated_at','timestamp'),
-('system_settings','value','jsonb'),
 ('users','active','boolean'),
 ('users','assigned_barangay','text'),
 ('users','auth_user_id','uuid'),
@@ -536,9 +538,10 @@ BEGIN
 ('swine_records','registered_at','text'),
 ('swine_records','status','text'),
 ('swine_records','swine_type','text'),
-('system_settings','key','text'),
+('system_settings','id','uuid'),
+('system_settings','setting_key','text'),
+('system_settings','setting_value','jsonb'),
 ('system_settings','updated_at','timestamp'),
-('system_settings','value','jsonb'),
 ('users','active','boolean'),
 ('users','assigned_barangay','text'),
 ('users','auth_user_id','uuid'),
@@ -573,7 +576,7 @@ comparison AS (SELECT r.*,a.actual_type,
  FROM required r LEFT JOIN normalized a USING(table_name,column_name)) SELECT * FROM comparison WHERE status IN ('missing','incompatible') LOOP
   RAISE EXCEPTION 'Schema contract blocked: %.% expected %, actual %',problem.table_name,problem.column_name,problem.expected_type,coalesce(problem.actual_type,'missing');
  END LOOP;
- FOR problem IN WITH required(table_name,column_name) AS (VALUES ('users','id'),('swine_records','id'),('issued_certificates','id'),('messages','id'),('media_files','id'),('system_settings','key'),('registry_schema','id'),('legal_documents','id'),('certificate_templates','code')), indexes AS (SELECT t.relname AS table_name, i.relname AS index_name,
+ FOR problem IN WITH required(table_name,column_name) AS (VALUES ('users','id'),('swine_records','id'),('issued_certificates','id'),('messages','id'),('media_files','id'),('system_settings','setting_key'),('registry_schema','id'),('legal_documents','id'),('certificate_templates','code')), indexes AS (SELECT t.relname AS table_name, i.relname AS index_name,
   x.indisunique AS is_unique, x.indisvalid AS is_valid, x.indisready AS is_ready,
   x.indimmediate AS is_immediate, pg_get_expr(x.indpred,x.indrelid) AS predicate,
   pg_get_expr(x.indexprs,x.indrelid) AS expression,
@@ -586,7 +589,7 @@ WHERE t.relnamespace='public'::regnamespace ORDER BY t.relname,i.relname)
  SELECT r.* FROM required r WHERE NOT EXISTS(SELECT 1 FROM indexes i WHERE i.table_name=r.table_name AND i.is_unique AND i.is_valid AND i.is_ready AND i.is_immediate AND i.predicate IS NULL AND i.expression IS NULL AND i.columns=ARRAY[r.column_name]) LOOP
   RAISE EXCEPTION 'Write contract blocked: %.% needs a usable unique conflict target; inspect duplicates and dependencies first.',problem.table_name,problem.column_name;
  END LOOP;
- FOR problem IN WITH required(table_name,column_name) AS (VALUES ('barangays','id'),('certificate_templates','id'),('farmers','id')), actual AS (SELECT c.relname AS table_name, a.attname AS column_name,
+ FOR problem IN WITH required(table_name,column_name) AS (VALUES ('barangays','id'),('certificate_templates','id'),('farmers','id'),('system_settings','id')), actual AS (SELECT c.relname AS table_name, a.attname AS column_name,
   pg_catalog.format_type(a.atttypid,a.atttypmod) AS data_type,
   a.attnotnull AS not_null, a.attidentity AS identity_kind, a.attgenerated AS generated_kind, pg_get_expr(d.adbin,d.adrelid) AS column_default,
   EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) AS primary_key
@@ -747,9 +750,10 @@ ORDER BY c.relname,a.attnum)
 ('swine_records','registered_at','text'),
 ('swine_records','status','text'),
 ('swine_records','swine_type','text'),
-('system_settings','key','text'),
+('system_settings','id','uuid'),
+('system_settings','setting_key','text'),
+('system_settings','setting_value','jsonb'),
 ('system_settings','updated_at','timestamp'),
-('system_settings','value','jsonb'),
 ('users','active','boolean'),
 ('users','assigned_barangay','text'),
 ('users','auth_user_id','uuid'),
@@ -797,7 +801,7 @@ ORDER BY c.relname,a.attnum)
  PERFORM "auto_gen_pattern","auto_gen_prefix","auto_gen_type","created_at","default_value","field_key","field_order","field_type","fixed_value","help_text","id","is_auto_generated","is_fixed","label","options","placeholder","required","section_id","section_title","updated_at","visible" FROM public."registry_schema" LIMIT 0;
  PERFORM "full_name","id","is_active","position_title","signature_image_url" FROM public."signatories" LIMIT 0;
  PERFORM "actual_weight_kg","age_days","age_months","asf_zone","barangay","biosecurity_warning","birth_date","computed_pig_id","created_at","custom_fields","ear_tag_no","estimated_weight_kg","farm_name","farm_scale","farmer_contact","farmer_id","farmer_name","id","is_archived","photo_url","pig_id_tag","price_estimate","ready_to_sell","registered_at","status","swine_type" FROM public."swine_records" LIMIT 0;
- PERFORM "key","updated_at","value" FROM public."system_settings" LIMIT 0;
+ PERFORM "id","setting_key","setting_value","updated_at" FROM public."system_settings" LIMIT 0;
  PERFORM "active","assigned_barangay","auth_user_id","created_at","email","id","is_active","name","permissions","phone","role","status","uid" FROM public."users" LIMIT 0;
 END $verification$;
 -- Passing this probe is NOT proof of RLS scope, historical data semantics or CRUD.

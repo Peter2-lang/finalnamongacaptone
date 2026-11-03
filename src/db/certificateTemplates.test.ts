@@ -74,7 +74,7 @@ const client = {
       if (templateQueryError) throw templateQueryError;
       return { rows };
     }
-    if (text.includes("SELECT value FROM public.system_settings")) return { rows: legacySettings === null ? [] : [{value:legacySettings}] };
+    if (text.includes("SELECT setting_value AS value FROM public.system_settings")) return { rows: legacySettings === null ? [] : [{value:legacySettings}] };
     if (text.includes('SELECT id FROM public.barangays')) {
       return { rows: [{ id: 'barangay-ambacon' }] };
     }

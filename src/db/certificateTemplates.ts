@@ -147,7 +147,7 @@ export async function getCertificateTemplates(): Promise<CertificateTemplate[]> 
     if (storedTemplates.length > 0) return storedTemplates;
 
     const legacy = await client.query(
-      "SELECT value FROM public.system_settings WHERE key = 'certificate_templates' LIMIT 1"
+      "SELECT setting_value AS value FROM public.system_settings WHERE setting_key = 'certificate_templates' LIMIT 1"
     );
     const legacyData = legacy.rows[0]?.value;
     const templates = Array.isArray(legacyData)

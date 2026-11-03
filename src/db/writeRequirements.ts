@@ -2,13 +2,13 @@
 export const REQUIRED_CONFLICT_KEYS = [
   ['users', 'id'], ['swine_records', 'id'],
   ['issued_certificates', 'id'], ['messages', 'id'], ['media_files', 'id'],
-  ['system_settings', 'key'], ['registry_schema', 'id'], ['legal_documents', 'id'],
+  ['system_settings', 'setting_key'], ['registry_schema', 'id'], ['legal_documents', 'id'],
   ['certificate_templates', 'code'],
 ] as const;
 
 // Raw INSERTs omit these identifiers; the database must supply them.
 export const REQUIRED_GENERATED_IDS = [
-  ['barangays', 'id'], ['certificate_templates', 'id'], ['farmers', 'id'],
+  ['barangays', 'id'], ['certificate_templates', 'id'], ['farmers', 'id'], ['system_settings', 'id'],
 ] as const;
 
 export interface CatalogIndex {

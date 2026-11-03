@@ -1,5 +1,5 @@
 import { db, pool } from './index.ts';
-import { registrySchema, systemSettings } from './schema.ts';
+import { registrySchema } from './schema.ts';
 import { eq, asc, sql } from 'drizzle-orm';
 import { INITIAL_REGISTRY_FORM_SCHEMA } from '../data/initialFormSchema.ts';
 import { RegistryFormField, RegistryFormSchema } from '../types.ts';
@@ -178,9 +178,9 @@ export async function syncFullRegistrySchemaToDb(schema: RegistryFormSchema): Pr
     const client = await pool.connect();
     try {
       await client.query(
-        `INSERT INTO system_settings (key, value, updated_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();`,
+        `INSERT INTO public.system_settings (setting_key, setting_value, updated_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW();`,
         ['registry_form_schema', JSON.stringify(published)]
       );
     } finally {
@@ -252,7 +252,7 @@ export async function getFullRegistrySchemaFromDb(): Promise<RegistryFormSchema>
   try {
     const client = await pool.connect();
     try {
-      const res = await client.query(`SELECT value FROM system_settings WHERE key = 'registry_form_schema' LIMIT 1`);
+      const res = await client.query(`SELECT setting_value AS value FROM public.system_settings WHERE setting_key = 'registry_form_schema' LIMIT 1`);
       if (res.rows.length > 0 && res.rows[0].value) {
         const val = typeof res.rows[0].value === 'string' ? JSON.parse(res.rows[0].value) : res.rows[0].value;
         if (val && Array.isArray(val.sections) && val.sections.length > 0) {

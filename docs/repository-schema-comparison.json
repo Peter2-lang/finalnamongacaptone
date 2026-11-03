@@ -8144,29 +8144,87 @@
     {
       "runtime": {
         "table": "system_settings",
-        "column": "key",
-        "sqlType": "text",
+        "column": "id",
+        "sqlType": "uuid",
         "source": "src/db/schema.ts",
         "expectedNotNull": true,
         "expectedPrimaryKey": true,
         "expectedUnique": false,
-        "expectedHasDefault": false
+        "expectedHasDefault": true,
+        "expectedDefault": "gen_random_uuid()"
       },
-      "legacyInitializer": {
-        "type": "text",
+      "migrationDeclaration": {
+        "type": "uuid",
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "declaration": "key TEXT PRIMARY KEY",
-        "source": "2ed12d8f2ea6212bb95e00ee087f27921e9f3c4e:src/db/index.ts"
+        "declaration": "id UUID PRIMARY KEY DEFAULT gen_random_uuid()",
+        "source": "001_create_full_registry_schema.sql"
       },
       "legacyReview": {
+        "type": "not_declared"
+      },
+      "migrationReview": {
         "type": "compatible",
         "nullabilityReview": false,
         "primaryKeyReview": false
+      }
+    },
+    {
+      "runtime": {
+        "table": "system_settings",
+        "column": "setting_key",
+        "sqlType": "text",
+        "source": "src/db/schema.ts",
+        "expectedNotNull": true,
+        "expectedPrimaryKey": false,
+        "expectedUnique": true,
+        "expectedHasDefault": false
+      },
+      "migrationDeclaration": {
+        "type": "text",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": true,
+        "declaration": "setting_key TEXT NOT NULL UNIQUE",
+        "source": "001_create_full_registry_schema.sql"
+      },
+      "legacyReview": {
+        "type": "not_declared"
       },
       "migrationReview": {
+        "type": "compatible",
+        "nullabilityReview": false,
+        "primaryKeyReview": false
+      }
+    },
+    {
+      "runtime": {
+        "table": "system_settings",
+        "column": "setting_value",
+        "sqlType": "jsonb",
+        "source": "src/db/schema.ts",
+        "expectedNotNull": true,
+        "expectedPrimaryKey": false,
+        "expectedUnique": false,
+        "expectedHasDefault": true,
+        "expectedDefault": "{}"
+      },
+      "migrationDeclaration": {
+        "type": "jsonb",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "declaration": "setting_value JSONB NOT NULL DEFAULT '{}'::jsonb",
+        "source": "001_create_full_registry_schema.sql"
+      },
+      "legacyReview": {
         "type": "not_declared"
+      },
+      "migrationReview": {
+        "type": "compatible",
+        "nullabilityReview": false,
+        "primaryKeyReview": false
       }
     },
     {
@@ -8206,34 +8264,6 @@
         "type": "compatible",
         "nullabilityReview": true,
         "primaryKeyReview": false
-      }
-    },
-    {
-      "runtime": {
-        "table": "system_settings",
-        "column": "value",
-        "sqlType": "jsonb",
-        "source": "src/db/schema.ts",
-        "expectedNotNull": false,
-        "expectedPrimaryKey": false,
-        "expectedUnique": false,
-        "expectedHasDefault": false
-      },
-      "legacyInitializer": {
-        "type": "jsonb",
-        "notNull": false,
-        "primaryKey": false,
-        "unique": false,
-        "declaration": "value JSONB",
-        "source": "2ed12d8f2ea6212bb95e00ee087f27921e9f3c4e:src/db/index.ts"
-      },
-      "legacyReview": {
-        "type": "compatible",
-        "nullabilityReview": false,
-        "primaryKeyReview": false
-      },
-      "migrationReview": {
-        "type": "not_declared"
       }
     },
     {
