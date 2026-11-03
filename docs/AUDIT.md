@@ -33,13 +33,13 @@ Logs are saved under `/tmp/swine-baseline/`. The valid baseline is `npm-ci-final
 | PWA | Authenticated API responses could be cached across sessions | Remove API runtime caching and retire old cache at startup; keep offline registry engine |
 | Express/API fallback | Unknown API and parser failures could receive HTML | JSON API 404 and JSON error middleware; case-sensitive routing |
 | Uploads / Vercel | 30 MB JSON and base64 images exceeded serverless payload ceiling | 4 MB JSON limit; signed direct Storage uploads for active media, landing and certificate clients; server verifies completed images |
-| Build | Server bundle and source map were inside the public static output | Standalone server now in ignored build/; Vercel bundle remains generated api/index.js |
+| Build | Server bundle and source map were inside the public static output | Standalone server now in ignored build/; Vercel discovers source-controlled api/index.ts and bundles it itself |
 | Dependencies | Unused Firebase/pg-mem/direct d3 packages, nonstandard allowScripts, Unix-only clean and two lockfiles | Remove unused packages, move build tools to dev deps, cross-platform clean, test script, npm lockfile only; compatible audit fixes and official SheetJS 0.20.3 |
 | Repo/docs | Generated artifacts and empty/scratch files tracked; obsolete setup instructions | Remove from source control, add ignore rules, Vite types, maintained README and deployment guide |
 
 ## Validation and limits
 
-Final verification passed: `npx tsc --noEmit` (exit 0), `npm run build` (exit 0, regenerates dist/ and api/index.js), `npm test` (14 tests, 0 failures), and `git diff --check`. The development/production HTTP smoke script passed for startup, SPA deep links, API JSON and reporting an unavailable database. Logs are in `/tmp/swine-baseline/*-final.log` and `startup-smoke.log`. Route tests use an intentionally unavailable database and verify missing-session rejection, spoof resistance and JSON parsing errors. Legal transaction tests use a mock pool and verify rollback and trusted audit identity; they do not prove live SQL compatibility or real RLS behavior. Existing certificate, GIS, registry and master-config tests remain.
+Final verification passed: `npx tsc --noEmit` (exit 0), `npm run build` (exit 0, generates dist/ and build/server.cjs), `npm test` (14 tests, 0 failures), and `git diff --check`. The development/production HTTP smoke script passed for startup, SPA deep links, API JSON and reporting an unavailable database. Logs are in `/tmp/swine-baseline/*-final.log` and `startup-smoke.log`. Route tests use an intentionally unavailable database and verify missing-session rejection, spoof resistance and JSON parsing errors. Legal transaction tests use a mock pool and verify rollback and trusted audit identity; they do not prove live SQL compatibility or real RLS behavior. Existing certificate, GIS, registry and master-config tests remain.
 
 The installed dependency audit after compatible fixes and the official SheetJS upgrade reported 14 advisories: 12 moderate and 2 low; no high or critical remained. These remaining advisories require dependency-chain review rather than a forced major upgrade. Installed versions resolved successfully; no React peer incompatibility was reported. Node in this runner is 24; deployment target is 22.
 
@@ -71,3 +71,9 @@ Environment names, sensitive flags and settings for all three Vercel environment
 12. 012_legal_documents_and_audit.sql
 
 No live values were written. Run the dry-run, review pending migrations, apply, configure Auth URLs and account profiles, configure Vercel variables before the build, deploy a preview, and approve production separately. Do not overwrite production variables or reset data without approval.
+
+## Vercel function discovery repair
+
+The first remote build of 10a9afa failed with `[unused_function]`: vercel.json referenced api/index.js, but that ignored artifact did not exist when Vercel validated function patterns before running npm run build. The earlier local build checks did not cover that pre-build validation phase.
+
+The fix adds source-controlled api/index.ts, points the function settings at that source file, rewrites /api/* to the extensionless /api/index route, and removes generation of a competing api/index.js. Vercel handles TypeScript compilation/bundling. A regression check verifies that the configured entry exists independently of the build command. A real remote redeploy is still required to verify the hosted build.

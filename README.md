@@ -20,7 +20,7 @@ npm run build
 NODE_ENV=production npm start
 ```
 
-`npm run build` produces static `dist/`, a standalone `build/server.cjs`, and the Vercel function `api/index.js`. All are generated and ignored. Keeping the standalone server outside `dist/` prevents publishing server source and its source map as static files. Alternatively, after building, run `NODE_ENV=production npx tsx server.ts`.
+`npm run build` produces static `dist/` and a standalone `build/server.cjs`, both generated and ignored. The source-controlled `api/index.ts` exports the Express app; Vercel discovers and bundles that TypeScript function itself. Keeping the standalone server outside `dist/` prevents publishing server source and its source map as static files. Alternatively, after building, run `NODE_ENV=production npx tsx server.ts`.
 
 ## Supabase configuration
 
@@ -64,7 +64,7 @@ Optional `SUPABASE_LANDING_MEDIA_BUCKET` overrides the default public bucket. Ne
 
 ## Vercel deployment
 
-Project settings: Framework **Vite** (or Other), install **npm ci**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets generated `api/index.js`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
+Project settings: Framework **Vite** (or Other), install **npm ci**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets `/api/index`, backed by source-controlled `api/index.ts`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
 
 Vercel limits function request/response payloads to 4.5 MB. Express JSON is limited to 4 MB. Image clients obtain a scoped signed upload ticket, upload bytes directly to Supabase Storage, and submit metadata for server-side image validation. Keep large spreadsheet import batches under the JSON limit. See [Vercel limits](https://vercel.com/docs/functions/limitations).
 
