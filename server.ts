@@ -1,20 +1,14 @@
+import './src/server/env.ts';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import express from 'express';
-import { createApp } from './src/server/app.ts';
-import { initPostgresTables } from './src/db/index.ts';
+import { app } from './src/server/app.ts';
 
 async function startServer() {
-  const app = createApp();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-
-  // Attempt non-blocking DB initialization for Supabase / PostgreSQL
-  initPostgresTables().catch(err => {
-    console.warn('PostgreSQL table initialization notice:', err?.message || err);
-  });
 
   // Vite middleware for development vs static serving for production
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

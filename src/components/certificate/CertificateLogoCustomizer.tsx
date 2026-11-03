@@ -47,6 +47,7 @@ export interface CertificateLogoSettings {
 interface CertificateLogoCustomizerProps {
   settings: CertificateLogoSettings;
   onChange: (updated: CertificateLogoSettings) => void;
+  onSave?: (updated: CertificateLogoSettings) => Promise<void>;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -54,6 +55,7 @@ interface CertificateLogoCustomizerProps {
 export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps> = ({
   settings,
   onChange,
+  onSave,
   isOpen,
   onClose,
 }) => {
@@ -66,6 +68,8 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
     printHideCenterLogo: settings.printHideCenterLogo ?? false,
   });
 
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'print'>('general');
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
@@ -732,15 +736,25 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
         <div className="flex justify-between items-center pt-2 border-t border-stone-100">
           <div className="text-[11px] text-stone-500 flex items-center gap-1">
             <Check className="w-3.5 h-3.5 text-emerald-600" />
-            Changes sync automatically
+            {saveError || 'Apply to save changes'}
           </div>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onClose}
+              disabled={saving || Boolean(uploadingField)}
+              onClick={async () => {
+                setSaving(true);
+                setSaveError(null);
+                try {
+                  if (onSave) await onSave(localSettings);
+                  else onClose();
+                } catch (error) {
+                  setSaveError(error instanceof Error ? error.message : 'Unable to save logo settings.');
+                } finally { setSaving(false); }
+              }}
               className="px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold cursor-pointer text-xs shadow-sm transition"
             >
-              Apply & Close
+              {saving ? 'Saving…' : 'Apply & Close'}
             </button>
           </div>
         </div>

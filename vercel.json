@@ -64,68 +64,15 @@
       "destination": "/api/index.js"
     },
     {
-      "source": "/admin/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/superadmin",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/superadmin/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/gis",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/records",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/reports",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/certificate",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/takeoff",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/biosecurity",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/asf-ordinance",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/asf_ordinance",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/messages",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/barangays",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/account",
+      "source": "/((?!api(?:/|$)|assets(?:/|$)|data(?:/|$)|workbox-|.*\\.).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "installCommand": "npm ci",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

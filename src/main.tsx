@@ -8,6 +8,10 @@ import { registerDynamicImportRecovery } from './utils/chunkLoadRecovery';
 import './index.css';
 
 registerDynamicImportRecovery();
+// Retire authenticated responses cached by older service-worker releases.
+if ('caches' in window) {
+  void caches.delete('api-runtime-cache').catch(() => { /* Cache storage may be unavailable in private mode. */ });
+}
 
 // Global quota and auth error tap for Google Maps Platform
 (window as any).gm_authFailure = () => {

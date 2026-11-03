@@ -26,21 +26,6 @@ export default defineConfig(() => {
           ],
           runtimeCaching: [
             {
-              urlPattern: /^\/api\//i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-runtime-cache',
-                networkTimeoutSeconds: 8,
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 15, // 15 minutes max
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
               options: {
