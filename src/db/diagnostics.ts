@@ -42,6 +42,7 @@ export function getDatabaseDiagnostic(error: unknown): { kind: string; code?: st
   if (code === 'CONFIGURATION_ERROR') return { kind: 'configuration_error', code };
   if (code === '28P01' || code === '28000') return { kind: 'authentication_failed', code };
   if (code && Object.hasOwn(networkKinds, code)) return { kind: networkKinds[code], code };
+  if (code === '42703' || code === '42P01') return { kind: 'schema_error', code };
   if (code === '42501') return { kind: 'permission_denied', code };
   if (code === '3D000') return { kind: 'database_not_found', code };
   const message = errors.map(item => typeof item.message === 'string' ? item.message : '').join(' ').toLowerCase();

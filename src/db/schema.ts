@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey(),
@@ -121,16 +121,16 @@ export const systemSettings = pgTable('system_settings', {
 });
 
 export const auditLogs = pgTable('audit_logs', {
-  id: serial('id').primaryKey(),
+  // Canonical migration 001; master config and legal audit APIs use other stores.
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id'),
+  barangayId: uuid('barangay_id'),
   action: text('action').notNull(),
-  entity: text('entity').notNull(),
-  entityId: text('entity_id'),
-  userId: text('user_id'),
-  username: text('username'),
-  userRole: text('user_role'),
-  barangay: text('barangay'),
-  details: text('details'),
-  timestamp: timestamp('timestamp').defaultNow(),
+  tableName: text('table_name').notNull(),
+  recordId: uuid('record_id'),
+  oldData: jsonb('old_data'),
+  newData: jsonb('new_data'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 export const registrySchema = pgTable('registry_schema', {

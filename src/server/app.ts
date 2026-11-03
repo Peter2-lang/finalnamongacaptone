@@ -2,7 +2,7 @@ import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
 import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
 import { getDatabaseConnectionInfo, getDatabasePoolConfig } from '../db/poolConfig.ts';
-import { verifyDatabaseSchema } from './databaseHealth.ts';
+import { getSchemaProbeFailure, verifyDatabaseSchema } from './databaseHealth.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { HINUNANGAN_BARANGAYS } from '../data/barangays.ts';
 import {
@@ -215,6 +215,7 @@ export function createApp() {
     let databaseErrorCode: string | undefined;
     let databaseErrorKind: string | undefined;
     let databaseTlsReason: string | undefined;
+    let schemaFailure: ReturnType<typeof getSchemaProbeFailure>;
     try {
       const client = await pool.connect();
       dbStatus = 'connected';
@@ -225,6 +226,7 @@ export function createApp() {
         databaseErrorCode = getDatabaseErrorCode(err);
         databaseErrorKind = getDatabaseErrorKind(err);
         databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;
+        schemaFailure = getSchemaProbeFailure(err);
       } finally {
         client.release();
       }
@@ -276,6 +278,7 @@ export function createApp() {
       database: dbStatus, code: databaseErrorCode, kind: databaseErrorKind,
       configuration: configurationError, auth: authAdminStatus,
       tlsReason: databaseTlsReason, connection: getDatabaseConnectionInfo(),
+      schema: schemaFailure,
     });
     res.set('Cache-Control', 'no-store');
     res.status(healthy ? 200 : 503).json({

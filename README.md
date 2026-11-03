@@ -86,3 +86,5 @@ Review the preview: `/api/health` must report `database: connected`; sign in and
 See [the audit report](docs/AUDIT.md) for findings, validation and remaining verification work. The standalone HTTP smoke script is `node --import tsx scripts/smoke-startup.ts`; it uses a deliberately unavailable test database and does not verify real Supabase persistence.
 
 For the reproduced Vercel TypeScript import crash, bundle verification, and redeployment procedure, see [Vercel module-resolution repair](docs/vercel-module-resolution.md).
+
+For existing-database 42703 errors, run the [read-only schema inventory and reviewed repair procedure](docs/schema-drift-repair.md) before approving migrations. The nullable compatibility proposal is outside the automatic migration directory and must not be applied blindly.
