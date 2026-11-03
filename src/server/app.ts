@@ -1,3 +1,8 @@
+import { farmerIdentity } from '../utils/farmerIdentity.ts';
+import { authorizeMessagePayload } from './messageAuthorization.ts';
+import { normalizeBiosecurityAudits, scopeBiosecurityItems } from './biosecurityValidation.ts';
+import { CLOUD_ITEM_KEYS, mutateModuleItem, visibleModuleItems } from './moduleItems.ts';
+import { assertImmutableSwineIdentity, validateSwineMutation } from './swineMutationValidation.ts';
 import { resolveSwineReadFilters, agentMayReadSwine } from './swineReadScope.ts';
 import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
@@ -173,6 +178,10 @@ export function createApp() {
           status: profile?.status || null,
         });
         return res.status(403).json({ success: false, error: 'No active application profile is linked to this Supabase account.' });
+      }
+      if (!['super_admin', 'admin', 'focal', 'agent'].includes(profile.role)) {
+        if (isPublicRoute) return next();
+        return res.status(403).json({ success: false, error: 'This account does not have an authorized application role.' });
       }
 
       (req as any).authenticatedUser = {
@@ -967,6 +976,7 @@ export function createApp() {
   });
 
   const sharedModuleDataKeys = new Set([
+    ...CLOUD_ITEM_KEYS,
     'biosecurity_audits',
     'biosecurity_incidents',
     'official_reports_config',
@@ -998,6 +1008,11 @@ export function createApp() {
         return res.json({ success: true, data: signedTemplates });
       }
       let value = await getStoredSystemSetting(req.params.key);
+      if (CLOUD_ITEM_KEYS.has(req.params.key)) value = visibleModuleItems(Array.isArray(value)?value:[],req.params.key,user);
+      if (req.params.key.startsWith('biosecurity_') && !user.isAdmin) {
+        if (!user.isFocal || !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned focal person or administrator is required.'});
+        value = scopeBiosecurityItems(Array.isArray(value) ? value : [], user.assignedBarangay);
+      }
       return res.json({ success: true, data: value ?? (sharedModuleArrayKeys.has(req.params.key) ? [] : {}) });
     } catch (error) {
       const failure = formatCertificateTemplateDatabaseError(error);
@@ -1018,6 +1033,10 @@ export function createApp() {
 
   app.put('/api/module-data/:key', async (req, res) => {
     const user = getUserSecurityContext(req);
+    if (CLOUD_ITEM_KEYS.has(req.params.key)) return res.status(400).json({success:false,error:'Save one module item at a time.'});
+    if (req.params.key.startsWith('biosecurity_') && !user.isAdmin && (!user.isFocal || !user.assignedBarangay)) {
+      return res.status(403).json({success:false,error:'An assigned focal person or administrator is required.'});
+    }
     if (!sharedModuleDataKeys.has(req.params.key) ||
       (req.params.key === 'certificate_templates'
         ? !(user.isAdmin || user.isFocal)
@@ -1038,6 +1057,33 @@ export function createApp() {
       return res.status(400).json({ success: false, error: 'This module data must be an object.' });
     }
     try {
+      if (req.params.key.startsWith('biosecurity_')) {
+        let items = req.body.data;
+        if (user.isFocal && scopeBiosecurityItems(items,user.assignedBarangay).length !== items.length) {
+          return res.status(403).json({success:false,error:'Biosecurity records must stay within your assigned barangay.'});
+        }
+        try { if (req.params.key === 'biosecurity_audits') items = normalizeBiosecurityAudits(items); }
+        catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[req.params.key]);
+          const stored = await client.query('SELECT setting_value FROM public.system_settings WHERE setting_key = $1 FOR UPDATE',[req.params.key]);
+          const existing = stored.rows[0]?.setting_value || [];
+          if (user.isFocal) {
+            const other = existing.filter((item:any)=>!scopeBiosecurityItems([item],user.assignedBarangay).length);
+            if (items.some((item:any)=>other.some((row:any)=>row.id===item.id))) {
+              await client.query('ROLLBACK');
+              return res.status(403).json({success:false,error:'A biosecurity record ID belongs to another barangay.'});
+            }
+            items = [...other,...items];
+          }
+          await client.query('INSERT INTO public.system_settings (id, setting_key, setting_value, updated_at) VALUES ($1,$2,$3::jsonb,NOW()) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()',[randomUUID(),req.params.key,JSON.stringify(items)]);
+          await client.query('COMMIT');
+          return res.json({success:true,data:user.isFocal?scopeBiosecurityItems(items,user.assignedBarangay):items});
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
+        finally { client.release(); }
+      }
       const saved = req.params.key === 'certificate_templates'
         ? await saveCertificateTemplate(req.body.data, {
           role: user.role,
@@ -1069,6 +1115,15 @@ export function createApp() {
       });
     }
   });
+
+  const handleModuleItem = async (req: express.Request,res: express.Response) => {
+    const user=getUserSecurityContext(req);
+    if (!user.isAdmin && (!user.isFocal || !user.assignedBarangay || req.params.key==='marketing_alerts')) return res.status(403).json({success:false,error:'You do not have permission to change this module.'});
+    try { return res.json({success:true,data:await mutateModuleItem(req.params.key,req.params.id,req.body,req.method==='DELETE',user)}); }
+    catch(error) { return res.status(400).json({success:false,error:error instanceof Error?error.message:'Module save failed.'}); }
+  };
+  app.put('/api/module-data/:key/items/:id',handleModuleItem);
+  app.delete('/api/module-data/:key/items/:id',handleModuleItem);
 
   // =========================================================================
   // 2. SWINE RECORDS - STRICT DATABASE SOURCE OF TRUTH
@@ -1277,11 +1332,16 @@ export function createApp() {
     }
 
     const record = req.body;
+    try { validateSwineMutation(record); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
     if (!record || typeof record !== 'object') {
       return res.status(400).json({ success: false, error: 'Invalid record payload' });
     }
 
     const { farmerContact, pigIdTag, earTagNo, birthDate } = record;
+    if (!record.farmerName?.trim() || (!user.isFocal && !record.barangay?.trim())) {
+      return res.status(400).json({success:false,error:'Farmer name and barangay are required.'});
+    }
     if (farmerContact && !isValidPhilippinePhoneNumber(farmerContact)) {
       return res.status(400).json({
         success: false,
@@ -1294,11 +1354,9 @@ export function createApp() {
     let tag = (pigIdTag || earTagNo || '').trim();
     if (!tag) {
       // Auto-generate authoritative ID if not supplied
-      const currentYear = new Date().getFullYear();
-      const { total } = await getAllSwineRecords();
-      tag = `HIN-${currentYear}-${String(total + 1).padStart(4, '0')}`;
       // Auto-generate authoritative ID atomically from database sequence
-      tag = await getNextAuthoritativePigIdTag();
+      try { tag = await getNextAuthoritativePigIdTag(); }
+      catch { return res.status(503).json({success:false,error:'Swine tag allocation is unavailable. Please retry after the database connection is restored.'}); }
     }
 
     if (tag && !PIG_ID_TAG_REGEX.test(tag)) {
@@ -1336,7 +1394,7 @@ export function createApp() {
 
     const newRec = {
       ...record,
-      id: record.id || `swine-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: randomUUID(),
       pigIdTag: tag,
       earTagNo: tag,
       registeredBy: user.username,
@@ -1386,6 +1444,11 @@ export function createApp() {
 
     const { id } = req.params;
     const record = req.body;
+    try { validateSwineMutation(record); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      return res.status(400).json({ success: false, error: 'Invalid record payload.' });
+    }
 
     const { farmerContact, birthDate } = record || {};
     if (farmerContact && !isValidPhilippinePhoneNumber(farmerContact)) {
@@ -1432,6 +1495,8 @@ export function createApp() {
         }
       }
 
+      try { assertImmutableSwineIdentity(existing, record); }
+      catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
       // Preserve immutable Pig ID
       const preservedPigId = existing.pigIdTag || (existing as any).computedPigId || existing.earTagNo;
       const updated = {
@@ -1566,6 +1631,8 @@ export function createApp() {
       record.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase())) {
       return res.status(403).json({ success: false, error: 'Focal persons can only import records for their assigned barangay.' });
     }
+    try { records.forEach(validateSwineMutation); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
     const scopedRecords = user.isFocal
       ? records.map((record: any) => ({
           ...record,
@@ -1575,79 +1642,27 @@ export function createApp() {
       : records;
 
     try {
-      // Priority 8: Auto-register unknown JSON fields as dynamic registry fields without altering PostgreSQL columns
-      try {
-        const knownBaseKeys = new Set([
-          'id', 'computedPigId', 'computed_pig_id', 'pigIdTag', 'pig_id_tag',
-          'earTagNo', 'ear_tag_no', 'farmerName', 'farmer_name', 'farmName', 'farm_name',
-          'farmerContact', 'farmer_contact', 'farmerAddress', 'farmer_address',
-          'barangay', 'barangay_id', 'birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth',
-          'dob', 'ageDays', 'age_days', 'ageMonths', 'age_months', 'estimatedWeightKg', 'estimated_weight_kg',
-          'actualWeightKg', 'actual_weight_kg', 'weightKg', 'weight_kg', 'swineType', 'swine_type',
-          'farmScale', 'farm_scale', 'farmType', 'farm_type', 'asfZone', 'asf_zone',
-          'biosecurityWarning', 'biosecurity_warning', 'status', 'readyToSell', 'ready_to_sell',
-          'priceEstimate', 'price_estimate', 'estimatedPricePhp', 'photoUrl', 'photo_url',
-          'isArchived', 'is_archived', 'registeredAt', 'registered_at', 'registeredBy', 'registered_by',
-          'createdAt', 'created_at', 'updatedAt', 'updated_at', 'customFields', 'custom_fields',
-          'biosecurity', 'notes', 'breed', 'gender', 'latitude', 'longitude', 'penCapacity',
-          'rsbsaId', 'registry_id', 'isSynced', 'age', 'setbackCompliant',
-          'distanceToWaterSourceMeters', 'distanceToTourismSchoolMeters', 'distanceToBuiltUpMeters'
-        ]);
-
-        const incomingUnknownKeys = new Set<string>();
-        for (const rec of scopedRecords) {
-          if (rec && typeof rec === 'object') {
-            for (const key of Object.keys(rec)) {
-              if (!knownBaseKeys.has(key) && rec[key] !== undefined && typeof rec[key] !== 'function') {
-                incomingUnknownKeys.add(key);
-              }
-            }
-            if (rec.customFields && typeof rec.customFields === 'object' && !Array.isArray(rec.customFields)) {
-              for (const cKey of Object.keys(rec.customFields)) {
-                if (!knownBaseKeys.has(cKey)) {
-                  incomingUnknownKeys.add(cKey);
-                }
-              }
-            }
+      // Import data never changes the registry schema. Administrators review fields
+      // through the schema editor; unknown values remain in JSON custom fields.
+      const preparedRecords = [];
+      for (const record of scopedRecords) {
+        const existing = await getSwineRecordById(record.id || record.pigIdTag || record.earTagNo || '');
+        if (existing) {
+          if (user.isFocal && existing.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
+            return res.status(403).json({success:false,error:'Import contains an existing record outside your assigned barangay.'});
           }
+          if (duplicateHandling === 'skip') continue;
+          if (duplicateHandling === 'error') return res.status(409).json({success:false,error:'Import contains an existing record.'});
+          try { assertImmutableSwineIdentity(existing, {...record, id:existing.id}); }
+          catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+          preparedRecords.push({...existing,...record,id:existing.id});
+        } else {
+          const tag = record.pigIdTag || record.earTagNo || await getNextAuthoritativePigIdTag();
+          if (!PIG_ID_TAG_REGEX.test(tag)) return res.status(400).json({success:false,error:'Invalid Pig ID Tag in import.'});
+          preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag});
         }
-
-        if (incomingUnknownKeys.size > 0) {
-          const existingDbFields = await getAllSchemaFieldsFromDb();
-          const existingKeys = new Set(existingDbFields.map(f => f.fieldKey.toLowerCase()));
-          const existingIds = new Set(existingDbFields.map(f => f.id.toLowerCase()));
-
-          for (const rawKey of incomingUnknownKeys) {
-            const fieldKey = toFieldKey(rawKey);
-            const fieldId = `field_${fieldKey}`;
-            if (!existingKeys.has(fieldKey.toLowerCase()) && !existingIds.has(fieldId.toLowerCase())) {
-              const sampleVal = scopedRecords.find((r: any) => r[rawKey] !== undefined)?.[rawKey];
-              const fieldType = typeof sampleVal === 'number' ? 'number' : typeof sampleVal === 'boolean' ? 'boolean' : 'text';
-              const label = rawKey
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/[_-]/g, ' ')
-                .trim()
-                .replace(/^\w/, c => c.toUpperCase());
-
-              await upsertSchemaFieldInDb({
-                id: fieldId,
-                fieldKey,
-                label,
-                fieldType,
-                required: false,
-                visible: true,
-                sectionId: 'sec_custom',
-                sectionTitle: 'Dynamic Custom Fields',
-                fieldOrder: existingDbFields.length + 1,
-              });
-            }
-          }
-        }
-      } catch (schemaErr) {
-        console.warn('Auto-registering dynamic fields notice:', schemaErr);
       }
-
-      const savedRecords = await batchUpsertSwineRecords(scopedRecords);
+      const savedRecords = await batchUpsertSwineRecords(preparedRecords);
 
       // Record audit history if system settings table is available
       try {
@@ -1897,11 +1912,11 @@ export function createApp() {
   // =========================================================================
   app.get('/api/dashboard/stats', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const effectiveBarangay = user.isAdmin ? undefined : (user.assignedBarangay || user.barangayId);
-
+    const effectiveBarangay = user.isAdmin || user.isAgent ? undefined : (user.assignedBarangay || user.barangayId);
+    if(user.isFocal && !user.assignedBarangay)return res.status(403).json({success:false,error:'An assigned barangay is required.'});
     try {
       const { records, total } = await getAllSwineRecords({
-        barangay: effectiveBarangay,
+        barangay: effectiveBarangay,readyToSell:user.isAgent?true:undefined,isArchived:false,
       });
 
       const farmersSet = new Set<string>();
@@ -1919,7 +1934,7 @@ export function createApp() {
       const monthlyRegistrations: Record<string, number> = {};
 
       records.forEach(r => {
-        if (r.farmerName) farmersSet.add(`${r.farmerName.trim().toLowerCase()}_${r.barangay}`);
+        farmersSet.add(farmerIdentity(r));
         if (r.barangay) {
           barangaysWithPigs.add(r.barangay);
           swineByBarangay[r.barangay] = (swineByBarangay[r.barangay] || 0) + 1;
@@ -1973,11 +1988,12 @@ export function createApp() {
 
   app.get('/api/swine-records/stats/summary', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const effectiveBarangay = user.isAdmin ? undefined : (user.assignedBarangay || user.barangayId);
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned barangay is required.'});
+    const effectiveBarangay = user.isAdmin || user.isAgent ? undefined : user.assignedBarangay;
 
     try {
       const { records } = await getAllSwineRecords({
-        barangay: effectiveBarangay,
+        barangay: effectiveBarangay, readyToSell: user.isAgent ? true : undefined, isArchived: false,
       });
 
       const summary = {
@@ -2263,10 +2279,12 @@ export function createApp() {
 
   app.post('/api/messages', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const payload = req.body;
+    let payload = req.body;
     if (!payload || ![payload.message, payload.content, payload.body].some(value => typeof value === 'string' && value.trim())) {
       return res.status(400).json({ success: false, error: 'Message content is required.' });
     }
+    try { payload = authorizeMessagePayload(payload, user); }
+    catch (error) { return res.status(403).json({success:false,error:(error as Error).message}); }
 
     try {
       const newMsg = await createMessage({
@@ -2305,8 +2323,9 @@ export function createApp() {
     try {
       const allMsgs = await getAllMessages({ role: 'admin', userId: user.userId });
       const target = allMsgs.find(m => m.id === id);
+      if (!target) return res.status(404).json({success:false,error:'Message not found.'});
       if (target && !user.isAdmin) {
-        if (target.senderId !== user.userId && target.senderName !== user.username) {
+        if (target.senderId !== user.userId) {
           return res.status(403).json({ success: false, error: 'Access Denied: You cannot delete messages sent by another user.' });
         }
       }
@@ -2421,6 +2440,9 @@ export function createApp() {
 
   app.put('/api/settings', async (req, res) => {
     const admin = getUserSecurityContext(req);
+    if (req.body?.key === 'api_configuration' && !admin.isSuperAdmin) {
+      return res.status(403).json({success:false,error:'Super administrator access required for API configuration.'});
+    }
     if (!admin.isAdmin) {
       return res.status(403).json({ success: false, error: 'Access Denied: Only administrators can update system settings.' });
     }
@@ -2936,8 +2958,9 @@ export function createApp() {
   // GET /api/sync/status
   app.get('/api/sync/status', async (req, res) => {
     const user = getUserSecurityContext(req);
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned barangay is required.'});
     try {
-      const { total } = await getAllSwineRecords();
+      const { total } = await getAllSwineRecords({barangay:user.isFocal?user.assignedBarangay:undefined,readyToSell:user.isAgent?true:undefined,isArchived:false});
       return res.json({
         success: true,
         status: 'ONLINE',
@@ -2947,11 +2970,7 @@ export function createApp() {
         totalSwineInDb: total,
       });
     } catch {
-      return res.json({
-        success: true,
-        status: 'ONLINE',
-        serverTime: new Date().toISOString(),
-      });
+      return res.status(503).json({success:false,status:'UNAVAILABLE',error:'Unable to read synchronization status from the database.'});
     }
   });
 
@@ -2968,6 +2987,7 @@ export function createApp() {
       const { records: swineList } = await getAllSwineRecords({
         barangay: effectiveBarangay,
         readyToSell: user.isAgent ? true : undefined,
+        isArchived: user.isAgent ? false : undefined,
       });
 
       const certs = await getAllCertificates();
@@ -3029,8 +3049,8 @@ export function createApp() {
 
     const resolvedSwineIds = new Map<string, string>();
     for (const op of operations) {
-      const { clientOperationId, operation, entity, payload } = op;
-      const originalEntityId = op.entityId;
+      const { clientOperationId, operation, entity, payload } = op && typeof op==='object' ? op : {};
+      const originalEntityId = op?.entityId;
       const entityId = entity === 'swine' ? resolvedSwineIds.get(originalEntityId) || originalEntityId : originalEntityId;
 
       try {
@@ -3101,9 +3121,13 @@ export function createApp() {
               results.push({ clientOperationId, entityId, success: false, error: 'Record is outside your assigned barangay or no longer exists.' });
               continue;
             }
+            const patch = entityId !== originalEntityId
+              ? {...payload,id:existing.id,pigIdTag:existing.pigIdTag,earTagNo:existing.earTagNo}
+              : payload || {};
+            assertImmutableSwineIdentity(existing,patch);
             const updated = await upsertSwineRecord({
               ...existing,
-              ...(payload || {}),
+              ...patch,
               id: existing.id,
               barangay: existing.barangay,
               barangay_id: existing.barangay_id,
@@ -3129,9 +3153,10 @@ export function createApp() {
           } else if (operation === 'sell' || operation === 'archive') {
             const existing = await getSwineRecordById(entityId);
             if (existing && (!user.isFocal || existing.barangay.toLowerCase() === user.assignedBarangay.toLowerCase())) {
+              assertImmutableSwineIdentity(existing,payload||{});
               const updated = {
                 ...existing,
-                ...payload,
+                ...(operation==='sell'?{readyToSell:payload?.readyToSell,estimatedPricePhp:payload?.priceEstimate}: {isArchived:payload?.isArchived}),
                 id: existing.id,
                 barangay: existing.barangay,
                 barangay_id: existing.barangay_id,
@@ -3142,11 +3167,11 @@ export function createApp() {
               results.push({
                 clientOperationId,
                 entityId,
-                success: true,
-                error: 'Record already updated or removed.',
+                success: false,
+                error: 'Record is unavailable or outside your assigned barangay.',
               });
             }
-          }
+          } else throw new Error('Unsupported swine synchronization operation.');
         } else if (entity === 'media') {
           if (!user.isAdmin) throw new Error('Administrator access required for media.');
           const resolvedUrl = payload.fileUrl || payload.base64 || payload.dataUrlOrBase64;
@@ -3182,8 +3207,9 @@ export function createApp() {
           });
           results.push({ clientOperationId, entityId, serverEntityId: savedCert.id, success: true });
         } else if (entity === 'message') {
+          const authorizedPayload = authorizeMessagePayload(payload || {}, user);
           const newMsg = await createMessage({
-            ...payload,
+            ...authorizedPayload,
             id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
             senderId: user.userId,
             senderName: user.username,

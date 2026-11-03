@@ -586,6 +586,7 @@ export interface MessageItem {
   timestamp?: string;
   readBy?: string[]; // user ids that read this message
   isRead?: boolean;
+  attachments?: unknown[];
 }
 
 export interface SocialMediaPost {

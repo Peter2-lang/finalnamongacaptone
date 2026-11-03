@@ -1,3 +1,4 @@
+import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Send,
@@ -31,13 +32,8 @@ export const TransmittalLetterManager: React.FC<TransmittalLetterManagerProps> =
   currentUser,
   onNotice,
 }) => {
-  const [letters, setLetters] = useState<TransmittalLetter[]>(() =>
-    storageService.getTransmittalLetters()
-  );
-  const [selectedLetter, setSelectedLetter] = useState<TransmittalLetter | null>(() => {
-    const list = storageService.getTransmittalLetters();
-    return list[0] || null;
-  });
+  const {items:letters,error:cloudError,save:saveLetter,remove:removeLetter}=useCloudItems<TransmittalLetter>('transmittal_letters');
+  const [selectedLetter,setSelectedLetter]=useState<TransmittalLetter|null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'preview' | 'list'>('preview');
@@ -49,17 +45,6 @@ export const TransmittalLetterManager: React.FC<TransmittalLetterManagerProps> =
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
-
-  const refreshList = () => {
-    const list = storageService.getTransmittalLetters();
-    setLetters(list);
-    if (selectedLetter) {
-      const updated = list.find(l => l.id === selectedLetter.id);
-      setSelectedLetter(updated || list[0] || null);
-    } else if (list.length > 0) {
-      setSelectedLetter(list[0]);
-    }
-  };
 
   const filteredLetters = letters.filter(l => {
     const matchSearch =
@@ -173,18 +158,16 @@ For your information and official file.`,
     setIsEditorOpen(true);
   };
 
-  const handleSaveLetter = (letterToSave: TransmittalLetter) => {
-    storageService.saveTransmittalLetter(letterToSave);
-    refreshList();
+  const handleSaveLetter = async (letterToSave: TransmittalLetter) => {
+    if (!await saveLetter(letterToSave)) return;
     setSelectedLetter(letterToSave);
     setIsEditorOpen(false);
     onNotice?.(`Transmittal Letter ${letterToSave.refNo} saved successfully!`);
   };
 
-  const handleDeleteLetter = (letter: TransmittalLetter) => {
-    storageService.deleteTransmittalLetter(letter.id);
-    const updated = storageService.getTransmittalLetters();
-    setLetters(updated);
+  const handleDeleteLetter = async (letter: TransmittalLetter) => {
+    if (!await removeLetter(letter.id)) return;
+    const updated=letters.filter(item=>item.id!==letter.id);
     if (selectedLetter?.id === letter.id) {
       setSelectedLetter(updated[0] || null);
     }
@@ -194,6 +177,7 @@ For your information and official file.`,
 
   return (
     <div className="space-y-6">
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
       {/* Top Toolbar */}
       <div className="bg-white rounded-2xl border border-stone-200 p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4 no-print">
         <div className="flex items-center gap-3">

@@ -1,3 +1,4 @@
+import { requireSyncAuthorization, assertQueueOwnership } from './syncAuthorization.ts';
 import { getConnectivityState } from './connectivityState.ts';
 import { createBackendHealthCheck } from './backendHealth.ts';
 /**
@@ -22,7 +23,7 @@ export interface SyncEngineStatus {
   syncedThisSession: number;
 }
 
-class OfflineSyncEngine {
+export class OfflineSyncEngine {
   private syncState: SyncState = 'ERROR';
   private isBackendReachable: boolean = false;
   private healthFailures = 0;
@@ -186,18 +187,15 @@ class OfflineSyncEngine {
     let pulledCount = 0;
 
     try {
+      const authorization = await requireSyncAuthorization();
       // -------------------------------------------------------------
       // STEP 1: PUSH PENDING OPERATIONS QUEUE
       // -------------------------------------------------------------
       const pendingQueue = await indexedDbService.getPendingSyncQueue();
 
       if (pendingQueue.length > 0) {
-        const user = storageService.getCurrentUser();
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        const sessionToken = storageService.getSessionToken();
-        if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+        assertQueueOwnership(pendingQueue, authorization.userId);
+        const headers = authorization.headers;
 
         const pushPayload = {
           operations: pendingQueue.map(item => ({
@@ -252,10 +250,7 @@ class OfflineSyncEngine {
       // -------------------------------------------------------------
       // STEP 2: PULL AUTHORITATIVE SERVER DATA
       // -------------------------------------------------------------
-      const user = storageService.getCurrentUser();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const sessionToken = storageService.getSessionToken();
-      if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+      const headers = authorization.headers;
 
       const pullRes = await fetch('/api/sync/pull', { method: 'GET', headers });
       if (!pullRes.ok) {
@@ -305,7 +300,9 @@ class OfflineSyncEngine {
         pendingCount: 0,
       });
 
-      this.broadcastStatus(0);
+      const remaining = (await indexedDbService.getPendingSyncQueue()).length;
+      await indexedDbService.updateSyncMetadata({pendingCount:remaining});
+      this.broadcastStatus(remaining);
 
       return { success: true, pushedCount, pulledCount };
     } catch (err: any) {
@@ -324,15 +321,20 @@ class OfflineSyncEngine {
   // QUEUE OPERATIONS FOR OFFLINE ACTIONS
   // =========================================================================
 
+  private queueOwner(): string {
+    const user=storageService.getCurrentUser();
+    if(!user)throw new Error('Sign in before creating offline changes.');
+    return user.authUserId || user.id;
+  }
+
   public async queueSwineCreate(record: SwineRecord): Promise<void> {
     const localRecord: SwineRecord = {
       ...record,
       isSynced: false,
       updatedAt: new Date().toISOString(),
     };
-    await indexedDbService.put('swineRecords', localRecord);
 
-    await indexedDbService.enqueueSyncItem('create', 'swine', localRecord.id, localRecord, 2);
+    await indexedDbService.enqueueSyncItem('create', 'swine', localRecord.id, localRecord, 2, this.queueOwner(), {record:localRecord});
 
     const currentList = storageService.getSwineRecords();
     const updated = [localRecord, ...currentList.filter(s => s.id !== localRecord.id)];
@@ -351,8 +353,7 @@ class OfflineSyncEngine {
       isSynced: false,
       updatedAt: new Date().toISOString(),
     };
-    await indexedDbService.put('swineRecords', localRecord);
-    await indexedDbService.enqueueSyncItem('update', 'swine', localRecord.id, localRecord, 2);
+    await indexedDbService.enqueueSyncItem('update', 'swine', localRecord.id, localRecord, 2, this.queueOwner(), {record:localRecord});
 
     const currentList = storageService.getSwineRecords();
     const updated = currentList.map(s => (s.id === localRecord.id ? localRecord : s));
@@ -366,8 +367,7 @@ class OfflineSyncEngine {
   }
 
   public async queueSwineDelete(id: string): Promise<void> {
-    await indexedDbService.delete('swineRecords', id);
-    await indexedDbService.enqueueSyncItem('delete', 'swine', id, { id }, 2);
+    await indexedDbService.enqueueSyncItem('delete', 'swine', id, { id }, 2, this.queueOwner(), {deleteId:id});
 
     const currentList = storageService.getSwineRecords();
     const updated = currentList.filter(s => s.id !== id);
@@ -391,8 +391,7 @@ class OfflineSyncEngine {
         isSynced: false,
         updatedAt: new Date().toISOString(),
       };
-      await indexedDbService.put('swineRecords', updated);
-      await indexedDbService.enqueueSyncItem('sell', 'swine', id, { readyToSell, priceEstimate }, 2);
+      await indexedDbService.enqueueSyncItem('sell', 'swine', id, { readyToSell, priceEstimate }, 2, this.queueOwner(), {record:updated});
 
       const currentList = storageService.getSwineRecords();
       const updatedList = currentList.map(s => (s.id === id ? updated : s));
@@ -407,7 +406,7 @@ class OfflineSyncEngine {
 
   public async queueMediaUpload(media: OfflineMediaRecord): Promise<void> {
     await indexedDbService.put('media', media);
-    await indexedDbService.enqueueSyncItem('upload_media', 'media', media.id, media, 1);
+    await indexedDbService.enqueueSyncItem('upload_media', 'media', media.id, media, 1, this.queueOwner());
     this.checkConnectivityAndAutoSync('media_upload');
   }
 
@@ -415,13 +414,13 @@ class OfflineSyncEngine {
     const certId = cert.id || cert.certificateNo;
     const certToSave = { ...cert, id: certId };
     await indexedDbService.put('certificates', certToSave);
-    await indexedDbService.enqueueSyncItem('create', 'certificate', certId, certToSave, 2);
+    await indexedDbService.enqueueSyncItem('create', 'certificate', certId, certToSave, 2, this.queueOwner());
     this.checkConnectivityAndAutoSync('certificate_create');
   }
 
   public async queueMessage(msg: MessageItem): Promise<void> {
     await indexedDbService.put('messages', msg);
-    await indexedDbService.enqueueSyncItem('create', 'message', msg.id, msg, 3);
+    await indexedDbService.enqueueSyncItem('create', 'message', msg.id, msg, 3, this.queueOwner());
     this.checkConnectivityAndAutoSync('message_create');
   }
 }

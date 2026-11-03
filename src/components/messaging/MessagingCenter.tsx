@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { Barangay, MessageItem, UserAccount } from '../../types';
 import { storageService } from '../../services/storageService';
+import { messagesApi } from '../../services/api';
+import { offlineSyncEngine } from '../../services/offlineSyncEngine';
 
 interface MessagingCenterProps {
   barangays: Barangay[];
@@ -33,13 +35,27 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [priority, setPriority] = useState<MessageItem['priority']>('normal');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<MessageItem | null>(messages[0] || null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
   const focalBarangay = currentUser?.assignedBarangay;
+  React.useEffect(() => {
+    let mounted = true;
+    if (!storageService.isEffectiveOffline()) messagesApi.getAll().then(items => {
+      if (!mounted) return;
+      storageService.saveMessages(items);
+      setMessages(items);
+      setSelectedMessage(previous => items.find(item => item.id === previous?.id) || items[0] || null);
+    }).catch(error => { if (mounted) setError(error instanceof Error ? error.message : 'Unable to load messages.'); });
+    return () => { mounted = false; };
+  }, [currentUser?.id]);
 
   // Filter messages visible to current user
   const visibleMessages = messages.filter(m => {
     if (isAdmin) return true; // Admin sees all messages
+    if (m.recipientId) return m.recipientId === (currentUser?.authUserId || currentUser?.id) || m.senderId === (currentUser?.authUserId || currentUser?.id);
+    if (m.senderId === (currentUser?.authUserId || currentUser?.id)) return true;
     const targetBg = (m.recipientBarangay || m.targetBarangay || 'all').toLowerCase();
     if (focalBarangay) {
       return targetBg === 'all' || targetBg === (focalBarangay || '').toLowerCase();
@@ -57,8 +73,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     return sub.includes(q) || bd.includes(q) || bg.includes(q) || sender.includes(q);
   });
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sending || !currentUser) return;
     if (!subject.trim() || !body.trim()) {
       alert('Please fill out both subject and message content.');
       return;
@@ -69,8 +86,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       senderId: currentUser?.id || 'usr-admin-1',
       senderName: currentUser?.name || 'Municipal Agriculture Office',
       senderRole: currentUser?.role || 'admin',
-      targetBarangay: selectedRecipient,
-      recipientBarangay: selectedRecipient,
+      targetBarangay: isAdmin ? selectedRecipient : (focalBarangay || ''),
+      recipientBarangay: isAdmin ? selectedRecipient : (focalBarangay || ''),
       subject,
       title: subject,
       body,
@@ -81,26 +98,38 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       priority,
     };
 
-    storageService.sendMessage(newMessage);
-    const updated = storageService.getMessages();
-    setMessages(updated);
-    setSelectedMessage(newMessage);
-    setSubject('');
-    setBody('');
-    onRefreshBadge?.();
+    setSending(true);
+    setError(null);
+    try {
+      const saved = storageService.isEffectiveOffline()
+        ? (await offlineSyncEngine.queueMessage(newMessage), newMessage)
+        : await messagesApi.send(newMessage);
+      const updated = [saved, ...messages.filter(item => item.id !== saved.id)];
+      storageService.saveMessages(updated);
+      setMessages(updated);
+      setSelectedMessage(saved);
+      setSubject('');
+      setBody('');
+      onRefreshBadge?.();
+    } catch (error) { setError(error instanceof Error ? error.message : 'Unable to send message.'); }
+    finally { setSending(false); }
   };
 
-  const handleSelectMessage = (msg: MessageItem) => {
+  const handleSelectMessage = async (msg: MessageItem) => {
     setSelectedMessage(msg);
     if (!msg.isRead) {
-      storageService.markMessageAsRead(msg.id);
-      setMessages(storageService.getMessages());
-      onRefreshBadge?.();
+      try {
+        await messagesApi.markRead(msg.id);
+        storageService.markMessageAsRead(msg.id);
+        setMessages(storageService.getMessages());
+        onRefreshBadge?.();
+      } catch (error) { setError(error instanceof Error ? error.message : 'Unable to mark message as read.'); }
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 space-y-6">
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {/* Header Banner */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -204,10 +233,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               <div className="pt-2 flex justify-end">
                 <button
                   type="submit"
+                  disabled={sending}
                   className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Send Dispatch</span>
+                  <span>{sending ? 'Sending…' : 'Send Dispatch'}</span>
                 </button>
               </div>
             </form>

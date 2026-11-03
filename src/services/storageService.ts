@@ -261,7 +261,7 @@ export const storageService = {
         );
       }
 
-      const records: SwineRecord[] = json.data;
+      const records: SwineRecord[] = json.data.map((record:SwineRecord)=>({...record,isSynced:true}));
 
       // Cache only records that were successfully retrieved from the cloud.
       this.saveSwineRecords(records);
@@ -1289,7 +1289,9 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
         item.action as any,
         item.entity as any,
         dataObj?.id || item.id,
-        item.data
+        item.data,
+        2,
+        this.getCurrentUser()?.authUserId || this.getCurrentUser()?.id
       ).catch(() => {});
     }
   },
@@ -1304,14 +1306,10 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     const queue = this.getOfflineQueue();
     if (queue.length === 0) return { success: true, syncedCount: 0 };
 
-    // Mark all existing swine records as synced
-    const swine = this.getSwineRecords();
-    const updatedSwine = swine.map(s => ({ ...s, isSynced: true }));
-    this.saveSwineRecords(updatedSwine);
+    // A local queue is never proof of a committed server operation.
+    // Keep every draft and operation for the authenticated sync engine.
+    return { success: false, syncedCount: 0 };
 
-    const count = queue.length;
-    this.clearOfflineQueue();
-    return { success: true, syncedCount: count };
   },
 
   // Barangay Biosecurity Audits

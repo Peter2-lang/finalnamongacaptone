@@ -181,8 +181,14 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
     if (!file) return;
     try {
       setUploadingField(field);
-      const asset = await mediaApi.uploadFile(file, 'certificates/logos');
-      const updated = { ...localSettings, [field]: asset.fileUrl };
+      const asset = await mediaApi.uploadCertificateAsset(file);
+      const storageField = {
+        leftLogoUrl: 'leftLogoStoragePath',
+        centerLogoUrl: 'centerLogoStoragePath',
+        rightLogoUrl: 'rightLogoStoragePath',
+        watermarkUrl: 'watermarkStoragePath',
+      }[field];
+      const updated = { ...localSettings, [field]: asset.fileUrl, [storageField]: asset.filePath };
       setLocalSettings(updated);
       onChange(updated);
     } catch (error) {

@@ -1,3 +1,4 @@
+import { farmerIdentity } from '../../utils/farmerIdentity.ts';
 import React, { useState } from 'react';
 import { SwineFarmRegistrationModal } from './SwineFarmRegistrationModal';
 import {
@@ -75,11 +76,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : 'all'
   );
 
-  // Filter list based on role and selected barangay filter
-  const effectiveList = swineList.filter(s => {
-    if (s.isArchived) return false;
+  const committedList = swineList.filter(s => s.isSynced === true);
+  const pendingCount = swineList.filter(s=>s.isSynced === false).length;
+  // Every chart/counter shares the same committed, authorized filter scope.
+  const scopedList = committedList.filter(s => {
     const itemBg = (s.barangay || '').toLowerCase();
-    if (currentRole === 'focal' && currentUser?.assignedBarangay) {
+    if (currentRole === 'agent' && (!s.readyToSell || s.isArchived)) return false;
+    if (currentRole === 'focal') {
       return itemBg === (currentUser.assignedBarangay || '').toLowerCase();
     }
     if (selectedBgFilter !== 'all') {
@@ -88,13 +91,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return true;
   });
 
+  const effectiveList = scopedList.filter(s=>!s.isArchived);
+
   // Calculate Metrics
   const totalSwine = effectiveList.length;
   const readyToSellList = effectiveList.filter(s => s.readyToSell || s.status === 'ready_to_sell');
   const readyToSellCount = readyToSellList.length;
   const totalEstimatedPrice = readyToSellList.reduce((acc, s) => acc + (s.estimatedPricePhp || 0), 0);
   const uniqueFarmers = new Set(
-    effectiveList.map(s => (s.farmerName || '').trim().toLowerCase()).filter(Boolean)
+    effectiveList.map(farmerIdentity)
   ).size;
 
   // Swine categories count
@@ -107,8 +112,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // Swine Records Live Database Statistics
-  const soldCount = swineList.filter(s => s.status === 'sold').length;
-  const archivedCount = swineList.filter(s => s.isArchived).length;
+  const soldCount = scopedList.filter(s => s.status === 'sold').length;
+  const archivedCount = scopedList.filter(s => s.isArchived).length;
   const breedingBoarsCount = typeCounts.boar;
   const asfWarningCount = effectiveList.filter(s => {
     const zone = getBarangayASFZone(s.barangay, barangays);
@@ -117,7 +122,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Top Barangays by Swine count (if admin)
   const barangayCounts: { [key: string]: number } = {};
-  swineList.forEach(s => {
+  scopedList.forEach(s => {
     if (!s.isArchived) {
       barangayCounts[s.barangay] = (barangayCounts[s.barangay] || 0) + 1;
     }
@@ -190,31 +195,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const valuationChartData = [
     {
       name: 'Finishers',
-      value: effectiveList.filter(s => s.swineType === 'finisher').reduce((a, b) => a + (b.estimatedPricePhp || 13500), 0),
+      value: effectiveList.filter(s => s.swineType === 'finisher').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#059669',
       desc: 'Live harvest valuation',
     },
     {
       name: 'Growers',
-      value: effectiveList.filter(s => s.swineType === 'grower').reduce((a, b) => a + (b.estimatedPricePhp || 8500), 0),
+      value: effectiveList.filter(s => s.swineType === 'grower').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#2563eb',
       desc: 'Mid-stage asset valuation',
     },
     {
       name: 'Breeder Sows',
-      value: effectiveList.filter(s => s.swineType === 'sow').reduce((a, b) => a + (b.estimatedPricePhp || 19000), 0),
+      value: effectiveList.filter(s => s.swineType === 'sow').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#9333ea',
       desc: 'Breeding stock capital',
     },
     {
       name: 'Breeder Boars',
-      value: effectiveList.filter(s => s.swineType === 'boar').reduce((a, b) => a + (b.estimatedPricePhp || 24000), 0),
+      value: effectiveList.filter(s => s.swineType === 'boar').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#d97706',
       desc: 'Genetic asset valuation',
     },
     {
       name: 'Piglets',
-      value: effectiveList.filter(s => s.swineType === 'piglet').reduce((a, b) => a + (b.estimatedPricePhp || 3500), 0),
+      value: effectiveList.filter(s => s.swineType === 'piglet').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#0d9488',
       desc: 'Weanling market stock',
     },
@@ -269,6 +274,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      {pendingCount>0 && <p role="status" className="text-sm text-amber-800">{pendingCount} pending local record(s) excluded from cloud statistics.</p>}
       {/* Executive Page Header with Integrated Scope Filter & Quick Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
         <div>

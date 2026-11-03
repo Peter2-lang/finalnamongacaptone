@@ -158,7 +158,8 @@ export function hasPermission(role: UserRole | 'landing' | undefined, item: stri
   if (!role || role === 'landing') return false;
   if (role === 'super_admin') return true;
   // Non-sidebar operational views accessible to authenticated users
-  if (item === 'add_swine' || item === 'marketing_alerts') return true;
+  if (item === 'add_swine') return role === 'admin' || role === 'focal';
+  if (item === 'marketing_alerts') return role === 'admin' || role === 'focal';
 
   const allowedItems = SIDEBAR_PERMISSIONS[role as UserRole];
   if (!allowedItems) return false;

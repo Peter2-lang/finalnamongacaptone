@@ -1,3 +1,4 @@
+import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
   TrendingUp,
@@ -39,7 +40,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
   onRefresh,
   onScheduleTakeoff,
 }) => {
-  const [alerts, setAlerts] = useState<MarketingAlert[]>(() => storageService.getMarketingAlerts());
+  const {items:alerts,error:cloudError,save:saveAlert,remove:removeAlert} = useCloudItems<MarketingAlert>('marketing_alerts');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | MarketingAlertType>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
     isActive: true,
   });
 
-  const handleCreateAlert = (e: React.FormEvent) => {
+  const handleCreateAlert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alertForm.title?.trim()) return;
 
@@ -90,24 +91,18 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
       isActive: true,
     };
 
-    storageService.addMarketingAlert(newAlert);
-    setAlerts(storageService.getMarketingAlerts());
+    if (!await saveAlert(newAlert)) return;
     setIsNewAlertModalOpen(false);
     onRefresh();
   };
 
-  const handleToggleActive = (id: string) => {
-    storageService.toggleMarketingAlertStatus(id);
-    setAlerts(storageService.getMarketingAlerts());
-    onRefresh();
+  const handleToggleActive = async (id: string) => {
+    const existing=alerts.find(item=>item.id===id);
+    if(existing&&await saveAlert({...existing,isActive:!existing.isActive}))onRefresh();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this marketing alert?')) {
-      storageService.deleteMarketingAlert(id);
-      setAlerts(storageService.getMarketingAlerts());
-      onRefresh();
-    }
+  const handleDelete = async (id: string) => {
+    if(confirm('Delete this marketing alert?')&&await removeAlert(id))onRefresh();
   };
 
   const handleCopyAlert = (alert: MarketingAlert) => {
@@ -152,6 +147,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-amber-900 via-stone-900 to-emerald-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-amber-800/60 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

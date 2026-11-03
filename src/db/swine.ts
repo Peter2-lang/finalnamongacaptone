@@ -1,3 +1,4 @@
+import {validateSwineMutation} from '../server/swineMutationValidation.ts';
 import { getDatabaseDiagnostic } from './diagnostics.ts';
 import { randomUUID } from 'node:crypto';
 import { db, pool } from './index.ts';
@@ -305,10 +306,10 @@ export function mapDbToSwine(row: any): SwineRecord {
       ? (
           toSafeNumber(
             custom.latitude,
-            10.3969
-          ) ?? 10.3969
+            0
+          ) ?? 0
         )
-      : 10.3969;
+      : 0;
 
   const longitude =
     custom.longitude !== undefined &&
@@ -316,10 +317,10 @@ export function mapDbToSwine(row: any): SwineRecord {
       ? (
           toSafeNumber(
             custom.longitude,
-            125.1999
-          ) ?? 125.1999
+            0
+          ) ?? 0
         )
-      : 125.1999;
+      : 0;
 
   const registeredBy =
     custom.registeredBy ||
@@ -608,13 +609,13 @@ export function mapSwineToDb(s: any) {
     latitude:
       toSafeNumber(
         record.latitude,
-        10.3969
+        0
       ),
 
     longitude:
       toSafeNumber(
         record.longitude,
-        125.1999
+        0
       ),
 
     weightKg:
@@ -1023,11 +1024,13 @@ export async function getSwineRecordById(
  * The update set intentionally excludes the primary key "id".
  */
 export async function upsertSwineRecord(
-  record: any
+  record: any,
+  executor: Pick<typeof db, 'transaction'> = db
 ): Promise<SwineRecord> {
   try {
+    validateSwineMutation(record);
     const dbRecord = mapSwineToDb(record);
-    const saved = await db.transaction(async tx => {
+    const saved = await executor.transaction(async tx => {
       const [barangay] = await tx
         .select({ id: barangays.id })
         .from(barangays)
@@ -1056,16 +1059,13 @@ export async function upsertSwineRecord(
         const farmerIdentity = dbRecord.farmerContact || name.toLowerCase();
         await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${barangay.id}), hashtext(${farmerIdentity}))`);
         const fullNameMatch = sql`lower(concat_ws(' ', ${farmers.firstName}, ${farmers.middleName}, ${farmers.lastName})) = lower(${name})`;
-        const identityConditions = [fullNameMatch];
-        if (dbRecord.farmerContact) {
-          identityConditions.unshift(eq(farmers.contactNumber, dbRecord.farmerContact));
-        }
-
-        const [existingFarmer] = await tx
+        // A name alone is not an identity. Require the name AND contact,
+        // otherwise create a separate farmer until an explicit ID is selected.
+        const [existingFarmer] = dbRecord.farmerContact ? await tx
           .select({ id: farmers.id })
           .from(farmers)
-          .where(and(eq(farmers.barangayId, barangay.id), or(...identityConditions)))
-          .limit(1);
+          .where(and(eq(farmers.barangayId, barangay.id), fullNameMatch, eq(farmers.contactNumber, dbRecord.farmerContact)))
+          .limit(1) : [];
 
         farmerId = existingFarmer?.id;
         if (!farmerId) {
@@ -1240,125 +1240,11 @@ export async function batchUpsertSwineRecords(
   }
 
   try {
-    const dbRecords =
-      records.map(
-        mapSwineToDb
-      );
-
-    const results:
-      SwineRecord[] = [];
-
-    const batchSize = 50;
-
-    for (
-      let i = 0;
-      i < dbRecords.length;
-      i += batchSize
-    ) {
-      const batch =
-        dbRecords.slice(
-          i,
-          i + batchSize
-        );
-
-      for (
-        const item of batch
-      ) {
-        const result =
-          await db
-            .insert(swineRecords)
-            .values(item)
-            .onConflictDoUpdate({
-              target:
-                swineRecords.id,
-
-              set: {
-                computedPigId:
-                  item.computedPigId,
-
-                pigIdTag:
-                  item.pigIdTag,
-
-                earTagNo:
-                  item.earTagNo,
-
-                farmerName:
-                  item.farmerName,
-
-                farmName:
-                  item.farmName,
-
-                farmerContact:
-                  item.farmerContact,
-
-                barangay:
-                  item.barangay,
-
-                birthDate:
-                  item.birthDate,
-
-                ageDays:
-                  item.ageDays,
-
-                ageMonths:
-                  item.ageMonths,
-
-                estimatedWeightKg:
-                  item.estimatedWeightKg,
-
-                actualWeightKg:
-                  item.actualWeightKg,
-
-                swineType:
-                  item.swineType,
-
-                farmScale:
-                  item.farmScale,
-
-                asfZone:
-                  item.asfZone,
-
-                biosecurityWarning:
-                  item.biosecurityWarning,
-
-                status:
-                  item.status,
-
-                readyToSell:
-                  item.readyToSell,
-
-                priceEstimate:
-                  item.priceEstimate,
-
-                photoUrl:
-                  item.photoUrl,
-
-                isArchived:
-                  item.isArchived,
-
-                registeredAt:
-                  item.registeredAt,
-
-                customFields:
-                  item.customFields,
-              },
-            })
-            .returning();
-
-        if (
-          result &&
-          result[0]
-        ) {
-          results.push(
-            mapDbToSwine(
-              result[0]
-            )
-          );
-        }
-      }
-    }
-
-    return results;
+    return await db.transaction(async tx => {
+      const results: SwineRecord[] = [];
+      for (const record of records) results.push(await upsertSwineRecord(record, tx));
+      return results;
+    });
   } catch (error: any) {
     throw createDatabaseError(
       'batch save',
@@ -1375,14 +1261,6 @@ export async function deleteSwineRecordById(
   id: string
 ): Promise<boolean> {
   try {
-    await db
-      .delete(swineRecords)
-      .where(
-        eq(
-          swineRecords.id,
-          id
-        )
-      );
     const trimmedId = (id || '').trim();
     if (!trimmedId) return false;
 

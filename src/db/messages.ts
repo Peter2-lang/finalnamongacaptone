@@ -4,6 +4,7 @@ import { eq, desc } from 'drizzle-orm';
 import { MessageItem } from '../types.ts';
 
 export function mapDbToMessage(row: any): MessageItem {
+  const metadata = row.attachments && !Array.isArray(row.attachments) ? row.attachments : {};
   return {
     id: String(row.id),
     senderId: row.senderId,
@@ -12,12 +13,13 @@ export function mapDbToMessage(row: any): MessageItem {
     targetBarangay: row.barangay || 'all',
     recipientBarangay: row.barangay || 'all',
     recipientId: row.receiverId || undefined,
-    title: row.text ? row.text.substring(0, 40) : 'Official Advisory',
-    subject: row.text ? row.text.substring(0, 40) : 'Official Advisory',
+    title: metadata.subject || (row.text ? row.text.substring(0, 40) : 'Official Advisory'),
+    subject: metadata.subject || (row.text ? row.text.substring(0, 40) : 'Official Advisory'),
     content: row.text,
     body: row.text,
-    priority: 'normal',
+    priority: ['normal','advisory','urgent'].includes(metadata.priority) ? metadata.priority : 'normal',
     isRead: Boolean(row.isRead),
+    attachments: Array.isArray(row.attachments) ? row.attachments : Array.isArray(metadata.files) ? metadata.files : [],
     timestamp: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
   };
@@ -59,8 +61,8 @@ export async function createMessage(msg: Partial<MessageItem> & Record<string, a
       receiverRole: msg.recipientRole || null,
       barangay: targetBrgy !== 'all' ? targetBrgy : null,
       text: textContent,
-      attachments: msg.attachments || null,
-      isRead: Boolean(msg.isRead),
+      attachments: {files: Array.isArray(msg.attachments) ? msg.attachments : [], subject: msg.subject || msg.title || '', priority: msg.priority || 'normal'},
+      isRead: false,
     };
 
     const result = await db.insert(messages).values(values).onConflictDoNothing().returning();

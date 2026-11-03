@@ -1,3 +1,4 @@
+import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
   Truck,
@@ -44,7 +45,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
   onClearPreselected,
   onNavigateBack,
 }) => {
-  const [takeoffs, setTakeoffs] = useState<SwineTakeoffRecord[]>(() => storageService.getTakeoffRecords());
+  const {items:takeoffs,error:cloudError,busy:cloudBusy,save:saveTakeoff,remove:removeTakeoff} = useCloudItems<SwineTakeoffRecord>('takeoff_records');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'cleared' | 'in_transit' | 'completed'>('all');
   const [activeTab, setActiveTab] = useState<'takeoffs' | 'ready_hogs'>('takeoffs');
@@ -108,7 +109,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
     });
   };
 
-  const handleSaveTakeoff = (e: React.FormEvent) => {
+  const handleSaveTakeoff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleForm.swineId || !scheduleForm.earTagNo) {
       alert('Please select a registered market-ready swine.');
@@ -145,35 +146,18 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    storageService.addTakeoffRecord(newRecord);
-    setTakeoffs(storageService.getTakeoffRecords());
+    if (!await saveTakeoff(newRecord)) return;
     setIsScheduleModalOpen(false);
     if (onClearPreselected) onClearPreselected();
     onRefresh();
   };
 
-  const handleUpdateStatus = (record: SwineTakeoffRecord, newStatus: SwineTakeoffRecord['status']) => {
-    const updated = { ...record, status: newStatus };
-    storageService.updateTakeoffRecord(updated);
-    
-    // If completed (sold), also update swine status in registry
-    if (newStatus === 'completed') {
-      const foundSwine = swineList.find(s => s.id === record.swineId || s.earTagNo === record.earTagNo);
-      if (foundSwine) {
-        storageService.updateSwineRecord({ ...foundSwine, status: 'sold', readyToSell: false });
-      }
-    }
-    
-    setTakeoffs(storageService.getTakeoffRecords());
-    onRefresh();
+  const handleUpdateStatus = async (record: SwineTakeoffRecord, newStatus: SwineTakeoffRecord['status']) => {
+    if (await saveTakeoff({...record,status:newStatus})) await onRefresh();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this take-off dispatch record?')) {
-      storageService.deleteTakeoffRecord(id);
-      setTakeoffs(storageService.getTakeoffRecords());
-      onRefresh();
-    }
+  const handleDelete = async (id: string) => {
+    if (confirm('Delete this take-off dispatch record?') && await removeTakeoff(id)) await onRefresh();
   };
 
   // Filtered takeoffs
@@ -198,6 +182,8 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
+      {cloudBusy && <p role="status">Saving dispatch…</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-stone-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-emerald-800/60 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

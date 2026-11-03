@@ -15,7 +15,9 @@
     "db:inspect": "node --import tsx scripts/inspect-database-schema.ts",
     "db:inventory": "node --import tsx scripts/generate-schema-inventory.ts",
     "db:prepare-review": "node --import tsx scripts/prepare-sql-editor-bundle.ts",
-    "db:verify-sql": "node --import tsx scripts/generate-schema-verification.ts"
+    "db:verify-sql": "node --import tsx scripts/generate-schema-verification.ts",
+    "audit:inventory": "node scripts/inventory-system.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -38,6 +40,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/express": "^4.17.21",
     "@types/google.maps": "^3.66.3",
@@ -50,6 +53,7 @@
     "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.25.0",
+    "fake-indexeddb": "^6.2.7",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
