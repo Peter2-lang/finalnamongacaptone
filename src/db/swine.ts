@@ -514,8 +514,15 @@ export function mapSwineToDb(s: any) {
     record.dob ||
     '';
 
+  // DATE columns accept an ISO calendar date, not an arbitrary display string.
+  const normalizedBirthDate = birthDate
+    ? String(birthDate).trim().slice(0, 10)
+    : null;
+  if (normalizedBirthDate && !/^\d{4}-\d{2}-\d{2}$/.test(normalizedBirthDate)) {
+    throw new Error('Birth date must use YYYY-MM-DD for the Supabase DATE column.');
+  }
   const age =
-    calculateSwineAge(birthDate);
+    calculateSwineAge(normalizedBirthDate || '');
 
   const safeDays =
     age.isValid
@@ -526,12 +533,11 @@ export function mapSwineToDb(s: any) {
             : null
         );
 
-  const safeMonths =
-    age.isValid
-      ? String(age.totalMonths)
-      : String(
-          record.ageMonths ?? ''
-        );
+  // public.swine_records.age_months is INTEGER. Preserve unknown ages as NULL.
+  const fallbackMonths = toSafeNumber(record.ageMonths, null);
+  const safeMonths = age.isValid
+    ? Math.trunc(age.totalMonths)
+    : fallbackMonths === null ? null : Math.trunc(fallbackMonths);
 
   const estimatedWeightRange =
     getEstimatedWeightRange(
@@ -679,7 +685,7 @@ export function mapSwineToDb(s: any) {
       'Ambacon',
       ),
 
-    birthDate,
+    birthDate: normalizedBirthDate,
 
     ageDays:
       safeDays,
