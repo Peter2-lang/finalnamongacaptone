@@ -40,6 +40,17 @@ test('database authentication failure is unavailable rather than an HTTP 500 cra
   assert.doesNotMatch(JSON.stringify(body), /private connection details/);
 });
 
+test('TLS failures preserve safe exact codes and omit connection details', async () => {
+  pool.connect = async () => { throw new Error('private SQL', { cause: Object.assign(new Error('postgresql://user:private-password@host/db'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' }) }); };
+  const response = await fetch(base + '/api/health');
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.database_error_kind, 'tls_error');
+  assert.equal(body.database_error_code, 'SELF_SIGNED_CERT_IN_CHAIN');
+  assert.equal(body.database_tls_reason, 'untrusted_certificate_chain');
+  assert.doesNotMatch(JSON.stringify(body), /private|postgresql:|SELECT/);
+});
+
 test('schema failure releases connection and cannot report healthy', async () => {
   let released = false;
   pool.connect = async () => ({ query: async () => { throw Object.assign(new Error('private schema'), { code: '42703' }); }, release: () => { released = true; } } as unknown as PoolClient);

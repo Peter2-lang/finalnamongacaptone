@@ -1,6 +1,7 @@
 import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
-import { getDatabasePoolConfig } from '../db/poolConfig.ts';
+import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
+import { getDatabaseConnectionInfo, getDatabasePoolConfig } from '../db/poolConfig.ts';
 import { verifyDatabaseSchema } from './databaseHealth.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { HINUNANGAN_BARANGAYS } from '../data/barangays.ts';
@@ -92,33 +93,8 @@ export function createApp() {
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   };
 
-  const getDatabaseErrorCode = (error: any): string | undefined => {
-    const code = error?.code || error?.cause?.code;
-    return typeof code === 'string' && /^(?:[0-9A-Z]{5}|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH|ECONNRESET)$/.test(code)
-      ? code
-      : undefined;
-  };
-
-  const getDatabaseErrorKind = (error: any): string => {
-    const causes: any[] = [];
-    let current = error;
-    while (current && causes.length < 4) {
-      causes.push(current);
-      current = current.cause;
-    }
-
-    const codes = causes.map(cause => String(cause.code || '')).join(' ');
-    const messages = causes.map(cause => String(cause.message || '')).join(' ').toLowerCase();
-    if (/28P01|28000/.test(codes)) return 'authentication_failed';
-    if (/ENOTFOUND|EAI_AGAIN/.test(codes)) return 'host_not_found';
-    if (/ECONNREFUSED/.test(codes)) return 'connection_refused';
-    if (/ETIMEDOUT|timeout|timed out/.test(`${codes} ${messages}`)) return 'connection_timeout';
-    if (/ECONNRESET|EHOSTUNREACH/.test(codes)) return 'network_unreachable';
-    if (/certificate|ssl|tls/.test(messages)) return 'tls_error';
-    if (/3D000/.test(codes)) return 'database_not_found';
-    if (/42501/.test(codes)) return 'permission_denied';
-    return 'connection_failed';
-  };
+  const getDatabaseErrorCode = (error: unknown) => getDatabaseDiagnostic(error).code;
+  const getDatabaseErrorKind = (error: unknown) => getDatabaseDiagnostic(error).kind;
 
   const getConfiguredDatabaseHost = (): string => {
     if (process.env.SQL_HOST?.trim()) return process.env.SQL_HOST.trim();
@@ -137,8 +113,8 @@ export function createApp() {
   // Startup must never mutate the production schema. Review migrations separately.
   const authConfigurationError = getSupabaseProjectConfigurationError();
   if (authConfigurationError) console.error('[CONFIG] supabase_configuration_invalid', { kind: authConfigurationError });
-  try { getDatabasePoolConfig(); } catch {
-    console.error('[CONFIG] database_configuration_invalid', { variable: 'DATABASE_URL' });
+  try { getDatabasePoolConfig(); } catch (error) {
+    console.error('[CONFIG] database_configuration_invalid', { ...getDatabaseDiagnostic(error), connection: getDatabaseConnectionInfo() });
   }
 
   app.use(express.json({ limit: '4mb' }));
@@ -238,6 +214,7 @@ export function createApp() {
     if (databaseProject && supabaseAuthProjectRef && databaseProject !== supabaseAuthProjectRef) configurationError = 'project_mismatch';
     let databaseErrorCode: string | undefined;
     let databaseErrorKind: string | undefined;
+    let databaseTlsReason: string | undefined;
     try {
       const client = await pool.connect();
       dbStatus = 'connected';
@@ -247,13 +224,15 @@ export function createApp() {
         dbStatus = /^(42P01|42703)$/.test(err?.code || '') ? 'schema_error' : 'error';
         databaseErrorCode = getDatabaseErrorCode(err);
         databaseErrorKind = getDatabaseErrorKind(err);
+        databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;
       } finally {
         client.release();
       }
     } catch (err: any) {
       dbStatus = 'error';
       databaseErrorCode = getDatabaseErrorCode(err);
-      databaseErrorKind = err?.code === 'CONFIGURATION_ERROR' ? 'configuration_error' : getDatabaseErrorKind(err);
+      databaseErrorKind = getDatabaseErrorKind(err);
+      databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;
     }
     let authAdminStatus: 'not_configured' | 'valid' | 'invalid' = 'not_configured';
     let authAdminError: string | undefined;
@@ -296,6 +275,7 @@ export function createApp() {
     if (!healthy) console.error('[HEALTH] dependency_check_failed', {
       database: dbStatus, code: databaseErrorCode, kind: databaseErrorKind,
       configuration: configurationError, auth: authAdminStatus,
+      tlsReason: databaseTlsReason, connection: getDatabaseConnectionInfo(),
     });
     res.set('Cache-Control', 'no-store');
     res.status(healthy ? 200 : 503).json({
@@ -307,6 +287,7 @@ export function createApp() {
       ...(configurationError ? { configuration_error: configurationError } : {}),
       ...(databaseErrorCode ? { database_error_code: databaseErrorCode } : {}),
       ...(databaseErrorKind ? { database_error_kind: databaseErrorKind } : {}),
+      ...(databaseTlsReason ? { database_tls_reason: databaseTlsReason } : {}),
       timestamp: new Date().toISOString(),
     });
   });

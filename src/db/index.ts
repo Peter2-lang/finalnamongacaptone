@@ -2,7 +2,8 @@ import { LEGAL_DOCUMENT_SCHEMA } from './legalDocuments.ts';
 import { ALL_ASF_REGULATIONS } from '../data/asfRegulationsData.ts';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { getDatabasePoolConfig } from './poolConfig.ts';
+import { getDatabaseDiagnostic } from './diagnostics.ts';
+import { getDatabaseConnectionInfo, getDatabasePoolConfig } from './poolConfig.ts';
 import * as schema from './schema.ts';
 import { INITIAL_REGISTRY_FORM_SCHEMA } from '../data/initialFormSchema.ts';
 import { toFieldKey } from '../utils/registryFieldUtils.ts';
@@ -20,7 +21,7 @@ export const createPool = () => {
   global._postgresPool = new Pool(config);
   global._isPgMem = false;
   global._postgresPool.on('error', (error: any) => {
-    console.error('[DATABASE] idle_connection_error', { code: error?.code || 'unknown' });
+    console.error('[DATABASE] idle_connection_error', { ...getDatabaseDiagnostic(error), connection: getDatabaseConnectionInfo() });
   });
   return global._postgresPool;
 };
