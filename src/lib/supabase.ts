@@ -1,3 +1,4 @@
+import { supabaseKeyMetadata } from './supabaseConfig';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL as string | undefined;
@@ -13,12 +14,13 @@ export const supabaseProjectRef = (() => {
   }
 })();
 
-export const supabase = supabaseUrl && supabasePublishableKey
-  ? createClient(supabaseUrl, supabasePublishableKey, {
+export const supabase = (() => {
+  if (!supabaseUrl || !supabasePublishableKey || supabaseKeyMetadata(supabasePublishableKey).privileged) return null;
+  try { return createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
-    })
-  : null;
+    }); } catch { console.error('Supabase browser configuration is invalid.'); return null; }
+})();

@@ -1,5 +1,7 @@
 import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
+import { getDatabasePoolConfig } from '../db/poolConfig.ts';
+import { verifyDatabaseSchema } from './databaseHealth.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { HINUNANGAN_BARANGAYS } from '../data/barangays.ts';
 import {
@@ -19,7 +21,7 @@ import { getAllUsers, getUserByAuthUserId, getUserByUsernameOrEmail, insertUserP
 import { getAllMessages, createMessage, markMessageRead, deleteMessageById } from '../db/messages.ts';
 import { getAllMedia, insertMedia, deleteMediaById } from '../db/media.ts';
 import { getStoredSystemSetting, getSystemSetting, setSystemSetting } from '../db/settings.ts';
-import { initPostgresTables, pool } from '../db/index.ts';
+import { pool } from '../db/index.ts';
 import {
   getFullRegistrySchemaFromDb,
   syncFullRegistrySchemaToDb,
@@ -41,7 +43,7 @@ import {
 } from './supabaseStorage.ts';
 import { interpretSuperAdminConfigCommand } from '../utils/configCommandInterpreter.ts';
 import { isValidPhilippinePhoneNumber, normalizePhilippinePhoneNumber, toFieldKey } from '../utils/registryFieldUtils.ts';
-import { getSupabaseAdminConfigError, getSupabaseAuthConfigStatus, supabaseAdminClient, supabaseAuthClient, supabaseAuthProjectRef } from '../lib/supabaseServer.ts';
+import { getSupabaseProjectConfigurationError, getSupabaseAdminConfigError, getSupabaseAuthConfigStatus, supabaseAdminClient, supabaseAuthClient, supabaseAuthProjectRef } from '../lib/supabaseServer.ts';
 
 export function createApp() {
   const app = express();
@@ -132,10 +134,12 @@ export function createApp() {
     }
   };
 
-  // Non-blocking background table verification
-  initPostgresTables().catch(err => {
-    console.warn('PostgreSQL table check notice:', err?.message || err);
-  });
+  // Startup must never mutate the production schema. Review migrations separately.
+  const authConfigurationError = getSupabaseProjectConfigurationError();
+  if (authConfigurationError) console.error('[CONFIG] supabase_configuration_invalid', { kind: authConfigurationError });
+  try { getDatabasePoolConfig(); } catch {
+    console.error('[CONFIG] database_configuration_invalid', { variable: 'DATABASE_URL' });
+  }
 
   app.use(express.json({ limit: '4mb' }));
   app.use(express.urlencoded({ extended: true, limit: '4mb' }));
@@ -229,17 +233,18 @@ export function createApp() {
 
   app.get(['/health', '/api/health'], async (_req, res) => {
     let dbStatus = 'disconnected';
-    let recordsCount = 0;
+    let configurationError = getSupabaseProjectConfigurationError();
+    const databaseProject = getConfiguredDatabaseProjectRef();
+    if (databaseProject && supabaseAuthProjectRef && databaseProject !== supabaseAuthProjectRef) configurationError = 'project_mismatch';
     let databaseErrorCode: string | undefined;
     let databaseErrorKind: string | undefined;
     try {
       const client = await pool.connect();
       dbStatus = 'connected';
       try {
-        const countRes = await client.query('SELECT count(*) FROM swine_records');
-        recordsCount = parseInt(countRes.rows[0]?.count || '0', 10);
+        await verifyDatabaseSchema(client);
       } catch (err: any) {
-        dbStatus = 'schema_error';
+        dbStatus = /^(42P01|42703)$/.test(err?.code || '') ? 'schema_error' : 'error';
         databaseErrorCode = getDatabaseErrorCode(err);
         databaseErrorKind = getDatabaseErrorKind(err);
       } finally {
@@ -248,7 +253,7 @@ export function createApp() {
     } catch (err: any) {
       dbStatus = 'error';
       databaseErrorCode = getDatabaseErrorCode(err);
-      databaseErrorKind = getDatabaseErrorKind(err);
+      databaseErrorKind = err?.code === 'CONFIGURATION_ERROR' ? 'configuration_error' : getDatabaseErrorKind(err);
     }
     let authAdminStatus: 'not_configured' | 'valid' | 'invalid' = 'not_configured';
     let authAdminError: string | undefined;
@@ -287,26 +292,21 @@ export function createApp() {
       authAdminError = getSupabaseAdminConfigError() || 'Supabase Auth Admin client is not initialized.';
     }
 
-    res.json({
-      status: 'ok',
+    const healthy = dbStatus === 'connected' && !configurationError && authAdminStatus === 'valid';
+    if (!healthy) console.error('[HEALTH] dependency_check_failed', {
+      database: dbStatus, code: databaseErrorCode, kind: databaseErrorKind,
+      configuration: configurationError, auth: authAdminStatus,
+    });
+    res.set('Cache-Control', 'no-store');
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'healthy' : 'unhealthy',
       service: 'hinunangan-swine-registry',
       database: dbStatus,
-      database_engine: global._isPgMem ? 'memory' : 'postgres',
-      database_host: getConfiguredDatabaseHost(),
-      database_configured: Boolean(
-        process.env.DATABASE_URL?.trim() ||
-        process.env.SUPABASE_DATABASE_URL?.trim() ||
-        process.env.POSTGRES_URL?.trim() ||
-        process.env.SQL_HOST?.trim()
-      ),
-      supabase_auth_project_ref: supabaseAuthProjectRef,
-      supabase_auth_admin_configured: Boolean(supabaseAdminClient),
-      supabase_auth_admin_status: authAdminStatus,
-      ...(authAdminError ? { supabase_auth_admin_error: authAdminError } : {}),
-      database_project_ref: getConfiguredDatabaseProjectRef(),
+      cloud: healthy ? 'online' : 'unavailable',
+      authentication: authAdminStatus === 'valid' && !configurationError ? 'available' : 'unavailable',
+      ...(configurationError ? { configuration_error: configurationError } : {}),
       ...(databaseErrorCode ? { database_error_code: databaseErrorCode } : {}),
       ...(databaseErrorKind ? { database_error_kind: databaseErrorKind } : {}),
-      swine_records_count: recordsCount,
       timestamp: new Date().toISOString(),
     });
   });
@@ -3050,8 +3050,11 @@ export function createApp() {
       error?: string;
     }> = [];
 
+    const resolvedSwineIds = new Map<string, string>();
     for (const op of operations) {
-      const { clientOperationId, operation, entity, entityId, payload } = op;
+      const { clientOperationId, operation, entity, payload } = op;
+      const originalEntityId = op.entityId;
+      const entityId = entity === 'swine' ? resolvedSwineIds.get(originalEntityId) || originalEntityId : originalEntityId;
 
       try {
         if (typeof clientOperationId !== 'string' || !clientOperationId || typeof entityId !== 'string') throw new Error('Stable operation and entity IDs are required.');
@@ -3081,6 +3084,7 @@ export function createApp() {
             }
             const replay = await getSwineRecordById(uuidForSyncOperation(`${user.userId}:${clientOperationId}`));
             if (replay) {
+              resolvedSwineIds.set(originalEntityId, replay.id);
               results.push({ clientOperationId, entityId, serverEntityId: replay.id, serverPigId: replay.pigIdTag, success: true });
               continue;
             }
@@ -3105,6 +3109,7 @@ export function createApp() {
             };
 
             const saved = await upsertSwineRecord(cleanRecord);
+            resolvedSwineIds.set(originalEntityId, saved.id);
             results.push({
               clientOperationId,
               entityId,

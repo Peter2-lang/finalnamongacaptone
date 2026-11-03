@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createBackendHealthCheck } from './backendHealth.ts';
 
 const healthResponse = (database = 'connected', kind?: string) => Response.json({
-  service: 'hinunangan-swine-registry', database, database_error_kind: kind,
+  status: 'healthy', cloud: 'online', authentication: 'available', service: 'hinunangan-swine-registry', database, database_error_kind: kind,
 });
 
 test('concurrent health checks await one current request', async () => {
@@ -41,7 +41,7 @@ test('database credential and schema failures differ from internet failures', as
   const checkCredentials = createBackendHealthCheck({ fetcher: async () => healthResponse('error', 'authentication_failed') });
   assert.match((await checkCredentials()).error || '', /database authentication failed/);
   const checkSchema = createBackendHealthCheck({ fetcher: async () => healthResponse('schema_error') });
-  assert.match((await checkSchema()).error || '', /pending Supabase migrations/);
+  assert.match((await checkSchema()).error || '', /review the schema/);
 });
 
 test('a later successful check clears a previous failure', async () => {
@@ -59,4 +59,20 @@ test('aborted and blocked requests have actionable messages', async () => {
   assert.match((await timeoutCheck()).error || '', /timed out/);
   const networkCheck = createBackendHealthCheck({ fetcher: async () => { throw new TypeError('Failed to fetch'); } });
   assert.match((await networkCheck()).error || '', /could not reach \/api\/health/);
+});
+
+
+test('503 preserves safe database diagnostics and never claims offline internet', async () => {
+  const check = createBackendHealthCheck({ fetcher: async () => Response.json({
+    service: 'hinunangan-swine-registry', status: 'unhealthy', database: 'error', database_error_kind: 'authentication_failed',
+  }, { status: 503 }) });
+  const result = await check();
+  assert.equal(result.healthy, false);
+  assert.match(result.error!, /database authentication failed/);
+  assert.doesNotMatch(result.error!, /browser is offline/);
+});
+
+test('connected database alone is insufficient for cloud health', async () => {
+  const check = createBackendHealthCheck({ fetcher: async () => Response.json({ service: 'hinunangan-swine-registry', database: 'connected' }) });
+  assert.equal((await check()).healthy, false);
 });

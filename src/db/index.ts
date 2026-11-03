@@ -1,7 +1,8 @@
 import { LEGAL_DOCUMENT_SCHEMA } from './legalDocuments.ts';
 import { ALL_ASF_REGULATIONS } from '../data/asfRegulationsData.ts';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool, PoolConfig } from 'pg';
+import { Pool } from 'pg';
+import { getDatabasePoolConfig } from './poolConfig.ts';
 import * as schema from './schema.ts';
 import { INITIAL_REGISTRY_FORM_SCHEMA } from '../data/initialFormSchema.ts';
 import { toFieldKey } from '../utils/registryFieldUtils.ts';
@@ -11,111 +12,34 @@ declare global {
   var _isPgMem: boolean | undefined;
 }
 
-/**
- * Creates the application's database connection pool.
- *
- * PRODUCTION:
- *   DATABASE_URL is REQUIRED.
- *   Supabase PostgreSQL is used.
- *
- * DEVELOPMENT:
- *   DATABASE_URL is REQUIRED; no embedded database fallback is permitted.
- */
+/** Build one pool per warm runtime. Invalid configuration is reported by health,
+ * rather than throwing while Vercel imports the function. */
 export const createPool = () => {
-  // Reuse an existing pool.
-  if (global._postgresPool) {
-    return global._postgresPool;
-  }
-
-  const databaseUrl = process.env.DATABASE_URL?.trim();
-
-  // =========================================================
-  // PRODUCTION
-  // =========================================================
-
-  if (process.env.NODE_ENV === 'production') {
-    if (!databaseUrl) {
-      throw new Error(
-        'DATABASE_URL is not configured. Add DATABASE_URL to Vercel Environment Variables.'
-      );
-    }
-
-    const poolConfig: PoolConfig = {
-      connectionString: databaseUrl,
-
-      // Supabase PostgreSQL connection.
-      // This allows the Supabase pooler certificate.
-      ssl: {
-        rejectUnauthorized: false,
-      },
-
-      // Vercel serverless should use a very small pool.
-      max: 1,
-
-      // Fail instead of hanging indefinitely.
-      connectionTimeoutMillis: 15000,
-
-      // Close idle connections after 30 seconds.
-      idleTimeoutMillis: 30000,
-    };
-
-    global._postgresPool = new Pool(poolConfig);
-    global._isPgMem = false;
-
-    global._postgresPool.on('error', (err: any) => {
-      console.error(
-        'PostgreSQL pool error:',
-        err?.message || err
-      );
-    });
-
-    return global._postgresPool;
-  }
-
-  // =========================================================
-  // LOCAL DEVELOPMENT WITH DATABASE_URL
-  // =========================================================
-
-  if (databaseUrl) {
-    const poolConfig: PoolConfig = {
-      connectionString: databaseUrl,
-
-      ssl: databaseUrl.includes('supabase')
-        ? {
-            rejectUnauthorized: false,
-          }
-        : undefined,
-
-      max: 5,
-
-      connectionTimeoutMillis: 15000,
-
-      idleTimeoutMillis: 30000,
-    };
-
-    global._postgresPool = new Pool(poolConfig);
-    global._isPgMem = false;
-
-    global._postgresPool.on('error', (err: any) => {
-      console.warn(
-        'PostgreSQL pool error:',
-        err?.message || err
-      );
-    });
-
-    return global._postgresPool;
-  }
-
-  throw new Error('DATABASE_URL is required. Configure the shared PostgreSQL database; local in-memory persistence is disabled.');
+  if (global._postgresPool) return global._postgresPool;
+  const config = getDatabasePoolConfig();
+  global._postgresPool = new Pool(config);
+  global._isPgMem = false;
+  global._postgresPool.on('error', (error: any) => {
+    console.error('[DATABASE] idle_connection_error', { code: error?.code || 'unknown' });
+  });
+  return global._postgresPool;
 };
 
-/**
- * SINGLE application database pool.
- *
- * IMPORTANT:
- * Do not declare pool or createPool again anywhere below.
- */
-export const pool = createPool();
+// A stable Pool facade also keeps Drizzle attached to the current shared pool.
+// No connection is opened (or localhost fallback attempted) during module import.
+export const pool = new Proxy(Object.create(Pool.prototype) as Pool, {
+  get(target, property, receiver) {
+    if (Object.prototype.hasOwnProperty.call(target, property)) return Reflect.get(target, property, receiver);
+    if (property === 'connect' || property === 'query') {
+      return (...args: any[]) => {
+        const activePool = createPool();
+        return activePool[property](...args);
+      };
+    }
+    if (property === 'end') return async () => { if (global._postgresPool) await global._postgresPool.end(); };
+    return Reflect.get(target, property, receiver);
+  },
+});
 
 /**
  * Drizzle database instance.
@@ -150,27 +74,7 @@ export async function updateDatabaseConnection(
       };
     }
 
-    const isRemote =
-      cleanedConnectionString.includes('supabase') ||
-      cleanedConnectionString.includes('sslmode=require') ||
-      process.env.NODE_ENV === 'production';
-
-    const newPool = new Pool({
-      connectionString: cleanedConnectionString,
-
-      ssl: isRemote
-        ? {
-            rejectUnauthorized: false,
-          }
-        : undefined,
-
-      // Keep the pool small for serverless.
-      max: 1,
-
-      connectionTimeoutMillis: 15000,
-
-      idleTimeoutMillis: 30000,
-    });
+    const newPool = new Pool(getDatabasePoolConfig({ ...process.env, DATABASE_URL: cleanedConnectionString }));
 
     // Close old PostgreSQL pool.
     if (global._postgresPool && !global._isPgMem) {
@@ -186,8 +90,7 @@ export async function updateDatabaseConnection(
 
     process.env.DATABASE_URL = cleanedConnectionString;
 
-    initialization = undefined;
-    await initPostgresTables();
+    // Schema changes are a separate, reviewed deployment operation.
 
     return {
       success: true,
@@ -230,24 +133,7 @@ export async function testDatabaseConnection(
       };
     }
 
-    const isSupabase =
-      cleanedConnectionString.includes('supabase');
-
-    testPool = new Pool({
-      connectionString: cleanedConnectionString,
-
-      ssl: isSupabase
-        ? {
-            rejectUnauthorized: false,
-          }
-        : undefined,
-
-      max: 1,
-
-      connectionTimeoutMillis: 15000,
-
-      idleTimeoutMillis: 30000,
-    });
+    testPool = new Pool(getDatabasePoolConfig({ ...process.env, DATABASE_URL: cleanedConnectionString }));
 
     const client = await testPool.connect();
 

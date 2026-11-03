@@ -1,3 +1,4 @@
+import { supabaseKeyMetadata, validateBrowserSupabaseConfig } from './supabaseConfig.ts';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const serverUrl = process.env.SUPABASE_URL?.trim();
@@ -34,16 +35,31 @@ export function getSupabaseAdminConfigError(): string | null {
     : null;
 }
 
-export const supabaseAuthClient: SupabaseClient | null = url && publishableKey
-  ? createClient(url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  : null;
+function safeCreateClient(key: string | undefined): SupabaseClient | null {
+  if (!url || !key) return null;
+  try {
+    return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  } catch {
+    console.error('[CONFIG] invalid_supabase_client_configuration');
+    return null;
+  }
+}
 
-export const supabaseAdminClient: SupabaseClient | null = url && adminKey
-  ? createClient(url, adminKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+export const supabaseAuthClient = safeCreateClient(publishableKey);
+
+export const supabaseAdminClient = safeCreateClient(adminKey);
+
+export function getSupabaseProjectConfigurationError(): string | null {
+  try {
+    const metadata = supabaseKeyMetadata(publishableKey);
+    if (metadata.privileged) return 'invalid_publishable_key';
+    if (metadata.projectRef && metadata.projectRef !== supabaseAuthProjectRef) return 'project_mismatch';
+    const urls = [serverUrl, process.env.VITE_SUPABASE_URL?.trim()].filter(Boolean);
+    if (urls.some(value => new URL(value!).protocol !== 'https:')) return 'invalid_supabase_url';
+    if (urls.length === 2 && new URL(urls[0]!).origin !== new URL(urls[1]!).origin) return 'project_mismatch';
+    validateBrowserSupabaseConfig(process.env);
+    if (!supabaseAuthClient || !supabaseAdminClient || !process.env.VITE_SUPABASE_URL?.trim() ||
+        !(process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || process.env.VITE_SUPABASE_ANON_KEY?.trim())) return 'auth_not_configured';
+    return null;
+  } catch { return 'invalid_supabase_url'; }
+}

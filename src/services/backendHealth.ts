@@ -4,6 +4,7 @@ export interface BackendHealthResult {
 }
 
 const databaseErrors: Record<string, string> = {
+  configuration_error: 'The API is reachable, but DATABASE_URL is missing or invalid in the server environment.',
   authentication_failed: 'The API is reachable, but database authentication failed. Verify DATABASE_URL in Vercel.',
   host_not_found: 'The API is reachable, but the database host could not be resolved. Verify DATABASE_URL in Vercel.',
   connection_refused: 'The API is reachable, but the database refused the connection. Check the Supabase project and pooler address.',
@@ -22,20 +23,27 @@ export function createBackendHealthCheck(options: { fetcher?: typeof fetch; time
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 25_000);
     try {
       const response = await fetcher('/api/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
-      if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      const validBody = body && typeof body === 'object' && 'service' in body && body.service === 'hinunangan-swine-registry' && 'database' in body;
+      if (!response.ok && !(response.status === 503 && validBody)) {
         const hint = response.status === 404 ? 'Verify the API entry and rewrites in the latest deployment.'
           : response.status === 401 || response.status === 403 ? 'The health endpoint should allow public access. Check API authentication routing.'
           : 'Check Vercel function logs and server environment configuration.';
         return { healthy: false, error: `Backend health check returned HTTP ${response.status}. ${hint}` };
       }
-      const body: unknown = await response.json().catch(() => null);
       if (!body || typeof body !== 'object' || !('service' in body) || body.service !== 'hinunangan-swine-registry' || !('database' in body)) {
         return { healthy: false, error: 'The health endpoint did not return the expected API JSON. Check the deployment routing; it may be serving a page instead.' };
       }
-      if (body.database === 'schema_error') return { healthy: false, error: 'The API is reachable, but the database schema check failed. Apply the pending Supabase migrations.' };
+      if (body.database === 'schema_error') return { healthy: false, error: 'The API is reachable, but the database schema check failed. Have an administrator review the schema and pending migrations before applying changes.' };
       if (body.database !== 'connected') {
         const kind = 'database_error_kind' in body && typeof body.database_error_kind === 'string' ? body.database_error_kind : '';
         return { healthy: false, error: databaseErrors[kind] || 'The API is reachable, but the database is unavailable. Check DATABASE_URL and the Supabase project status.' };
+      }
+      if ('configuration_error' in body && body.configuration_error) return { healthy: false, error: body.configuration_error === 'project_mismatch'
+        ? 'The API is reachable, but frontend, backend, and database Supabase projects do not match.'
+        : 'The API is reachable, but Supabase authentication configuration is missing or invalid.' };
+      if (!response.ok || !('status' in body) || body.status !== 'healthy' || !('cloud' in body) || body.cloud !== 'online' || !('authentication' in body) || body.authentication !== 'available') {
+        return { healthy: false, error: 'The API is reachable, but required cloud authentication checks did not succeed. Check Supabase server configuration and availability.' };
       }
       return { healthy: true, error: null };
     } catch {

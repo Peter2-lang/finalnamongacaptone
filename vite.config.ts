@@ -1,10 +1,12 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
+import { validateBrowserSupabaseConfig } from './src/lib/supabaseConfig.ts';
 import {VitePWA} from 'vite-plugin-pwa';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  validateBrowserSupabaseConfig({ ...loadEnv(mode, process.cwd(), ''), ...process.env });
   return {
     plugins: [
       react(),
@@ -19,12 +21,16 @@ export default defineConfig(() => {
           clientsClaim: true,
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [
-            /^\/api\//,
+            /^\/api(?:\/|$)/,
             /^\/assets\//,
             /^\/(?:sw|registerSW)\.js$/,
             /^\/workbox-/,
           ],
           runtimeCaching: [
+            {
+              urlPattern: ({ url }) => /^\/api(?:\/|$)/.test(url.pathname),
+              handler: 'NetworkOnly',
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

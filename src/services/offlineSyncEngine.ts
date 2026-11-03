@@ -1,3 +1,4 @@
+import { getConnectivityState } from './connectivityState.ts';
 import { createBackendHealthCheck } from './backendHealth.ts';
 /**
  * Central Offline Synchronization Engine
@@ -22,8 +23,10 @@ export interface SyncEngineStatus {
 }
 
 class OfflineSyncEngine {
-  private syncState: SyncState = 'ONLINE';
-  private isBackendReachable: boolean = true;
+  private syncState: SyncState = 'ERROR';
+  private isBackendReachable: boolean = false;
+  private healthFailures = 0;
+  private nextHealthCheckAt = 0;
   private readonly checkBackendHealth = createBackendHealthCheck();
   private lastHealthError: string | null = null;
   private isSyncInProgress: boolean = false;
@@ -74,7 +77,7 @@ class OfflineSyncEngine {
 
     // Periodic connectivity & sync loop (every 25 seconds)
     this.healthIntervalId = setInterval(() => {
-      this.checkConnectivityAndAutoSync('interval_heartbeat');
+      if (Date.now() >= this.nextHealthCheckAt) this.checkConnectivityAndAutoSync('interval_heartbeat');
     }, 25000);
 
     // Initial background sync check on boot
@@ -85,10 +88,14 @@ class OfflineSyncEngine {
 
   public getStatus(): SyncEngineStatus {
     const isSimulated = storageService.getSimulatedOffline();
-    const isOnline = typeof navigator !== 'undefined' ? (navigator.onLine && !isSimulated && this.isBackendReachable) : true;
+    const { isOnline, state } = getConnectivityState({
+      browserOnline: typeof navigator === 'undefined' || navigator.onLine,
+      simulatedOffline: isSimulated, backendReachable: this.isBackendReachable,
+      syncing: this.isSyncInProgress, state: this.syncState,
+    });
 
     return {
-      state: isOnline ? (this.isSyncInProgress ? 'SYNCING' : this.syncState) : 'OFFLINE',
+      state,
       isOnline,
       isBackendReachable: this.isBackendReachable && !isSimulated,
       pendingCount: 0, // dynamic
@@ -137,6 +144,8 @@ class OfflineSyncEngine {
     this.isBackendReachable = result.healthy && !simulated && browserOnline;
     this.lastHealthError = simulated ? 'Offline simulation is enabled. End offline simulation in Sync settings.'
       : !browserOnline ? 'Your browser is offline. Reconnect to the internet before synchronizing.' : result.error;
+    this.healthFailures = this.isBackendReachable ? 0 : this.healthFailures + 1;
+    this.nextHealthCheckAt = Date.now() + Math.min(25000 * 2 ** Math.min(this.healthFailures, 4), 300000);
     return this.isBackendReachable;
   }
 
@@ -230,25 +239,12 @@ class OfflineSyncEngine {
             continue;
           }
 
-          await indexedDbService.removeQueueItem(matchedQueue.id);
-          pushedCount++;
-
           if (matchedQueue.entity === 'swine') {
-            const localSwine = await indexedDbService.get<SwineRecord>('swineRecords', matchedQueue.entityId);
-            if (localSwine) {
-              const updatedLocal = {
-                ...localSwine,
-                id: resItem.serverEntityId || localSwine.id,
-                pigIdTag: resItem.serverPigId || localSwine.pigIdTag,
-                earTagNo: resItem.serverPigId || localSwine.earTagNo,
-                isSynced: true,
-              };
-              if (resItem.serverEntityId && resItem.serverEntityId !== matchedQueue.entityId) {
-                await indexedDbService.delete('swineRecords', matchedQueue.entityId);
-              }
-              await indexedDbService.put('swineRecords', updatedLocal);
-            }
+            await indexedDbService.acknowledgeSwineOperation(matchedQueue, resItem.serverEntityId, resItem.serverPigId);
+          } else {
+            await indexedDbService.removeQueueItem(matchedQueue.id);
           }
+          pushedCount++;
         }
         if (pushError) throw new Error(pushError);
       }
@@ -277,26 +273,9 @@ class OfflineSyncEngine {
 
       // Merge server state with local records that still have unacknowledged operations.
       pulledCount = swineRecords.length;
-      const remainingQueue = await indexedDbService.getPendingSyncQueue();
-      const pendingSwineIds = new Set(
-        remainingQueue.filter(q => q.entity === 'swine').map(q => q.entityId)
-      );
-
-      const localRecords = await indexedDbService.getAll<SwineRecord>('swineRecords');
-      const pendingLocalRecords = localRecords.filter(r => pendingSwineIds.has(r.id) || !r.isSynced);
-
-      const serverMarked = swineRecords.map((s: SwineRecord) => ({ ...s, isSynced: true }));
-
-      const mergedMap = new Map<string, SwineRecord>();
-      serverMarked.forEach((s: SwineRecord) => mergedMap.set(s.id, s));
-      pendingLocalRecords.forEach((s: SwineRecord) => mergedMap.set(s.id, s));
-
-      const finalMergedList = Array.from(mergedMap.values()).sort(
+      const finalMergedList = (await indexedDbService.mergeCloudSwineRecords<SwineRecord>(swineRecords)).sort(
         (a, b) => new Date(b.registeredAt || 0).getTime() - new Date(a.registeredAt || 0).getTime()
       );
-
-      await indexedDbService.clear('swineRecords');
-      await indexedDbService.putBatch('swineRecords', finalMergedList);
 
       storageService.saveSwineRecords(finalMergedList);
       if (typeof window !== 'undefined') {

@@ -205,7 +205,8 @@ class IndexedDbService {
       const store = tx.objectStore(storeName);
       const req = store.put(value);
 
-      req.onsuccess = () => resolve(value);
+      tx.oncomplete = () => resolve(value);
+      tx.onabort = () => reject(tx.error || new Error('IndexedDB write aborted'));
       req.onerror = () => reject(req.error);
     });
   }
@@ -221,6 +222,7 @@ class IndexedDbService {
 
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
     });
   }
 
@@ -231,7 +233,8 @@ class IndexedDbService {
       const store = tx.objectStore(storeName);
       const req = store.delete(key);
 
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
       req.onerror = () => reject(req.error);
     });
   }
@@ -243,8 +246,79 @@ class IndexedDbService {
       const store = tx.objectStore(storeName);
       const req = store.clear();
 
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
       req.onerror = () => reject(req.error);
+    });
+  }
+
+  /** Commit server acknowledgement, ID remapping and queue removal together. */
+  async acknowledgeSwineOperation(item: OfflineSyncQueueRecord, serverId?: string, serverPigId?: string): Promise<void> {
+    const db = await this.getDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['swineRecords', 'syncQueue'], 'readwrite');
+      const records = tx.objectStore('swineRecords');
+      const queue = tx.objectStore('syncQueue');
+      const localRequest = records.get(item.entityId);
+      const remappedRequest = records.get(serverId || item.entityId);
+      const queueRequest = queue.getAll();
+      let ready = 0;
+      const acknowledge = () => {
+        if (++ready !== 3) return;
+        const nextId = serverId || item.entityId;
+        const remaining = (queueRequest.result as OfflineSyncQueueRecord[]).filter(entry => entry.id !== item.id);
+        const hasNewerEdit = remaining.some(entry => entry.entity === 'swine' && (entry.entityId === item.entityId || entry.entityId === nextId));
+        const local = localRequest.result || remappedRequest.result;
+        if (local) {
+          records.put({ ...local, id: nextId, pigIdTag: serverPigId || local.pigIdTag,
+            earTagNo: serverPigId || local.earTagNo, isSynced: !hasNewerEdit });
+          if (nextId !== item.entityId) records.delete(item.entityId);
+        }
+        for (const entry of remaining) {
+          if (entry.entity !== 'swine' || entry.entityId !== item.entityId || nextId === item.entityId) continue;
+          queue.put({ ...entry, entityId: nextId, payload: { ...entry.payload, id: nextId,
+            ...(serverPigId ? { pigIdTag: serverPigId, earTagNo: serverPigId } : {}) } });
+        }
+        queue.delete(item.id);
+      };
+      localRequest.onsuccess = acknowledge;
+      remappedRequest.onsuccess = acknowledge;
+      queueRequest.onsuccess = acknowledge;
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Acknowledgement aborted; pending operation retained'));
+    });
+    this.broadcastQueueChange();
+  }
+
+  /** Merge against the current queue under one transaction so in-flight edits survive.
+   * Never clear a record store or the queue during synchronization. */
+  async mergeCloudSwineRecords<T extends { id: string; isSynced?: boolean }>(cloudRecords: T[]): Promise<T[]> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['swineRecords', 'syncQueue'], 'readwrite');
+      const records = tx.objectStore('swineRecords');
+      const localRequest = records.getAll();
+      const queueRequest = tx.objectStore('syncQueue').getAll();
+      let merged: T[] = [];
+      let ready = 0;
+      const reconcile = () => {
+        if (++ready !== 2) return;
+        const pending = new Set((queueRequest.result as OfflineSyncQueueRecord[])
+          .filter(item => item.entity === 'swine' && item.status !== 'SYNCED').map(item => item.entityId));
+        const byId = new Map(cloudRecords.map(record => [record.id, { ...record, isSynced: true } as T]));
+        for (const local of localRequest.result as T[]) {
+          if (pending.has(local.id) || !local.isSynced) byId.set(local.id, local);
+          else if (!byId.has(local.id)) records.delete(local.id);
+        }
+        merged = Array.from(byId.values());
+        for (const record of merged) records.put(record);
+      };
+      localRequest.onsuccess = reconcile;
+      queueRequest.onsuccess = reconcile;
+      tx.oncomplete = () => resolve(merged);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Cloud merge aborted; local data was preserved'));
     });
   }
 

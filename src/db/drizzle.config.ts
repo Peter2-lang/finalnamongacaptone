@@ -4,6 +4,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const databaseUrl =
+  process.env.DIRECT_URL ||
   process.env.DATABASE_URL ||
   process.env.SUPABASE_DATABASE_URL ||
   process.env.POSTGRES_URL;
