@@ -1,3 +1,4 @@
+import { successfulSchemaRows } from './testSupport/schemaFixture.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PoolClient } from 'pg';
@@ -5,7 +6,7 @@ import { verifyDatabaseSchema, getSchemaProbeFailure } from './databaseHealth.ts
 
 test('audit health uses canonical names, not legacy aliases', async () => {
   const statements: string[] = [];
-  const client = { query: async (sql: string) => { statements.push(sql); return { rows: [] }; } } as unknown as Pick<PoolClient, 'query'>;
+  const client = { query: async (sql: string) => { statements.push(sql); return { rows: successfulSchemaRows(sql) }; } } as unknown as Pick<PoolClient, 'query'>;
   await verifyDatabaseSchema(client);
   const audit = statements.find(sql => sql.includes('public."audit_logs"'))!;
   assert.match(audit, /"table_name"/);
@@ -18,7 +19,7 @@ test('audit health uses canonical names, not legacy aliases', async () => {
 test('42703 captures the exact generated SELECT and only a known missing identifier', async () => {
   const client = { query: async (sql: string) => {
     if (sql.includes('public."issued_certificates"')) throw Object.assign(new Error('column "control_number" does not exist'), { code: '42703' });
-    return { rows: [] };
+    return { rows: successfulSchemaRows(sql) };
   } } as unknown as Pick<PoolClient, 'query'>;
   await assert.rejects(verifyDatabaseSchema(client), (error: any) => {
     assert.equal(error.code, '42703');
@@ -33,7 +34,7 @@ test('42703 captures the exact generated SELECT and only a known missing identif
 test('schema identifiers are determined from PostgreSQL positions and qualified names', async () => {
   for (const style of ['position', 'qualified', 'unqualified']) {
     const client = { query: async (sql: string) => {
-      if (!sql.includes('public."media_files"')) return { rows: [] };
+      if (!sql.includes('public."media_files"')) return { rows: successfulSchemaRows(sql) };
       const error = Object.assign(new Error(style === 'qualified' ? 'column media_files.file_url does not exist' : style === 'unqualified' ? 'column "file_url" does not exist' : 'private diagnostic text'), {
         code: '42703', ...(style === 'position' ? { position: String(sql.indexOf('"file_url"') + 1) } : {}),
       });
@@ -44,4 +45,11 @@ test('schema identifiers are determined from PostgreSQL positions and qualified 
       return true;
     });
   }
+});
+
+test('missing migrated tag sequence is reported without creating it or consuming a value', async () => {
+  const queries: string[]=[];
+  const client={query:async(sql:string)=>{queries.push(sql);return {rows:sql.includes('to_regclass')?[{present:false,usable:false}]:successfulSchemaRows(sql)};}} as unknown as Pick<PoolClient,'query'>;
+  await assert.rejects(verifyDatabaseSchema(client),(error:any)=>error.code==='SCHEMA_OBJECT_MISSING');
+  assert.ok(queries.every(sql=>! /\b(?:CREATE|ALTER|DROP|nextval|setval)\b/i.test(sql)));
 });

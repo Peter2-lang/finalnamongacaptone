@@ -26,14 +26,15 @@ NODE_ENV=production npm start
 
 Use one project for the database, browser client and server clients. For Vercel use the Supavisor transaction-pooler connection on port 6543 with `sslmode=require`; its username includes the project ref. Production uses pool max 1. Drizzle transactions use transaction-scoped operations; do not add session-scoped locks or temporary tables with a transaction pooler.
 
-Apply **all** SQL files in `supabase/migrations/` in ascending numeric order, 001–012. Use migrations as the source of truth; `supabase_schema.sql` is a legacy snapshot and omits later RLS, storage and certificate/legal repairs. Never reset a database containing data.
+**Existing production databases require a reviewed catalog/history baseline before any migration.** Do not replay 001–012 or use the legacy snapshot as a repair: historical files contain incompatible layouts, data backfills and destructive compatibility operations. Runtime DDL and seeding have been removed. Use the [architecture audit and staged migration plan](docs/database-migration-architecture.md); its exact SQL proposals require approval and are outside automatic migration discovery. Never reset a database containing data. A fresh project also needs a reviewed baseline rather than an unchecked historical replay.
 
 ```sh
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push --dry-run
 # Review the dry-run before applying:
-npx supabase db push
+# Only after approval of the exact pending SQL and verified history:
+# npx supabase db push
 npx supabase db lint --linked
 ```
 
@@ -88,3 +89,5 @@ See [the audit report](docs/AUDIT.md) for findings, validation and remaining ver
 For the reproduced Vercel TypeScript import crash, bundle verification, and redeployment procedure, see [Vercel module-resolution repair](docs/vercel-module-resolution.md).
 
 For existing-database 42703 errors, run the [read-only schema inventory and reviewed repair procedure](docs/schema-drift-repair.md) before approving migrations. The nullable compatibility proposal is outside the automatic migration directory and must not be applied blindly.
+
+Database inspection: `npm run db:inventory` generates read-only SQL; `npm run db:inspect` inspects the configured catalog without applying changes. Runtime schema initialization is disabled in every environment.

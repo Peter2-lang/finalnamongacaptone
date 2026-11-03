@@ -1,3 +1,4 @@
+import { getDatabaseDiagnostic } from './diagnostics.ts';
 import { randomUUID } from 'node:crypto';
 import { db, pool } from './index.ts';
 import { barangays, farmers, swineRecords } from './schema.ts';
@@ -958,30 +959,14 @@ export async function getAllSwineRecords(
 export async function getNextAuthoritativePigIdTag(): Promise<string> {
   const currentYear = new Date().getFullYear();
   try {
-    await pool.query(`CREATE SEQUENCE IF NOT EXISTS swine_tag_seq START WITH 1 INCREMENT BY 1;`);
-    const res = await pool.query(`SELECT nextval('swine_tag_seq') as seq;`);
-    const seqNum = parseInt(res.rows[0]?.seq || '1', 10);
-    return `HIN-${currentYear}-${String(seqNum).padStart(4, '0')}`;
-  } catch (err) {
-    console.error('Sequence nextval error, using table scan fallback:', err);
-    try {
-      const maxRes = await pool.query(
-        `SELECT pig_id_tag FROM swine_records WHERE pig_id_tag LIKE $1 ORDER BY id DESC LIMIT 50;`,
-        [`HIN-${currentYear}-%`]
-      );
-      let maxNum = 0;
-      for (const row of maxRes.rows) {
-        const parts = (row.pig_id_tag || '').split('-');
-        if (parts.length >= 3) {
-          const n = parseInt(parts[2], 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
-        }
-      }
-      return `HIN-${currentYear}-${String(maxNum + 1).padStart(4, '0')}`;
-    } catch {
-      const fallbackSeq = String(Math.floor(1000 + Math.random() * 9000));
-      return `HIN-${currentYear}-${fallbackSeq}`;
-    }
+    // The sequence is created and initialized by an explicitly reviewed migration.
+    const res = await pool.query("SELECT nextval('public.swine_tag_seq'::regclass) AS seq");
+    const value = String(res.rows[0]?.seq || '');
+    if (!/^[1-9][0-9]*$/.test(value)) throw new Error('Invalid sequence result.');
+    return `HIN-${currentYear}-${value.padStart(4, '0')}`;
+  } catch (error) {
+    console.error('[DATABASE] swine_tag_allocation_failed', getDatabaseDiagnostic(error));
+    throw new Error('Swine tag allocation is unavailable. Review the sequence migration before retrying.', { cause: error });
   }
 }
 

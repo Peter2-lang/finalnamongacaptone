@@ -36,6 +36,8 @@ export function getDatabaseDiagnostic(error: unknown): { kind: string; code?: st
     queue.push(item.cause, ...(Array.isArray(item.errors) ? item.errors.slice(0, 8) : []));
   }
   const codes = errors.map(item => typeof item.code === 'string' ? item.code : '');
+  const schemaCode = codes.find(code => code === 'SCHEMA_TYPE_MISMATCH' || code === 'SCHEMA_OBJECT_MISSING');
+  if (schemaCode) return { kind: 'schema_error', code: schemaCode };
   const tlsCode = codes.find(code => Object.hasOwn(tlsReasons, code));
   if (tlsCode) return { kind: 'tls_error', code: tlsCode, tlsReason: tlsReasons[tlsCode] };
   const code = codes.find(code => Object.hasOwn(networkKinds, code) || /^[0-9A-Z]{5}$/.test(code) || code === 'CONFIGURATION_ERROR');

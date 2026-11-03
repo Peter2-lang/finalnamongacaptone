@@ -1,0 +1,25 @@
+{
+  "status": "REVIEW_REQUIRED_NOT_APPLIED",
+  "applicationOrder": [
+    {
+      "version": "014",
+      "path": "supabase/proposals/014_create_missing_runtime_tables.sql",
+      "sha256": "dfdd3f197e9128564cb205105133aa0a6dbb53c5390f20b1d419d657ebc0be57"
+    },
+    {
+      "version": "013",
+      "path": "supabase/proposals/013_runtime_column_compatibility.sql",
+      "sha256": "07263111d75bdd813cd71dda535060820940274a6354f68d743763fc287d7d27"
+    },
+    {
+      "version": "015",
+      "path": "supabase/proposals/015_create_missing_swine_tag_sequence.sql",
+      "sha256": "13947666c09b84660255fa5c2f132fdd7b0b489e036ae4f84f8372a4be85b7f4"
+    }
+  ],
+  "notes": [
+    "Proposal numbers are review IDs; the explicit dependency order creates absent runtime tables before adding compatibility columns.",
+    "After owner approval, promote to chronological migration timestamps in this order and record actual history. Never replay historical migrations blindly.",
+    "Core identifier/type/FK conversions and historical backfills are intentionally excluded pending live inventory."
+  ]
+}

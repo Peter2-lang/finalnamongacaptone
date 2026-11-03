@@ -2,27 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import type { ASFRegulatoryDocument } from '../types.ts';
 
-export const LEGAL_DOCUMENT_SCHEMA = `
-CREATE TABLE IF NOT EXISTS legal_documents (
-  id text PRIMARY KEY,
-  document jsonb NOT NULL CHECK (jsonb_typeof(document) = 'object'),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS legal_document_audit_logs (
-  id uuid PRIMARY KEY,
-  document_id text NOT NULL,
-  document_title text NOT NULL,
-  action text NOT NULL CHECK (action IN ('create','update','archive','restore','delete','import')),
-  actor_id text NOT NULL,
-  actor_name text NOT NULL,
-  actor_role text NOT NULL,
-  details text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS legal_document_audit_document_idx ON legal_document_audit_logs(document_id, created_at DESC);
-ALTER TABLE legal_documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE legal_document_audit_logs ENABLE ROW LEVEL SECURITY;
-`;
+// Table DDL belongs to versioned SQL (migration 012 and reviewed proposals).
 
 export function isLegalDocument(value: unknown): value is ASFRegulatoryDocument {
   if (!value || typeof value !== 'object') return false;

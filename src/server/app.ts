@@ -227,7 +227,7 @@ export function createApp() {
           await verifyDatabaseSchema(client);
           schemaStatus = 'ready';
         } catch (err: any) {
-          schemaStatus = /^(42P01|42703)$/.test(err?.code || '') ? 'not_ready' : 'error';
+          schemaStatus = getDatabaseErrorKind(err) === 'schema_error' ? 'not_ready' : 'error';
           databaseErrorCode = getDatabaseErrorCode(err);
           databaseErrorKind = getDatabaseErrorKind(err);
           databaseTlsReason = getDatabaseDiagnostic(err).tlsReason;

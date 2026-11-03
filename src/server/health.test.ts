@@ -1,3 +1,4 @@
+import { successfulSchemaRows } from './testSupport/schemaFixture.ts';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { once } from 'node:events';
@@ -56,7 +57,7 @@ test('schema failure is distinct from successful connectivity and identifies the
   let released = false;
   pool.connect = async () => ({ query: async (sql: string) => {
     if (sql.includes('public."issued_certificates"')) throw Object.assign(new Error('column "control_number" does not exist'), { code: '42703' });
-    return { rows: [{ '?column?': 1 }] };
+    return { rows: successfulSchemaRows(sql) };
   }, release: () => { released = true; } } as unknown as PoolClient);
   const response = await fetch(base + '/api/health');
   assert.equal(response.status, 503);
@@ -89,7 +90,7 @@ test('failed SELECT 1 reports connectivity failure without claiming a schema che
 
 test('healthy requires read-only schema probes and working auth', async () => {
   const queries: string[] = [];
-  pool.connect = async () => ({ query: async (sql: string) => { queries.push(sql); return { rows: [] }; }, release() {} } as unknown as PoolClient);
+  pool.connect = async () => ({ query: async (sql: string) => { queries.push(sql); return { rows: successfulSchemaRows(sql) }; }, release() {} } as unknown as PoolClient);
   const response = await fetch(base + '/api/health');
   assert.equal(response.status, 200);
   const body = await response.json();
@@ -99,7 +100,8 @@ test('healthy requires read-only schema probes and working auth', async () => {
   assert.equal(body.cloud, 'online');
   assert.ok(queries.length > 5);
   assert.equal(queries[0], 'SELECT 1');
-  assert.ok(queries.slice(1).every(sql => sql.startsWith('SELECT ') && sql.endsWith('LIMIT 0')));
+  assert.ok(queries.some(sql => sql.includes('pg_catalog.pg_attribute')));
+  assert.ok(queries.some(sql => sql.includes('to_regclass')));
 });
 
 test('auth outage and project mismatch cannot report cloud connected', async () => {
@@ -110,4 +112,23 @@ test('auth outage and project mismatch cannot report cloud connected', async () 
   process.env.VITE_SUPABASE_URL = 'https://different.supabase.co';
   response = await fetch(base + '/api/health');
   assert.equal((await response.json()).configuration_error, 'project_mismatch');
+});
+
+test('existing columns with incompatible ID types cannot report schema ready', async () => {
+  process.env.VITE_SUPABASE_URL = 'https://testproject.supabase.co';
+  pool.connect = async () => ({ query: async (sql: string) => {
+    const rows = successfulSchemaRows(sql) as any[];
+    if (sql.includes('pg_catalog.pg_attribute')) {
+      const swineId = rows.find(row => row.table_name==='swine_records' && row.column_name==='id');
+      swineId.data_type='text';
+    }
+    return { rows };
+  }, release() {} } as unknown as PoolClient);
+  const response = await fetch(base+'/api/health');
+  const body = await response.json();
+  assert.equal(response.status,503);
+  assert.equal(body.database,'connected');
+  assert.equal(body.schema,'not_ready');
+  assert.equal(body.database_error_code,'SCHEMA_TYPE_MISMATCH');
+  assert.deepEqual(body.schema_error,{table:'swine_records',column:'id'});
 });

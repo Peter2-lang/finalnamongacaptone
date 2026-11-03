@@ -1,5 +1,10 @@
 import type { PoolClient } from 'pg';
 import { getRequiredDatabaseTables } from '../db/requirements.ts';
+import { COLUMN_CATALOG_SQL, DatabaseTypeCompatibilityError, verifyDatabaseTypes } from '../db/catalog.ts';
+
+export const SEQUENCE_READINESS_SQL = `SELECT c.relkind='S' AS present,
+  CASE WHEN c.relkind='S' THEN has_sequence_privilege(c.oid,'USAGE') OR has_sequence_privilege(c.oid,'UPDATE') ELSE false END AS usable
+FROM (SELECT to_regclass('public.swine_tag_seq') AS oid) s LEFT JOIN pg_class c ON c.oid=s.oid`;
 
 export class DatabaseSchemaProbeError extends Error {
   readonly code?: string;
@@ -26,6 +31,7 @@ export class DatabaseSchemaProbeError extends Error {
 }
 
 export function getSchemaProbeFailure(error: unknown) {
+  if (error instanceof DatabaseTypeCompatibilityError) return { table: error.table, column: error.column, statement: COLUMN_CATALOG_SQL, expectedType: error.expectedType, actualType: error.actualType };
   if (!(error instanceof DatabaseSchemaProbeError)) return undefined;
   return { table: error.table, column: error.column, statement: error.statement };
 }
@@ -36,5 +42,11 @@ export async function verifyDatabaseSchema(client: Pick<PoolClient, 'query'>): P
     const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const statement = `SELECT ${columns.map(quote).join(', ')} FROM public.${quote(table)} LIMIT 0`;
     try { await client.query(statement); } catch (error) { throw new DatabaseSchemaProbeError(error, table, columns, statement); }
+  }
+  await verifyDatabaseTypes(client);
+  const { rows } = await client.query(SEQUENCE_READINESS_SQL);
+  if (!rows[0]?.present || !rows[0]?.usable) {
+    const code = rows[0]?.present ? '42501' : 'SCHEMA_OBJECT_MISSING';
+    throw new DatabaseSchemaProbeError(Object.assign(new Error('Required sequence is missing or inaccessible.'), { code }), 'swine_tag_seq', [], SEQUENCE_READINESS_SQL);
   }
 }
