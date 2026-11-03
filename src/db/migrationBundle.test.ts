@@ -14,7 +14,7 @@ test('SQL Editor preparation is offline, ordered, role-bound and atomically rece
   execFileSync(process.execPath,['--import','tsx','scripts/prepare-sql-editor-bundle.ts','--backend-role','registry_review_backend','--out-dir',dir],{stdio:'pipe',env:{PATH:process.env.PATH}});
   const manifest=JSON.parse(readFileSync(join(dir,'manifest.json'),'utf8'));
   assert.equal(manifest.status,'REVIEW_REQUIRED_NOT_APPLIED');
-  assert.deepEqual(manifest.migrations.map((item:any)=>item.version),['202611030000','202611030001','202611030002','202611030003','202611030004','202611030005']);
+  assert.deepEqual(manifest.migrations.map((item:any)=>item.version),['202611030000','202611030001','202611030002','202611030003','202611030004','202611030005','202611040006']);
   for(const item of manifest.migrations) {
    const sql=readFileSync(join(dir,item.file),'utf8');
    const payload=readFileSync(item.source,'utf8').replace("'REPLACE_WITH_VERIFIED_BACKEND_ROLE'","'registry_review_backend'");
@@ -27,9 +27,14 @@ test('SQL Editor preparation is offline, ordered, role-bound and atomically rece
   }
   assert.equal(manifest.productionCatalogVerified,false);
   for(const item of manifest.checks)assert.equal(hash(readFileSync(join(dir,item.file),'utf8')),item.fileSha256);
-  const fix=readFileSync(join(dir,manifest.migrations.at(-1).file),'utf8');
-  assert.match(fix,/ADD COLUMN IF NOT EXISTS biosecurity_warning boolean/);
-  assert.doesNotMatch(fix,/biosecurity_warning boolean\s+(?:NOT NULL|DEFAULT)/i);
+  const biosecurity=readFileSync(join(dir,manifest.migrations.find((item:any)=>item.version==='202611030005').file),'utf8');
+  assert.match(biosecurity,/ADD COLUMN IF NOT EXISTS biosecurity_warning boolean/);
+  assert.doesNotMatch(biosecurity,/biosecurity_warning boolean\s+(?:NOT NULL|DEFAULT)/i);
+  const users=readFileSync(join(dir,manifest.migrations.find((item:any)=>item.version==='202611040006').file),'utf8');
+  assert.match(users,/ADD COLUMN IF NOT EXISTS permissions JSONB/);
+  assert.match(users,/ADD COLUMN IF NOT EXISTS phone TEXT/);
+  assert.match(users,/ADD COLUMN IF NOT EXISTS status TEXT/);
+  assert.doesNotMatch(users,/UPDATE public\.users|ALTER COLUMN .* TYPE/i);
   const preflight=readFileSync(join(dir,'checks/00_preflight.sql'),'utf8');
   assert.match(preflight,/BEGIN TRANSACTION READ ONLY/);
   assert.match(preflight,/registry_review.expected_database',''/);
