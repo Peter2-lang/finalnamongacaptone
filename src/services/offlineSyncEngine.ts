@@ -1,3 +1,4 @@
+import { createBackendHealthCheck } from './backendHealth.ts';
 /**
  * Central Offline Synchronization Engine
  * Handles automatic network detection, background syncing, topological queue execution,
@@ -23,7 +24,8 @@ export interface SyncEngineStatus {
 class OfflineSyncEngine {
   private syncState: SyncState = 'ONLINE';
   private isBackendReachable: boolean = true;
-  private isCheckingHealth: boolean = false;
+  private readonly checkBackendHealth = createBackendHealthCheck();
+  private lastHealthError: string | null = null;
   private isSyncInProgress: boolean = false;
   private lastSyncedAt: string | null = null;
   private lastError: string | null = null;
@@ -91,7 +93,7 @@ class OfflineSyncEngine {
       isBackendReachable: this.isBackendReachable && !isSimulated,
       pendingCount: 0, // dynamic
       lastSyncedAt: this.lastSyncedAt,
-      lastError: this.lastError,
+      lastError: this.lastHealthError || this.lastError,
       syncedThisSession: this.syncedCountSession,
     };
   }
@@ -114,6 +116,9 @@ class OfflineSyncEngine {
 
   private setOfflineState(reason?: string) {
     this.syncState = 'OFFLINE';
+    this.isBackendReachable = false;
+    if (reason === 'Browser offline event triggered') this.lastHealthError = 'Your browser is offline. Reconnect to the internet before synchronizing.';
+    if (reason === 'Simulated offline active') this.lastHealthError = 'Offline simulation is enabled. End offline simulation in Sync settings.';
     this.broadcastStatus();
   }
 
@@ -121,51 +126,18 @@ class OfflineSyncEngine {
    * Health Ping to check actual backend reachability
    */
   public async pingBackend(): Promise<boolean> {
-    if (storageService.getSimulatedOffline()) {
-      this.isBackendReachable = false;
-      return false;
-    }
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.isBackendReachable = false;
-      return false;
-    }
-
-    if (this.isCheckingHealth) return this.isBackendReachable;
-    this.isCheckingHealth = true;
-
-    const attemptPing = async (timeoutMs: number): Promise<boolean> => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-        const res = await fetch('/api/health', {
-          method: 'GET',
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-        clearTimeout(timeoutId);
-
-        return res.ok;
-      } catch {
-        return false;
-      }
-    };
-
-    try {
-      // First attempt with 10s timeout (allows for serverless cold start)
-      let ok = await attemptPing(10000);
-      if (!ok && typeof navigator !== 'undefined' && navigator.onLine && !storageService.getSimulatedOffline()) {
-        // Quick retry with 12s timeout
-        await new Promise(r => setTimeout(r, 1200));
-        ok = await attemptPing(12000);
-      }
-
-      this.isBackendReachable = ok;
-      return ok;
-    } finally {
-      this.isCheckingHealth = false;
-    }
+    const result = storageService.getSimulatedOffline()
+      ? { healthy: false, error: 'Offline simulation is enabled. End offline simulation in Sync settings.' }
+      : typeof navigator !== 'undefined' && !navigator.onLine
+        ? { healthy: false, error: 'Your browser is offline. Reconnect to the internet before synchronizing.' }
+        : await this.checkBackendHealth();
+    // A user may switch simulation on while the network request is still pending.
+    const simulated = storageService.getSimulatedOffline();
+    const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    this.isBackendReachable = result.healthy && !simulated && browserOnline;
+    this.lastHealthError = simulated ? 'Offline simulation is enabled. End offline simulation in Sync settings.'
+      : !browserOnline ? 'Your browser is offline. Reconnect to the internet before synchronizing.' : result.error;
+    return this.isBackendReachable;
   }
 
   public async checkConnectivityAndAutoSync(triggerSource: string = 'manual'): Promise<void> {
@@ -175,7 +147,7 @@ class OfflineSyncEngine {
       if (pending.length > 0) {
         await this.syncNow();
       } else {
-        this.syncState = 'SYNCED';
+        this.syncState = this.lastError ? 'ERROR' : this.lastSyncedAt ? 'SYNCED' : 'ONLINE';
         this.broadcastStatus(0);
       }
     } else {
@@ -192,9 +164,11 @@ class OfflineSyncEngine {
     if (!isReachable) {
       this.syncState = 'OFFLINE';
       this.broadcastStatus();
-      return { success: false, pushedCount: 0, pulledCount: 0, error: 'No internet connection or server unreachable.' };
+      return { success: false, pushedCount: 0, pulledCount: 0, error: this.lastHealthError || 'The backend health check failed. Open /api/health to inspect the deployment.' };
     }
 
+    // Another caller may have started syncing while both awaited the shared health check.
+    if (this.isSyncInProgress) return { success: false, pushedCount: 0, pulledCount: 0, error: 'Sync already in progress' };
     this.isSyncInProgress = true;
     this.syncState = 'SYNCING';
     this.broadcastStatus();

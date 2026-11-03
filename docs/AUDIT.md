@@ -81,3 +81,9 @@ The fix adds source-controlled api/index.ts, points the function settings at tha
 ## Production dependency installation repair
 
 A subsequent hosted build reached npm run build but failed with `vite: command not found`. Vite and esbuild are devDependencies; plain npm ci can omit them when NODE_ENV=production or npm's omit configuration excludes dev dependencies. The hosted install configuration was missing an explicit build-tool inclusion flag. vercel.json now uses `npm ci --include=dev`, which takes precedence over dev omission without changing production runtime mode. A regression check guards that install command.
+
+## Connectivity and synchronization diagnostics repair
+
+The sync engine previously returned an old reachability flag when another health check was in progress. It also discarded HTTP failures/timeouts, treated HTTP 200 as healthy even when JSON reported a database failure, and kept a stale manual connectivity error visible after recovery. Concurrent sync callers could both start after waiting for health.
+
+Health checks now share the current promise, validate the expected API JSON and database status, allow 25 seconds for a cold start/database probe, and surface safe HTTP, routing, schema, credential, timeout or network messages without echoing server diagnostics. The Auth Admin health probe is bounded to three seconds. Sync start is checked again after health completes, and a healthy ping alone no longer claims a completed synchronization. The banner distinguishes a cloud connection issue from browser offline/simulation mode and stops displaying a resolved health error. Regression checks cover shared checks, recovery, HTTP failures, HTML fallback, database/schema failures and timeouts. The live deployment still needs diagnosis using its public URL or function logs.

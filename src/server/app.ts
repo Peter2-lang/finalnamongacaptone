@@ -253,8 +253,14 @@ export function createApp() {
     let authAdminStatus: 'not_configured' | 'valid' | 'invalid' = 'not_configured';
     let authAdminError: string | undefined;
     if (supabaseAdminClient) {
+      let authProbeTimeout: ReturnType<typeof setTimeout> | undefined;
       try {
-        const { error } = await supabaseAdminClient.auth.admin.listUsers({ page: 1, perPage: 1 });
+        const { error } = await Promise.race([
+          supabaseAdminClient.auth.admin.listUsers({ page: 1, perPage: 1 }),
+          new Promise<never>((_resolve, reject) => {
+            authProbeTimeout = setTimeout(() => reject(new Error('Supabase Auth health check timed out.')), 3000);
+          }),
+        ]);
         if (error) {
           authAdminStatus = 'invalid';
           authAdminError = sanitizeSupabaseDiagnostic(error.message);
@@ -274,6 +280,8 @@ export function createApp() {
           status: error?.status,
           message: authAdminError,
         });
+      } finally {
+        clearTimeout(authProbeTimeout);
       }
     } else {
       authAdminError = getSupabaseAdminConfigError() || 'Supabase Auth Admin client is not initialized.';

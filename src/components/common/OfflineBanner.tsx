@@ -13,6 +13,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
     isBrowserOnline,
     isBackendReachable,
     isSimulatedOffline,
+    syncState,
     pendingQueueCount,
     lastError,
     forceSync,
@@ -27,8 +28,8 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
   const [settingsPosition, setSettingsPosition] = useState({ top: 12, right: 12, maxHeight: 240 });
 
   const cloudIsReachable = isBrowserOnline && isBackendReachable && !isSimulatedOffline;
-  const visibleError = syncError || (!cloudIsReachable ? lastError : null);
-  const statusMessage = syncError
+  const visibleError = !cloudIsReachable || syncState === 'ERROR' ? lastError || syncError : null;
+  const statusMessage = visibleError
     ? 'Synchronization did not complete. See the error below.'
     : syncSuccess
       ? 'Cloud synchronization completed.'
@@ -100,7 +101,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
           )}
           <div className="min-w-0">
             <p className="break-words font-semibold leading-snug">
-              {cloudIsReachable ? 'Cloud connection active' : t('offline_banner_active', 'Offline mode active')}
+              {cloudIsReachable ? 'Cloud connection active' : isBrowserOnline && !isSimulatedOffline ? 'Cloud connection issue' : t('offline_banner_active', 'Offline mode active')}
               <span className="font-normal"> — {statusMessage}</span>
             </p>
             {visibleError && (
@@ -118,7 +119,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {(!cloudIsReachable || pendingQueueCount > 0) && (
+          {(!cloudIsReachable || pendingQueueCount > 0 || syncState === 'ERROR') && (
             <button
               type="button"
               onClick={handleSync}
