@@ -1,4 +1,6 @@
 import { getConnectivityState } from './connectivityState.ts';
+import { supabase } from '../lib/supabase.ts';
+import { getSyncSessionToken } from './syncAuth.ts';
 import { createBackendHealthCheck } from './backendHealth.ts';
 /**
  * Central Offline Synchronization Engine
@@ -49,6 +51,11 @@ class OfflineSyncEngine {
       }
       this.broadcastStatus();
     }).catch(() => {});
+
+    // Retry saved offline operations when a verified user profile is set.
+    window.addEventListener('da_auth_profile_changed', () => {
+      if (storageService.getCurrentUser()) void this.checkConnectivityAndAutoSync('profile_signed_in');
+    });
 
     // Listen to browser network events
     window.addEventListener('online', () => {
@@ -186,18 +193,18 @@ class OfflineSyncEngine {
     let pulledCount = 0;
 
     try {
+      // Do not upload device-local operations without an authenticated profile.
+      const sessionToken = await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
       // -------------------------------------------------------------
       // STEP 1: PUSH PENDING OPERATIONS QUEUE
       // -------------------------------------------------------------
       const pendingQueue = await indexedDbService.getPendingSyncQueue();
 
       if (pendingQueue.length > 0) {
-        const user = storageService.getCurrentUser();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionToken}`,
         };
-        const sessionToken = storageService.getSessionToken();
-        if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
 
         const pushPayload = {
           operations: pendingQueue.map(item => ({
@@ -252,10 +259,12 @@ class OfflineSyncEngine {
       // -------------------------------------------------------------
       // STEP 2: PULL AUTHORITATIVE SERVER DATA
       // -------------------------------------------------------------
-      const user = storageService.getCurrentUser();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const sessionToken = storageService.getSessionToken();
-      if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+      // Refresh again before pull because uploads may have taken time.
+      const pullToken = await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${pullToken}`,
+      };
 
       const pullRes = await fetch('/api/sync/pull', { method: 'GET', headers });
       if (!pullRes.ok) {
