@@ -65,6 +65,7 @@ const fullTemplate: CertificateTemplate = {
 
 let rows = [legacyRow];
 let templateQueryError: NodeJS.ErrnoException | null = null;
+let legacySettings: unknown = null;
 const queries: string[] = [];
 const client = {
   async query(text: string, values: unknown[] = []) {
@@ -73,6 +74,7 @@ const client = {
       if (templateQueryError) throw templateQueryError;
       return { rows };
     }
+    if (text.includes("SELECT value FROM public.system_settings")) return { rows: legacySettings === null ? [] : [{value:legacySettings}] };
     if (text.includes('SELECT id FROM public.barangays')) {
       return { rows: [{ id: 'barangay-ambacon' }] };
     }
@@ -215,6 +217,13 @@ await assert.rejects(
 );
 rows = [];
 assert.deepEqual(await getCertificateTemplates(), [], 'returns a genuine empty list when the query succeeds with no rows');
+legacySettings = [fullTemplate];
+queries.length = 0;
+assert.deepEqual(await getCertificateTemplates(), [fullTemplate], 'legacy saved templates remain readable without a data migration');
+assert.ok(queries.every(query => !/\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|BEGIN)\b/i.test(query)), 'loading templates never migrates or deletes stored settings');
+assert.deepEqual(legacySettings, [fullTemplate], 'legacy settings remain unchanged');
+legacySettings = null;
+
 
 const schemaDefinition = [
   readFileSync(new URL('../../supabase/migrations/001_create_full_registry_schema.sql', import.meta.url), 'utf8'),

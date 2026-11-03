@@ -1,3 +1,4 @@
+import { resolveSwineReadFilters, agentMayReadSwine } from './swineReadScope.ts';
 import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
 import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
@@ -1157,8 +1158,7 @@ export function createApp() {
     const search = req.query.search as string;
     const status = req.query.status as string;
     const farmerId = req.query.farmerId as string | undefined;
-    const readyToSell = req.query.readyToSell !== undefined ? req.query.readyToSell === 'true' : (user.isAgent ? true : undefined);
-    const isArchived = req.query.isArchived !== undefined ? req.query.isArchived === 'true' : false;
+    const {readyToSell,isArchived} = resolveSwineReadFilters(user.isAgent,req.query.readyToSell,req.query.isArchived);
     const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
     const perPage = req.query.per_page || req.query.perPage ? parseInt((req.query.per_page || req.query.perPage) as string, 10) : undefined;
 
@@ -1237,6 +1237,8 @@ export function createApp() {
       if (!swine) {
         return res.status(404).json({ success: false, error: 'Swine record not found.' });
       }
+
+      if (user.isAgent && !agentMayReadSwine(swine)) return res.status(403).json({ success:false,error:'Agent accounts may only view active ready-to-sell records.' });
 
       if (!user.isAdmin && !user.isAgent) {
         const matchId = Boolean(swine.barangay_id && user.barangayId && swine.barangay_id === user.barangayId);
@@ -1797,27 +1799,9 @@ export function createApp() {
     asfZone: (row.metadata?.riskLevel || 'green').toUpperCase(),
   });
 
-  const seedBarangaysWhenEmpty = async () => {
-    const existing = await pool.query('SELECT id FROM barangays LIMIT 1');
-    if (existing.rows.length > 0) return;
-    for (const barangay of HINUNANGAN_BARANGAYS) {
-      const metadata = {
-        riskLevel: barangay.defaultRiskLevel,
-        focalPerson: barangay.focalPersonName,
-        focalPersonName: barangay.focalPersonName,
-        contactNo: barangay.contactNumber,
-        isUrban: barangay.isUrban,
-      };
-      await pool.query(
-        'INSERT INTO barangays (code, name, municipality, latitude, longitude, is_active, metadata) VALUES ($1, $2, $3, $4, $5, TRUE, $6::jsonb) ON CONFLICT (code) DO NOTHING',
-        [barangay.code, barangay.name, 'Hinunangan', barangay.latitude, barangay.longitude, JSON.stringify(metadata)]
-      );
-    }
-  };
-
+  // Reference data is installed only through separately approved migrations.
   app.get('/api/barangays', async (_req, res) => {
     try {
-      await seedBarangaysWhenEmpty();
       const barangayResult = await pool.query('SELECT * FROM barangays WHERE is_active = TRUE ORDER BY name');
       const { records } = await getAllSwineRecords();
 

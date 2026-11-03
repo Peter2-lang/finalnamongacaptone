@@ -27,3 +27,8 @@ test('catalog detects legacy swine/audit identities and reports constraint metad
   assert.equal(swine.primaryKey,true);
   assert.equal(swine.actualType,'text');
 });
+
+test('generated and identity columns are not falsely treated as missing insert values',()=>{
+ const base={table_name:'users',column_name:'legacy_identity',data_type:'bigint',not_null:true,column_default:null,primary_key:false};
+ assert.deepEqual(findUnmodeledRequiredColumns([{...base,identity_kind:'d'},{...base,generated_kind:'s'}]),[]);
+});

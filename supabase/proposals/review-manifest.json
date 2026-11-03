@@ -25,6 +25,11 @@
       "version": "202611030004",
       "path": "supabase/review/202611030004_scope_new_objects_to_backend.sql",
       "sha256": "15503681d2f99cc6844cc5225f3cea8a96fb8747766f659dffd5fb778cb0c18e"
+    },
+    {
+      "version": "202611030005",
+      "path": "supabase/review/202611030005_add_verified_biosecurity_warning.sql",
+      "sha256": "14f4b34c05247df535025bb7c165f79d28b13463d19c780959dbca758e15dbe6"
     }
   ],
   "notes": [

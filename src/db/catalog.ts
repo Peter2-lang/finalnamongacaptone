@@ -3,7 +3,7 @@ import { getRequiredDatabaseColumns } from './requirements.ts';
 
 export const COLUMN_CATALOG_SQL = `SELECT c.relname AS table_name, a.attname AS column_name,
   pg_catalog.format_type(a.atttypid,a.atttypmod) AS data_type,
-  a.attnotnull AS not_null, pg_get_expr(d.adbin,d.adrelid) AS column_default,
+  a.attnotnull AS not_null, a.attidentity AS identity_kind, a.attgenerated AS generated_kind, pg_get_expr(d.adbin,d.adrelid) AS column_default,
   EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) AS primary_key
 FROM pg_catalog.pg_attribute a
 JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
@@ -12,7 +12,7 @@ LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
 WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m') AND a.attnum>0 AND NOT a.attisdropped
 ORDER BY c.relname,a.attnum`;
 
-export interface CatalogColumn { table_name: string; column_name: string; data_type: string; not_null: boolean; column_default: string | null; primary_key: boolean }
+export interface CatalogColumn { table_name: string; column_name: string; data_type: string; not_null: boolean; column_default: string | null; primary_key: boolean; identity_kind?: string; generated_kind?: string }
 
 export function normalizePostgresType(type: string): string {
   const value = type.toLowerCase().replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
@@ -41,7 +41,7 @@ export function findUnmodeledRequiredColumns(actual: CatalogColumn[]) {
   const contract = getRequiredDatabaseColumns();
   const tables = new Set(contract.map(item => item.table));
   const columns = new Set(contract.map(item => `${item.table}.${item.column}`));
-  return actual.filter(column => tables.has(column.table_name) && !columns.has(`${column.table_name}.${column.column_name}`) && column.not_null && column.column_default === null)
+  return actual.filter(column => tables.has(column.table_name) && !columns.has(`${column.table_name}.${column.column_name}`) && column.not_null && column.column_default === null && !column.identity_kind && !column.generated_kind)
     .map(column => ({ table: column.table_name, column: column.column_name, actualType: column.data_type, reason: 'mandatory_column_not_written_by_current_contract' }));
 }
 

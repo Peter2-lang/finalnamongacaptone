@@ -1,3 +1,5 @@
+> Historical investigation below. The current production response and complete pending catalog review are recorded in [production-schema-repair-report.md](production-schema-repair-report.md). On 2026-11-03 the endpoint confirmed missing `swine_records.biosecurity_warning`; older observations below are not current catalog proof.
+
 # Schema mismatch investigation and reviewed repair proposal
 
 ## Exact failing SQL and affected code

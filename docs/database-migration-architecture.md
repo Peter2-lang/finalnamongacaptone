@@ -51,7 +51,7 @@ These checks establish read/type/object compatibility, not permission to modify 
 
 The current canonical, timestamped SQL Editor bundle and deployment procedure are documented in [supabase-sql-editor-deployment.md](supabase-sql-editor-deployment.md). Source payloads live in `supabase/review/`, outside the automatic migration directory. The old proposals 013/014/015 are compatibility symlinks to the same payloads; they are not additional migrations to execute. The source manifest records hashes, while the offline bundle renderer adds atomic private receipts and a verified backend role.
 
-Run stages 202611030000 through 202611030004 in order only after review. They establish a private checksum ledger, create absent auxiliary tables, add four confirmed nullable compatibility columns, create an absent tag sequence, then scope new-object access to the verified server role. Existing tables and their security policies remain unchanged. No startup, build, or health check applies these files. Never replay historical migrations 001–012 to repair a populated database.
+Run stages 202611030000 through 202611030005 in order only after review. They establish a private checksum ledger, create absent auxiliary tables, add four confirmed nullable compatibility columns, create an absent tag sequence, then scope new-object access to the verified server role. Existing tables and their security policies remain unchanged. No startup, build, or health check applies these files. Never replay historical migrations 001–012 to repair a populated database.
 
 ## Complete production migration plan
 
@@ -87,4 +87,6 @@ Changed application areas: `src/db/index.ts`, `legalDocuments.ts`, `swine.ts`, `
 
 ## Current SQL Editor bundle
 
-The offline `db:prepare-review` command emits five ordered files with atomic SHA-256 receipts in a private `registry_migrations` schema. This ledger does not impersonate Supabase CLI or Drizzle history. New-object policies are scoped to a verified server PostgreSQL role and preserve the Express authentication/RBAC boundary; browser-role inheritance is refused. The SQL Editor integration harness additionally tests restricted audit grants, receipt idempotency and checksum drift rejection. See the linked deployment procedure for current gates and exact files.
+The offline `db:prepare-review` command emits six ordered files with atomic SHA-256 receipts in a private `registry_migrations` schema. This ledger does not impersonate Supabase CLI or Drizzle history. New-object policies are scoped to a verified server PostgreSQL role and preserve the Express authentication/RBAC boundary; browser-role inheritance is refused. The SQL Editor integration harness additionally tests restricted audit grants, receipt idempotency and checksum drift rejection. See the linked deployment procedure for current gates and exact files.
+
+The latest verified production finding, appended version 005 and blocked catalog/type decisions are detailed in [production-schema-repair-report.md](production-schema-repair-report.md). No production migration has been executed.

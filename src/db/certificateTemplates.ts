@@ -157,22 +157,13 @@ export async function getCertificateTemplates(): Promise<CertificateTemplate[]> 
         : [];
     if (templates.length === 0) return [];
 
-    await client.query('BEGIN');
-    for (const template of templates) {
-      await upsertTemplate(client, {
-        ...template,
-        documentType: typeof template.documentType === 'string' && template.documentType.trim()
-          ? template.documentType
-          : 'Barangay Certification',
-      }, { role: 'super_admin', assignedBarangay: '', isAdmin: true });
-    }
-    await client.query("DELETE FROM public.system_settings WHERE key = 'certificate_templates'");
-    const migratedTemplates = await readStoredTemplates(client);
-    await client.query('COMMIT');
-    return migratedTemplates;
-  } catch (error) {
-    try { await client.query('ROLLBACK'); } catch { /* transaction may not have started */ }
-    throw error;
+    // Read-through compatibility only. Moving these saved configurations belongs
+    // to an independently reviewed data migration, never a GET request.
+    if (!Array.isArray(templates) || templates.some(template =>
+      !template || typeof template !== 'object' || !template.id || !template.name ||
+      typeof template.bodyTemplate !== 'string' || !template.bodyTemplate.trim()
+    )) throw new Error('Saved legacy certificate templates require operator review.');
+    return templates as CertificateTemplate[];
   } finally {
     client.release();
   }

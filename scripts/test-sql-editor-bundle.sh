@@ -6,7 +6,7 @@ swine_docker() { env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS -u DOCKER_TL
 [[ "$(swine_docker inspect --format '{{.HostConfig.NetworkMode}}' "$container_name")" == none ]] || { echo 'Networking must be disabled.' >&2; exit 1; }
 bundle_dir=$(mktemp -d /tmp/swine-editor-bundle.XXXXXX)
 trap 'rm -rf "$bundle_dir"' EXIT
-node --import tsx scripts/prepare-sql-editor-bundle.ts --backend-role registry_review_backend --out-dir "$bundle_dir"
+node --import tsx scripts/prepare-sql-editor-bundle.ts --backend-role registry_review_backend --database-name fresh_editor_review --backup-reference isolated-fixture-only --out-dir "$bundle_dir"
 # First verify legacy IDs, data and existing-policy preservation on mixed layouts.
 bash scripts/test-migration-architecture.sh "$container_name"
 swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres <<'SQL'
@@ -19,7 +19,7 @@ for run in 1 2; do
 done
 swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres <<'SQL'
 DO $$ BEGIN
- IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>5 THEN RAISE EXCEPTION 'Receipts missing or duplicated'; END IF;
+ IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>6 THEN RAISE EXCEPTION 'Receipts missing or duplicated'; END IF;
  IF has_table_privilege('registry_review_backend','public.messages','SELECT') THEN RAISE EXCEPTION 'Existing table grants were broadened'; END IF;
  IF has_schema_privilege('anon','registry_migrations','USAGE') THEN RAISE EXCEPTION 'Ledger schema exposed to browser'; END IF;
  IF EXISTS(SELECT 1 FROM pg_policy WHERE polrelid='public.media_files'::regclass AND 0=ANY(polroles)) THEN RAISE EXCEPTION 'A new policy applies to PUBLIC'; END IF;
@@ -54,7 +54,7 @@ END $$;
 RESET ROLE;
 DO $$ BEGIN
  IF has_table_privilege('anon','public.messages','SELECT') OR has_table_privilege('authenticated','public.messages','SELECT') THEN RAISE EXCEPTION 'New messages are exposed to browser roles'; END IF;
- IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>5 THEN RAISE EXCEPTION 'Fresh receipts missing'; END IF;
+ IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>6 THEN RAISE EXCEPTION 'Fresh receipts missing'; END IF;
  IF (SELECT last_value FROM swine_tag_seq)<>901 OR (SELECT is_called FROM swine_tag_seq) THEN RAISE EXCEPTION 'Migration reset or consumed tag sequence'; END IF;
  IF NOT EXISTS(SELECT 1 FROM swine_records WHERE id='original-id') THEN RAISE EXCEPTION 'Existing identity was modified'; END IF;
 END $$;
@@ -77,6 +77,39 @@ if swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres
  echo 'Expected checksum drift rejection.' >&2; exit 1
 fi
 swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d fresh_editor_review <<'SQL'
-DO $$ BEGIN IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>5 THEN RAISE EXCEPTION 'Receipt history changed after rejected drift'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM registry_migrations.applied_migrations)<>6 THEN RAISE EXCEPTION 'Receipt history changed after rejected drift'; END IF; END $$;
 SELECT 'PASS: checksum drift rejected without overwriting history' AS result;
 SQL
+
+# Confirm the production-specific additive fix preserves unknown assessments.
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d fresh_editor_review <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM swine_records WHERE biosecurity_warning IS NOT NULL) THEN RAISE EXCEPTION 'Unknown historical assessment was fabricated'; END IF;
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='swine_records' AND column_name='biosecurity_warning' AND (is_nullable<>'YES' OR column_default IS NOT NULL)) THEN RAISE EXCEPTION 'Assessment was assigned a default or made mandatory'; END IF;
+END $$;
+SQL
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d fresh_editor_review < "$bundle_dir/checks/00_preflight.sql"
+# Full verification must reject this deliberately incomplete fixture.
+if swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d fresh_editor_review < "$bundle_dir/checks/07_verify_schema.sql"; then
+ echo 'Expected incomplete-schema verification rejection.' >&2; exit 1
+fi
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+CREATE DATABASE incompatible_editor_review;
+CREATE DATABASE complete_contract_review;
+SQL
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d incompatible_editor_review <<'SQL'
+CREATE TABLE swine_records(id text PRIMARY KEY,biosecurity_warning integer);
+INSERT INTO swine_records VALUES ('unchanged',1);
+SQL
+if swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d incompatible_editor_review < supabase/review/202611030005_add_verified_biosecurity_warning.sql; then
+ echo 'Expected incompatible assessment type rejection.' >&2; exit 1
+fi
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d incompatible_editor_review <<'SQL'
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM swine_records WHERE id='unchanged' AND biosecurity_warning=1) THEN RAISE EXCEPTION 'Rejected migration changed data'; END IF; END $$;
+SQL
+# Build only a disposable contract fixture, never a deployable bootstrap migration.
+node --import tsx scripts/generate-contract-test-fixture.ts > "$bundle_dir/fixture.sql"
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d complete_contract_review < "$bundle_dir/fixture.sql"
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d complete_contract_review < "$bundle_dir/checks/07_verify_schema.sql"
+swine_docker exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d fresh_editor_review < supabase/diagnostics/04_migration_history_and_role.sql
+printf '%s\n' 'PASS: nullable unknown assessments preserved, incompatible types rejected, preflight and full contract verification validated'

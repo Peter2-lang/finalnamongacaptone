@@ -177,7 +177,7 @@ ORDER BY r.table_name, r.column_name;
 -- Exact PostgreSQL types, PK participation and defaults for compatibility review.
 SELECT c.relname AS table_name, a.attname AS column_name,
   pg_catalog.format_type(a.atttypid,a.atttypmod) AS data_type,
-  a.attnotnull AS not_null, pg_get_expr(d.adbin,d.adrelid) AS column_default,
+  a.attnotnull AS not_null, a.attidentity AS identity_kind, a.attgenerated AS generated_kind, pg_get_expr(d.adbin,d.adrelid) AS column_default,
   EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) AS primary_key
 FROM pg_catalog.pg_attribute a
 JOIN pg_catalog.pg_class c ON c.oid=a.attrelid

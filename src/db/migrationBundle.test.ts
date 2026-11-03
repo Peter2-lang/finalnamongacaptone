@@ -14,7 +14,7 @@ test('SQL Editor preparation is offline, ordered, role-bound and atomically rece
   execFileSync(process.execPath,['--import','tsx','scripts/prepare-sql-editor-bundle.ts','--backend-role','registry_review_backend','--out-dir',dir],{stdio:'pipe',env:{PATH:process.env.PATH}});
   const manifest=JSON.parse(readFileSync(join(dir,'manifest.json'),'utf8'));
   assert.equal(manifest.status,'REVIEW_REQUIRED_NOT_APPLIED');
-  assert.deepEqual(manifest.migrations.map((item:any)=>item.version),['202611030000','202611030001','202611030002','202611030003','202611030004']);
+  assert.deepEqual(manifest.migrations.map((item:any)=>item.version),['202611030000','202611030001','202611030002','202611030003','202611030004','202611030005']);
   for(const item of manifest.migrations) {
    const sql=readFileSync(join(dir,item.file),'utf8');
    const payload=readFileSync(item.source,'utf8').replace("'REPLACE_WITH_VERIFIED_BACKEND_ROLE'","'registry_review_backend'");
@@ -25,7 +25,19 @@ test('SQL Editor preparation is offline, ordered, role-bound and atomically rece
    assert.ok(sql.indexOf('INSERT INTO registry_migrations.applied_migrations')<sql.lastIndexOf('COMMIT;'));
    assert.doesNotMatch(sql,/\b(?:TRUNCATE|DROP TABLE|ALTER COLUMN .* TYPE)\b/i);
   }
-  const policy=readFileSync(join(dir,manifest.migrations.at(-1).file),'utf8');
+  assert.equal(manifest.productionCatalogVerified,false);
+  for(const item of manifest.checks)assert.equal(hash(readFileSync(join(dir,item.file),'utf8')),item.fileSha256);
+  const fix=readFileSync(join(dir,manifest.migrations.at(-1).file),'utf8');
+  assert.match(fix,/ADD COLUMN IF NOT EXISTS biosecurity_warning boolean/);
+  assert.doesNotMatch(fix,/biosecurity_warning boolean\s+(?:NOT NULL|DEFAULT)/i);
+  const preflight=readFileSync(join(dir,'checks/00_preflight.sql'),'utf8');
+  assert.match(preflight,/BEGIN TRANSACTION READ ONLY/);
+  assert.match(preflight,/registry_review.expected_database',''/);
+  const verification=readFileSync(join(dir,'checks/07_verify_schema.sql'),'utf8');
+  assert.match(verification,/Write contract blocked/);
+  assert.match(verification,/indimmediate/);
+  assert.doesNotMatch(verification,/\b(?:INSERT INTO|UPDATE public|CREATE TABLE|nextval\()\b/i);
+  const policy=readFileSync(join(dir,manifest.migrations.find((item:any)=>item.version==='202611030004').file),'utf8');
   assert.match(policy,/set_config\('registry_migration.backend_role','registry_review_backend'/);
   assert.match(policy,/pg_has_role/);
   assert.match(policy,/obj_description/);
