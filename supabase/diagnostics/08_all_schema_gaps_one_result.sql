@@ -127,13 +127,13 @@ WITH required(table_name,column_name,expected_type,required_by,expected_not_null
   ('signatories', 'signature_image_url', 'text', 'src/db/certificateTemplates.ts', NULL, NULL, NULL, NULL),
   ('swine_records', 'actual_weight_kg', 'text', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'age_days', 'integer', 'src/db/schema.ts', false, false, false, NULL),
-  ('swine_records', 'age_months', 'text', 'src/db/schema.ts', false, false, false, NULL),
+  ('swine_records', 'age_months', 'integer', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'asf_zone', 'text', 'src/db/schema.ts', true, false, true, '"RED"'),
   ('swine_records', 'barangay', 'text', 'src/db/schema.ts', true, false, false, NULL),
   ('swine_records', 'biosecurity_warning', 'boolean', 'src/db/schema.ts', true, false, true, 'false'),
-  ('swine_records', 'birth_date', 'text', 'src/db/schema.ts', false, false, false, NULL),
+  ('swine_records', 'birth_date', 'date', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'computed_pig_id', 'text', 'src/db/schema.ts', true, false, false, NULL),
-  ('swine_records', 'created_at', 'timestamp', 'src/db/schema.ts', false, false, true, 'now()'),
+  ('swine_records', 'created_at', 'timestamp with time zone', 'src/db/schema.ts', false, false, true, 'now()'),
   ('swine_records', 'custom_fields', 'jsonb', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'ear_tag_no', 'text', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'estimated_weight_kg', 'text', 'src/db/schema.ts', false, false, false, NULL),
@@ -146,7 +146,7 @@ WITH required(table_name,column_name,expected_type,required_by,expected_not_null
   ('swine_records', 'is_archived', 'boolean', 'src/db/schema.ts', true, false, true, 'false'),
   ('swine_records', 'photo_url', 'text', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'pig_id_tag', 'text', 'src/db/schema.ts', false, false, false, NULL),
-  ('swine_records', 'price_estimate', 'text', 'src/db/schema.ts', false, false, false, NULL),
+  ('swine_records', 'price_estimate', 'numeric', 'src/db/schema.ts', false, false, false, NULL),
   ('swine_records', 'ready_to_sell', 'boolean', 'src/db/schema.ts', true, false, true, 'false'),
   ('swine_records', 'registered_at', 'text', 'src/db/schema.ts', true, false, false, NULL),
   ('swine_records', 'status', 'text', 'src/db/schema.ts', true, false, true, '"HEALTHY"'),
@@ -154,7 +154,7 @@ WITH required(table_name,column_name,expected_type,required_by,expected_not_null
   ('system_settings', 'id', 'uuid', 'src/db/schema.ts', true, true, true, 'gen_random_uuid()'),
   ('system_settings', 'setting_key', 'text', 'src/db/schema.ts', true, false, false, NULL),
   ('system_settings', 'setting_value', 'jsonb', 'src/db/schema.ts', true, false, true, '{}'),
-  ('system_settings', 'updated_at', 'timestamp', 'src/db/schema.ts', false, false, true, 'now()'),
+  ('system_settings', 'updated_at', 'timestamp with time zone', 'src/db/schema.ts', false, false, true, 'now()'),
   ('users', 'active', 'boolean', 'src/db/schema.ts', true, false, true, 'true'),
   ('users', 'assigned_barangay', 'text', 'src/db/schema.ts', false, false, false, NULL),
   ('users', 'auth_user_id', 'uuid', 'src/db/schema.ts', false, false, false, NULL),
@@ -185,25 +185,25 @@ classified AS (
   WHEN table_oid IS NULL THEN 'MISSING_TABLE'
   WHEN actual_type IS NULL THEN 'MISSING_COLUMN'
   WHEN (
-    CASE lower(regexp_replace(expected_type,'\\([^)]*\\)','','g'))
+    CASE lower(trim(split_part(expected_type,'(',1)))
      WHEN 'int4' THEN 'integer'
      WHEN 'bool' THEN 'boolean'
      WHEN 'timestamp without time zone' THEN 'timestamp'
      WHEN 'timestamp with time zone' THEN 'timestamptz'
-     ELSE lower(regexp_replace(expected_type,'\\([^)]*\\)','','g'))
+     ELSE lower(trim(split_part(expected_type,'(',1)))
     END
   ) IS DISTINCT FROM (
-    CASE lower(regexp_replace(actual_type,'\\([^)]*\\)','','g'))
+    CASE lower(trim(split_part(actual_type,'(',1)))
      WHEN 'int4' THEN 'integer'
      WHEN 'bool' THEN 'boolean'
      WHEN 'timestamp without time zone' THEN 'timestamp'
      WHEN 'timestamp with time zone' THEN 'timestamptz'
      WHEN 'character varying' THEN 'text'
-     ELSE lower(regexp_replace(actual_type,'\\([^)]*\\)','','g'))
+     ELSE lower(trim(split_part(actual_type,'(',1)))
     END
   ) AND NOT (
-    lower(regexp_replace(expected_type,'\\([^)]*\\)','','g')) IN ('text','character varying')
-    AND lower(regexp_replace(actual_type,'\\([^)]*\\)','','g')) IN ('text','character varying')
+    lower(trim(split_part(expected_type,'(',1))) IN ('text','character varying')
+    AND lower(trim(split_part(actual_type,'(',1))) IN ('text','character varying')
   ) THEN 'TYPE_MISMATCH'
   ELSE 'OK' END AS issue
  FROM observed
