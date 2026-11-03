@@ -1,3 +1,4 @@
+import { useApiSettings } from '../../services/apiSettings.ts';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   APIProvider,
@@ -121,6 +122,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   targetSwineId,
   onSwitchToLeaflet,
 }) => {
+  const { settings: apiSettings, error: settingsError, loading: settingsLoading } = useApiSettings();
   // Determine if current user is strictly a Focal Person (Admin has FULL UNRESTRICTED ACCESS to all 40 barangays)
   const isFocal = (currentRole === 'focal' || currentUser?.role === 'focal') && currentUser?.role !== 'admin' && currentRole !== 'admin';
   const assignedBarangay = isFocal
@@ -410,6 +412,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       setTargetZoom(14);
     }
   };
+
+  if (settingsLoading) return <div role="status" className="p-6">Loading map configuration…</div>;
+  if (!apiSettings.googleMapsKey) {
+    return <div role="status" className="p-6 rounded-xl bg-amber-50 text-amber-900">Google Maps is not configured. Ask an administrator to configure the Maps key in API settings. {onSwitchToLeaflet && <button onClick={onSwitchToLeaflet} className="underline">Use Leaflet</button>}</div>;
+  }
 
   return (
     <div className="relative w-full h-[min(66dvh,720px)] min-h-[320px] overflow-hidden rounded-2xl border border-stone-200 bg-stone-900 shadow-xl select-none md:h-[min(76dvh,900px)] 2xl:h-[min(82dvh,1100px)]">
@@ -740,8 +747,9 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
         </div>
       )}
 
+      {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{settingsError}</p>}
       {/* Main Google Maps Viewport */}
-      <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}>
+      <APIProvider apiKey={apiSettings.googleMapsKey} onError={() => { if (apiSettings.quotaDefenseEnabled) onSwitchToLeaflet?.(); }}>
         <GoogleMap
           mapId={import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}

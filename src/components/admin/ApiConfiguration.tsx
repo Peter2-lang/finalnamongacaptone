@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { loadApiSettings, saveApiSettings } from '../../services/apiSettings.ts';
+import React, { useState, useEffect } from 'react';
 import {
   Server,
   Key,
@@ -20,25 +21,23 @@ import { storageService } from '../../services/storageService';
 
 export const ApiConfiguration: React.FC = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState(() => {
-    return localStorage.getItem('da_api_base_url') || window.location.origin;
+    return window.location.origin;
   });
   const [googleMapsKey, setGoogleMapsKey] = useState(() => {
-    return localStorage.getItem('da_google_maps_api_key') || 'AIzaSy' + '...configured';
+    return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   });
   const [tileServerUrl, setTileServerUrl] = useState(() => {
     return (
-      localStorage.getItem('da_tile_server_url') ||
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
     );
   });
   const [satelliteTileUrl, setSatelliteTileUrl] = useState(() => {
     return (
-      localStorage.getItem('da_satellite_tile_url') ||
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     );
   });
   const [quotaDefenseEnabled, setQuotaDefenseEnabled] = useState(() => {
-    return localStorage.getItem('da_quota_defense_enabled') !== 'false';
+    return true;
   });
 
   const [pingStatus, setPingStatus] = useState<{
@@ -55,14 +54,16 @@ export const ApiConfiguration: React.FC = () => {
     setIsPinging(true);
     const start = performance.now();
     try {
-      const res = await fetch('/api/settings?key=system_branding');
+      const res = await fetch('/api/health');
+      const health = await res.json().catch(() => null);
+      if (!res.ok || health?.database !== 'connected') throw new Error('The backend database is unavailable.');
       const latency = Math.round(performance.now() - start);
       if (res.ok) {
         setPingStatus({
           tested: true,
           success: true,
           latencyMs: latency,
-          message: `Connected successfully (${latency}ms) — All REST endpoints operational`,
+          message: `Connected successfully (${latency}ms) — Health endpoint reachable`,
         });
       } else {
         setPingStatus({
@@ -85,21 +86,29 @@ export const ApiConfiguration: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    localStorage.setItem('da_api_base_url', apiBaseUrl);
-    localStorage.setItem('da_google_maps_api_key', googleMapsKey);
-    localStorage.setItem('da_tile_server_url', tileServerUrl);
-    localStorage.setItem('da_satellite_tile_url', satelliteTileUrl);
-    localStorage.setItem('da_quota_defense_enabled', String(quotaDefenseEnabled));
+  useEffect(() => {
+    loadApiSettings().then(settings => {
+      setApiBaseUrl(settings.apiBaseUrl);
+      setGoogleMapsKey(settings.googleMapsKey);
+      setTileServerUrl(settings.tileServerUrl);
+      setSatelliteTileUrl(settings.satelliteTileUrl);
+      setQuotaDefenseEnabled(settings.quotaDefenseEnabled);
+    }).catch(error => window.alert(error instanceof Error ? error.message : 'Unable to load API settings.'));
+  }, []);
 
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleSave = async () => {
+    try {
+      await saveApiSettings({ apiBaseUrl, googleMapsKey, tileServerUrl, satelliteTileUrl, quotaDefenseEnabled });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'Unable to save API settings.'); }
   };
-
-  const handleCopyToken = () => {
-    navigator.clipboard.writeText('da_hinunangan_live_token_' + Date.now());
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+  const handleCopyToken = async () => {
+    try {
+      await navigator.clipboard.writeText('Supabase Auth');
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch { window.alert('Clipboard access is unavailable.'); }
   };
 
   return (
@@ -277,12 +286,11 @@ export const ApiConfiguration: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    const sample = 'AIzaSy' + Math.random().toString(36).substring(2, 10).toUpperCase();
-                    setGoogleMapsKey(sample);
+                    window.open('https://console.cloud.google.com/google/maps-apis/credentials', '_blank', 'noopener,noreferrer');
                   }}
                   className="absolute right-2 top-2 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 px-2 py-0.5 rounded bg-emerald-50 cursor-pointer"
                 >
-                  Generate
+                  Configure
                 </button>
               </div>
             </div>
@@ -316,7 +324,7 @@ export const ApiConfiguration: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-stone-900">Security Credentials & Tokens</h3>
-                <p className="text-[11px] text-stone-500">Mobile agent offline verification token</p>
+                <p className="text-[11px] text-stone-500">Verified session authentication</p>
               </div>
             </div>
           </div>
@@ -324,13 +332,13 @@ export const ApiConfiguration: React.FC = () => {
           <div className="space-y-3 text-xs">
             <div>
               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                Municipal Master Authorization Token
+                Session provider
               </label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   readOnly
-                  value="da_hinunangan_auth_sec_v2_9f81a7b"
+                  value="Supabase Auth"
                   className="flex-1 px-3 py-2 rounded-xl border border-stone-200 bg-stone-50 font-mono text-[11px] text-stone-600 select-all"
                 />
                 <button
@@ -347,7 +355,7 @@ export const ApiConfiguration: React.FC = () => {
             <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700 mt-0.5" />
               <span>
-                These credentials grant system-wide synchronization privileges. Never share the Master Authorization Token with non-administrative personnel.
+                Supabase manages session access. Sign in to synchronize records within your assigned role and barangay.
               </span>
             </div>
           </div>

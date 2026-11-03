@@ -1,3 +1,4 @@
+import { useApiSettings } from '../../services/apiSettings.ts';
 import React, { Component, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   MapPin,
@@ -163,6 +164,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   targetSwineId,
   onSwitchToGoogle,
 }) => {
+  const { settings: apiSettings } = useApiSettings();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -240,14 +242,14 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // Tile layer URL definitions
   const tileLayers = {
     street: {
-      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      url: apiSettings.tileServerUrl,
       options: {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, DA Hinunangan GIS',
       },
     },
     satellite: {
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      url: apiSettings.satelliteTileUrl,
       options: {
         maxZoom: 19,
         attribution: 'Tiles &copy; Esri &mdash; Hinunangan Satellite Imagery',
@@ -440,7 +442,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     }
     const currentConfig = tileLayers[mapMode];
     tileLayerRef.current = L.tileLayer(currentConfig.url, currentConfig.options).addTo(mapInstanceRef.current);
-  }, [mapMode]);
+  }, [mapMode, apiSettings.tileServerUrl, apiSettings.satelliteTileUrl]);
 
   // Handle clicking a barangay polygon
   const handleBarangayClick = useCallback((name: string) => {

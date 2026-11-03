@@ -21,10 +21,7 @@ export function formatTranslation(
   params?: Record<string, string | number>
 ): string {
   if (!params) return template;
-  return Object.entries(params).reduce((acc, [key, val]) => {
-    const valStr = String(val);
-    return acc
-      .replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), valStr)
-      .replace(new RegExp(`\\{${key}\\}`, 'g'), valStr);
-  }, template);
+  return template.replace(/\{\{?([^{}]+)\}?\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match,
+  );
 }

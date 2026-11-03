@@ -307,9 +307,11 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
   };
 
   const handlePublish = async () => {
-    await masterConfigService.publishConfig('Super Admin', publishSummary);
-    setIsPublishModalOpen(false);
-    if (onRefresh) onRefresh();
+    try {
+      await masterConfigService.publishConfig('Super Admin', publishSummary);
+      setIsPublishModalOpen(false);
+      if (onRefresh) onRefresh();
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'Unable to publish configuration.'); }
   };
 
   const handleDiscard = () => {
@@ -329,7 +331,8 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
 
   const handleRestoreVersion = async (vNum: number) => {
     if (window.confirm(`Are you sure you want to rollback the entire system to Version v${vNum}?`)) {
-      await masterConfigService.restoreVersion(vNum, 'Super Admin');
+      try { await masterConfigService.restoreVersion(vNum, 'Super Admin'); }
+      catch (error) { window.alert(error instanceof Error ? error.message : 'Unable to restore configuration.'); return; }
       setDraftConfig(masterConfigService.getDraftConfig());
       setPublishedConfig(masterConfigService.getConfig());
       if (onRefresh) onRefresh();

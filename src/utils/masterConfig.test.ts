@@ -1,6 +1,7 @@
 import { interpretSuperAdminConfigCommand } from './configCommandInterpreter';
 import { DEFAULT_MASTER_CONFIG } from '../data/defaultMasterConfig';
-import { masterConfigService } from '../services/masterConfigService';
+import { MasterConfigService } from '../services/masterConfigService';
+const masterConfigService = new MasterConfigService(async <T>() => ({ success: true }) as T);
 
 let totalTests = 0;
 let passedTests = 0;
