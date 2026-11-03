@@ -2,24 +2,35 @@
   "status": "REVIEW_REQUIRED_NOT_APPLIED",
   "applicationOrder": [
     {
-      "version": "014",
-      "path": "supabase/proposals/014_create_missing_runtime_tables.sql",
-      "sha256": "dfdd3f197e9128564cb205105133aa0a6dbb53c5390f20b1d419d657ebc0be57"
+      "version": "202611030000",
+      "path": "supabase/review/202611030000_create_private_migration_receipts.sql",
+      "sha256": "ae9eebda5fc399d77c83f218c4fa99a49e61f233c4e99848c38c11db9e5cea39"
     },
     {
-      "version": "013",
-      "path": "supabase/proposals/013_runtime_column_compatibility.sql",
+      "version": "202611030001",
+      "path": "supabase/review/202611030001_create_missing_runtime_tables.sql",
+      "sha256": "3463daa56c32cc2ea4b3da21c363694661801a31fd5f5f31d64f2c02a4a10c9c"
+    },
+    {
+      "version": "202611030002",
+      "path": "supabase/review/202611030002_add_confirmed_runtime_columns.sql",
       "sha256": "07263111d75bdd813cd71dda535060820940274a6354f68d743763fc287d7d27"
     },
     {
-      "version": "015",
-      "path": "supabase/proposals/015_create_missing_swine_tag_sequence.sql",
-      "sha256": "13947666c09b84660255fa5c2f132fdd7b0b489e036ae4f84f8372a4be85b7f4"
+      "version": "202611030003",
+      "path": "supabase/review/202611030003_create_missing_tag_sequence.sql",
+      "sha256": "14ffe82ea9c87bb8013ddeb1f3d7209bd8642a484412834298345705308cfec8"
+    },
+    {
+      "version": "202611030004",
+      "path": "supabase/review/202611030004_scope_new_objects_to_backend.sql",
+      "sha256": "15503681d2f99cc6844cc5225f3cea8a96fb8747766f659dffd5fb778cb0c18e"
     }
   ],
   "notes": [
-    "Proposal numbers are review IDs; the explicit dependency order creates absent runtime tables before adding compatibility columns.",
-    "After owner approval, promote to chronological migration timestamps in this order and record actual history. Never replay historical migrations blindly.",
-    "Core identifier/type/FK conversions and historical backfills are intentionally excluded pending live inventory."
+    "Canonical review payloads are timestamp-ordered. Old 013/014/015 proposal paths are symlink aliases, not separate SQL sources.",
+    "Use npm run db:prepare-review -- --backend-role VERIFIED_ROLE to render the deployment files and atomic private receipts.",
+    "Only manually executed generated SQL records migration receipts. SQL Editor runs do not update Supabase CLI or Drizzle history automatically.",
+    "No primary-key type conversions or historical backfills are authorized."
   ]
 }

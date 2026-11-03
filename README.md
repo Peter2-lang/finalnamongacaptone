@@ -90,4 +90,4 @@ For the reproduced Vercel TypeScript import crash, bundle verification, and rede
 
 For existing-database 42703 errors, run the [read-only schema inventory and reviewed repair procedure](docs/schema-drift-repair.md) before approving migrations. The nullable compatibility proposal is outside the automatic migration directory and must not be applied blindly.
 
-Database inspection: `npm run db:inventory` generates read-only SQL; `npm run db:inspect` inspects the configured catalog without applying changes. Runtime schema initialization is disabled in every environment.
+Database inspection: `npm run db:inventory` generates read-only SQL; `npm run db:inspect` inspects the configured catalog without applying changes. Runtime schema initialization is disabled in every environment. For the current incomplete-schema repair, follow the [ordered SQL Editor deployment procedure](docs/supabase-sql-editor-deployment.md). `npm run db:prepare-review -- --backend-role YOUR_VERIFIED_BACKEND_ROLE` generates review files and checksum receipts offline; it never applies SQL.

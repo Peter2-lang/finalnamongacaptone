@@ -13,7 +13,8 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "build:backend": "node scripts/build-backend.mjs",
     "db:inspect": "node --import tsx scripts/inspect-database-schema.ts",
-    "db:inventory": "node --import tsx scripts/generate-schema-inventory.ts"
+    "db:inventory": "node --import tsx scripts/generate-schema-inventory.ts",
+    "db:prepare-review": "node --import tsx scripts/prepare-sql-editor-bundle.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
