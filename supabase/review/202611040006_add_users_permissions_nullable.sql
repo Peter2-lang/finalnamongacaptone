@@ -1,39 +1,56 @@
--- REVIEW-ONLY targeted schema repair for the observed SQLSTATE 42703.
--- Run manually in the correct Supabase SQL Editor only after a backup,
--- schema inventory and approval. This file is NOT auto-applied.
--- No existing rows, IDs, policies, roles or authentication links are changed.
+-- Reviewed additive repair for the THREE confirmed missing users columns.
+-- Does not touch authentication mappings, user IDs, roles or permissions policies.
+-- Operator: run manually in the correct Supabase SQL Editor after backup.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 
 DO $preflight$
-DECLARE existing_type text;
+DECLARE item record; actual text;
 BEGIN
   IF to_regclass('public.users') IS NULL THEN
-    RAISE EXCEPTION 'Missing public.users; do not create a replacement users table.';
+    RAISE EXCEPTION 'public.users is missing; stop rather than create a replacement.';
   END IF;
-  SELECT pg_catalog.format_type(a.atttypid, a.atttypmod)
-    INTO existing_type
-  FROM pg_catalog.pg_attribute a
-  WHERE a.attrelid = 'public.users'::regclass
-    AND a.attname = 'permissions'
-    AND a.attnum > 0 AND NOT a.attisdropped;
-  IF existing_type IS NOT NULL AND existing_type <> 'jsonb' THEN
-    RAISE EXCEPTION 'public.users.permissions exists with incompatible type %, expected jsonb.', existing_type;
-  END IF;
+  FOR item IN
+    SELECT * FROM (VALUES
+      ('permissions','jsonb'),
+      ('phone','text'),
+      ('status','text')
+    ) AS expected(column_name, data_type)
+  LOOP
+    SELECT pg_catalog.format_type(a.atttypid, a.atttypmod)
+      INTO actual
+    FROM pg_catalog.pg_attribute a
+    WHERE a.attrelid = 'public.users'::regclass
+      AND a.attname = item.column_name
+      AND a.attnum > 0 AND NOT a.attisdropped;
+    IF actual IS NOT NULL AND actual <> item.data_type THEN
+      RAISE EXCEPTION 'public.users.% has %, expected %; migration cancelled.',
+        item.column_name, actual, item.data_type;
+    END IF;
+  END LOOP;
 END
 $preflight$;
 
--- A new profile receives NO custom permissions unless the server explicitly
--- authorizes them. NULL existing values are retained, not guessed/backfilled.
 ALTER TABLE public.users
-  ADD COLUMN IF NOT EXISTS permissions jsonb DEFAULT '[]'::jsonb;
+  ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS status TEXT;
 
+-- No backfills. Existing status remains NULL: an unknown account state must
+-- not be converted into 'active'. An existing admin must verify and map their
+-- own account statuses from the authoritative identity/role source.
 COMMIT;
 
--- Check all users permissions shapes without exposing account data.
-SELECT
-  COUNT(*) AS total_profiles,
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND table_name='users'
+  AND column_name IN ('permissions','phone','status')
+ORDER BY column_name;
+
+SELECT COUNT(*) AS total_users,
+  COUNT(*) FILTER (WHERE status IS NULL) AS requires_status_review,
   COUNT(*) FILTER (WHERE permissions IS NULL) AS null_permissions,
-  COUNT(*) FILTER (WHERE permissions IS NOT NULL AND jsonb_typeof(permissions) <> 'array') AS invalid_permission_shapes
+  COUNT(*) FILTER (WHERE permissions IS NOT NULL AND jsonb_typeof(permissions) <> 'array') AS invalid_permissions
 FROM public.users;
