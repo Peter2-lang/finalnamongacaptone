@@ -15,3 +15,11 @@ test('Vercel can discover its configured function before the application build',
   }
   assert.equal(manifest.scripts.build.includes('--outfile=api/index.js'), false);
 });
+
+
+test('Vercel installs build tools even with production dependency defaults', () => {
+  const config = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
+  const command = config.installCommand.trim().split(/\s+/);
+  assert.deepEqual(command.slice(0, 2), ['npm', 'ci']);
+  assert.ok(command.includes('--include=dev'), 'production installs must explicitly include build-time dependencies');
+});

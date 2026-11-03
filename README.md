@@ -64,7 +64,9 @@ Optional `SUPABASE_LANDING_MEDIA_BUCKET` overrides the default public bucket. Ne
 
 ## Vercel deployment
 
-Project settings: Framework **Vite** (or Other), install **npm ci**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets `/api/index`, backed by source-controlled `api/index.ts`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
+Project settings: Framework **Vite** (or Other), install **npm ci --include=dev**, build **npm run build**, output **dist**, Node **22.x**. Function routing targets `/api/index`, backed by source-controlled `api/index.ts`; static files are excluded from the SPA fallback. The function has a 60-second duration setting and 1024 MB memory setting for non-Fluid deployments; verify actual memory in the dashboard if Fluid Compute manages it. PDF/Excel rendering primarily runs in the browser. Load-test chatbot/export workloads before production approval.
+
+The install command must include `--include=dev`: Vite, esbuild and the Vite plugins are build-time devDependencies. Plain `npm ci` can omit them when `NODE_ENV=production` or npm is configured to omit dev dependencies, causing `vite: command not found`. Keep `NODE_ENV=production` for deployment; explicitly install the build tools before building. See [npm ci configuration](https://docs.npmjs.com/cli/v10/commands/npm-ci/).
 
 Vercel limits function request/response payloads to 4.5 MB. Express JSON is limited to 4 MB. Image clients obtain a scoped signed upload ticket, upload bytes directly to Supabase Storage, and submit metadata for server-side image validation. Keep large spreadsheet import batches under the JSON limit. See [Vercel limits](https://vercel.com/docs/functions/limitations).
 

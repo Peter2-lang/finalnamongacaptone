@@ -77,3 +77,7 @@ No live values were written. Run the dry-run, review pending migrations, apply, 
 The first remote build of 10a9afa failed with `[unused_function]`: vercel.json referenced api/index.js, but that ignored artifact did not exist when Vercel validated function patterns before running npm run build. The earlier local build checks did not cover that pre-build validation phase.
 
 The fix adds source-controlled api/index.ts, points the function settings at that source file, rewrites /api/* to the extensionless /api/index route, and removes generation of a competing api/index.js. Vercel handles TypeScript compilation/bundling. A regression check verifies that the configured entry exists independently of the build command. A real remote redeploy is still required to verify the hosted build.
+
+## Production dependency installation repair
+
+A subsequent hosted build reached npm run build but failed with `vite: command not found`. Vite and esbuild are devDependencies; plain npm ci can omit them when NODE_ENV=production or npm's omit configuration excludes dev dependencies. The hosted install configuration was missing an explicit build-tool inclusion flag. vercel.json now uses `npm ci --include=dev`, which takes precedence over dev omission without changing production runtime mode. A regression check guards that install command.
