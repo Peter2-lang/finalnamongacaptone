@@ -1,0 +1,158 @@
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey(),
+  uid: text('uid').notNull().unique(),
+  email: text('email').notNull(),
+  name: text('name'),
+  role: text('role').notNull().default('focal'),
+  assignedBarangay: text('assigned_barangay'),
+  phone: text('phone'),
+  authUserId: uuid('auth_user_id'),
+  active: boolean('active').notNull().default(true),
+  isActive: boolean('is_active').notNull().default(true),
+  permissions: jsonb('permissions').notNull().default([]),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const barangays = pgTable('barangays', {
+  id: uuid('id').primaryKey(),
+  code: text('code').notNull(),
+  name: text('name').notNull(),
+});
+
+export const farmers = pgTable('farmers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  barangayId: uuid('barangay_id').notNull(),
+  firstName: text('first_name').notNull(),
+  middleName: text('middle_name'),
+  lastName: text('last_name').notNull(),
+  suffix: text('suffix'),
+  farmName: text('farm_name'),
+  farmAddress: text('farm_address'),
+  contactNumber: text('contact_number'),
+  email: text('email'),
+  gender: text('gender'),
+  isActive: boolean('is_active').notNull().default(true),
+  isArchived: boolean('is_archived').notNull().default(false),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const swineRecords = pgTable('swine_records', {
+  id: uuid('id').primaryKey(),
+  computedPigId: text('computed_pig_id').notNull(),
+  pigIdTag: text('pig_id_tag'),
+  earTagNo: text('ear_tag_no'),
+  farmerId: uuid('farmer_id'),
+  farmerName: text('farmer_name').notNull(),
+  farmName: text('farm_name'),
+  farmerContact: text('farmer_contact'),
+  barangay: text('barangay').notNull(),
+  birthDate: text('birth_date'),
+  ageDays: integer('age_days'),
+  ageMonths: text('age_months'),
+  estimatedWeightKg: text('estimated_weight_kg'),
+  actualWeightKg: text('actual_weight_kg'),
+  swineType: text('swine_type').notNull().default('FATTER_GROWER'),
+  farmScale: text('farm_scale').notNull().default('BACKYARD'),
+  asfZone: text('asf_zone').notNull().default('RED'),
+  biosecurityWarning: boolean('biosecurity_warning').notNull().default(false),
+  status: text('status').notNull().default('HEALTHY'),
+  readyToSell: boolean('ready_to_sell').notNull().default(false),
+  priceEstimate: text('price_estimate'),
+  photoUrl: text('photo_url'),
+  isArchived: boolean('is_archived').notNull().default(false),
+  registeredAt: text('registered_at').notNull(),
+  customFields: jsonb('custom_fields'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const issuedCertificates = pgTable('issued_certificates', {
+  id: text('id').primaryKey(),
+  controlNumber: text('control_number').notNull(),
+  swineId: text('swine_id'),
+  farmerName: text('farmer_name').notNull(),
+  barangay: text('barangay').notNull(),
+  issueDate: text('issue_date').notNull(),
+  purpose: text('purpose').notNull(),
+  destination: text('destination'),
+  inspectedBy: text('inspected_by').notNull(),
+  qrPayload: text('qr_payload'),
+  validUntil: text('valid_until'),
+  status: text('status').notNull().default('VALID'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const messages = pgTable('messages', {
+  id: text('id').primaryKey(),
+  senderId: text('sender_id').notNull(),
+  senderName: text('sender_name').notNull(),
+  senderRole: text('sender_role').notNull().default('focal'),
+  receiverId: text('receiver_id'),
+  receiverRole: text('receiver_role'),
+  barangay: text('barangay'),
+  text: text('text').notNull(),
+  attachments: jsonb('attachments'),
+  isRead: boolean('is_read').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const mediaFiles = pgTable('media_files', {
+  id: text('id').primaryKey(),
+  fileName: text('file_name').notNull(),
+  filePath: text('file_path'),
+  fileUrl: text('file_url').notNull(),
+  mimeType: text('mime_type'),
+  fileSize: integer('file_size'),
+  category: text('category').notNull().default('OTHER'),
+  altText: text('alt_text'),
+  uploadedBy: text('uploaded_by'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const systemSettings = pgTable('system_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value'),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const auditLogs = pgTable('audit_logs', {
+  id: serial('id').primaryKey(),
+  action: text('action').notNull(),
+  entity: text('entity').notNull(),
+  entityId: text('entity_id'),
+  userId: text('user_id'),
+  username: text('username'),
+  userRole: text('user_role'),
+  barangay: text('barangay'),
+  details: text('details'),
+  timestamp: timestamp('timestamp').defaultNow(),
+});
+
+export const registrySchema = pgTable('registry_schema', {
+  id: text('id').primaryKey(),
+  fieldKey: text('field_key').notNull(),
+  label: text('label').notNull(),
+  fieldType: text('field_type').notNull(),
+  required: boolean('required').notNull().default(false),
+  visible: boolean('visible').notNull().default(true),
+  options: jsonb('options'),
+  fieldOrder: integer('field_order').notNull().default(0),
+  sectionId: text('section_id'),
+  sectionTitle: text('section_title'),
+  helpText: text('help_text'),
+  placeholder: text('placeholder'),
+  defaultValue: text('default_value'),
+  isFixed: boolean('is_fixed').default(false),
+  fixedValue: text('fixed_value'),
+  isAutoGenerated: boolean('is_auto_generated').default(false),
+  autoGenType: text('auto_gen_type'),
+  autoGenPattern: text('auto_gen_pattern'),
+  autoGenPrefix: text('auto_gen_prefix'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
