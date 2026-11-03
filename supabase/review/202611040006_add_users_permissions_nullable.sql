@@ -41,16 +41,3 @@ ALTER TABLE public.users
 -- not be converted into 'active'. An existing admin must verify and map their
 -- own account statuses from the authoritative identity/role source.
 COMMIT;
-
-SELECT column_name, data_type, is_nullable, column_default
-FROM information_schema.columns
-WHERE table_schema='public'
-  AND table_name='users'
-  AND column_name IN ('permissions','phone','status')
-ORDER BY column_name;
-
-SELECT COUNT(*) AS total_users,
-  COUNT(*) FILTER (WHERE status IS NULL) AS requires_status_review,
-  COUNT(*) FILTER (WHERE permissions IS NULL) AS null_permissions,
-  COUNT(*) FILTER (WHERE permissions IS NOT NULL AND jsonb_typeof(permissions) <> 'array') AS invalid_permissions
-FROM public.users;
