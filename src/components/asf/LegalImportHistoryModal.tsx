@@ -1,3 +1,4 @@
+import { requestJson } from '../../services/http.ts';
 import React, { useState, useEffect } from 'react';
 import {
   History,
@@ -47,6 +48,7 @@ export const LegalImportHistoryModal: React.FC<LegalImportHistoryModalProps> = (
   const [history, setHistory] = useState<LegalImportHistoryRecord[]>(() =>
     storageService.getLegalImportHistory()
   );
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<LegalAuditLog[]>([]);
   const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,15 +60,15 @@ export const LegalImportHistoryModal: React.FC<LegalImportHistoryModalProps> = (
     setHistory(storageService.getLegalImportHistory());
 
     setIsLoadingAuditLogs(true);
-    fetch('/api/legal-documents/audit-logs')
-      .then(res => res.json())
+    setAuditError(null);
+    requestJson<{ success: boolean; data: LegalAuditLog[] }>('/api/legal-documents/audit-logs')
       .then(resData => {
         if (resData?.success && Array.isArray(resData.data)) {
           setAuditLogs(resData.data);
         }
       })
       .catch(err => {
-        console.warn('Could not fetch audit logs:', err);
+        setAuditError(err instanceof Error ? err.message : 'Unable to load legal audit logs.');
       })
       .finally(() => {
         setIsLoadingAuditLogs(false);
@@ -228,7 +230,8 @@ export const LegalImportHistoryModal: React.FC<LegalImportHistoryModalProps> = (
 
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-slate-500" />
-            {activeTab === 'import_history' ? (
+            {auditError && <p role="alert" className="p-3 text-red-700">{auditError}</p>}
+          {activeTab === 'import_history' ? (
               <select
                 value={filterType}
                 onChange={e => setFilterType(e.target.value)}

@@ -28,8 +28,9 @@ export async function getAllMessages(filter?: { role?: string; barangay?: string
     const rows = await db.select().from(messages).orderBy(desc(messages.createdAt));
     let list = rows.map(mapDbToMessage);
 
-    if (filter?.role && filter.role !== 'admin') {
+    if (filter?.role && filter.role !== 'admin' && filter.role !== 'super_admin') {
       list = list.filter(m => {
+        if (m.recipientId) return m.recipientId === filter.userId || m.senderId === filter.userId;
         if (m.targetBarangay === 'all') return true;
         if (filter.barangay && m.targetBarangay && m.targetBarangay.toLowerCase() === filter.barangay.toLowerCase()) return true;
         if (filter.userId && (m.senderId === filter.userId || m.recipientId === filter.userId)) return true;
@@ -63,8 +64,11 @@ export async function createMessage(msg: Partial<MessageItem> & Record<string, a
       isRead: Boolean(msg.isRead),
     };
 
-    const result = await db.insert(messages).values(values).returning();
-    return mapDbToMessage(result[0]);
+    const result = await db.insert(messages).values(values).onConflictDoNothing().returning();
+    if (result[0]) return mapDbToMessage(result[0]);
+    const existing = await db.select().from(messages).where(eq(messages.id, id));
+    if (!existing[0] || existing[0].senderId !== values.senderId) throw new Error('Message ID conflict.');
+    return mapDbToMessage(existing[0]);
   } catch (err) {
     console.error('Database query error in createMessage:', err);
     throw new Error('Failed to send message to database.');

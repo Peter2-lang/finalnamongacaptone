@@ -1,3 +1,5 @@
+import { LEGAL_DOCUMENT_SCHEMA } from './legalDocuments.ts';
+import { ALL_ASF_REGULATIONS } from '../data/asfRegulationsData.ts';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool, PoolConfig } from 'pg';
 import * as schema from './schema.ts';
@@ -184,6 +186,7 @@ export async function updateDatabaseConnection(
 
     process.env.DATABASE_URL = cleanedConnectionString;
 
+    initialization = undefined;
     await initPostgresTables();
 
     return {
@@ -319,7 +322,13 @@ export async function persistLocalDatabase(): Promise<void> {}
  * Initializes all required PostgreSQL tables
  * on Supabase or local PostgreSQL.
  */
-export async function initPostgresTables(): Promise<boolean> {
+let initialization: Promise<boolean> | undefined;
+
+export function initPostgresTables(): Promise<boolean> {
+  return initialization ??= initializePostgresTables();
+}
+
+async function initializePostgresTables(): Promise<boolean> {
   try {
     const client = await pool.connect();
 
@@ -803,6 +812,16 @@ export async function initPostgresTables(): Promise<boolean> {
           ]
         );
       }
+
+      await client.query(LEGAL_DOCUMENT_SCHEMA);
+      // The marker prevents intentionally deleted official seeds from reappearing on restart.
+      await client.query(`WITH seed AS (
+        INSERT INTO legal_documents (id, document)
+        SELECT item->>'id', item FROM jsonb_array_elements($1::jsonb) item
+        WHERE NOT EXISTS (SELECT 1 FROM system_settings WHERE key = 'legal_documents_seeded_v1')
+        ON CONFLICT (id) DO NOTHING
+      ) INSERT INTO system_settings (key, value) VALUES ('legal_documents_seeded_v1', 'true'::jsonb)
+      ON CONFLICT (key) DO NOTHING`, [JSON.stringify(ALL_ASF_REGULATIONS)]);
 
       console.log(
         '✅ PostgreSQL / Supabase tables verified.'

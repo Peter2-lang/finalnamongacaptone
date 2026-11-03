@@ -1,3 +1,4 @@
+import { requestJson } from './http.ts';
 import {
   INITIAL_ACCOUNTS,
   INITIAL_BARANGAYS,
@@ -237,20 +238,6 @@ export const storageService = {
 
       const user = this.getCurrentUser();
 
-      if (user) {
-        headers['x-user-role'] = user.role || 'focal';
-        headers['x-user-id'] = user.id || '';
-        headers['x-user-name'] = user.username || user.name || '';
-
-        if (user.assignedBarangay) {
-          headers['x-user-assigned-barangay'] = user.assignedBarangay;
-        }
-
-        if (user.barangay_id) {
-          headers['x-user-barangay-id'] = user.barangay_id;
-        }
-      }
-
       const queryString = searchParams.toString();
       const endpoint = `/api/swine-records${queryString ? `?${queryString}` : ''}`;
 
@@ -357,13 +344,6 @@ export const storageService = {
     if (!isOffline && typeof fetch !== 'undefined') {
       const user = this.getCurrentUser();
       const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getSessionAuthorizationHeader() };
-      if (user) {
-        headers['x-user-role'] = user.role || 'focal';
-        headers['x-user-id'] = user.id || '';
-        headers['x-user-name'] = user.username || user.name || '';
-        if (user.assignedBarangay) headers['x-user-assigned-barangay'] = user.assignedBarangay;
-        if (user.barangay_id) headers['x-user-barangay-id'] = user.barangay_id;
-      }
 
       const endpoint = isEdit ? `/api/swine/${encodeURIComponent(fullRecord.id)}` : '/api/swine';
       const method = isEdit ? 'PUT' : 'POST';
@@ -988,9 +968,6 @@ export const storageService = {
         method: 'DELETE',
         headers: {
           ...getSessionAuthorizationHeader(),
-          'x-user-role': user?.role || 'admin',
-          'x-user-barangay-id': user?.barangay_id || '',
-          'x-user-barangay-name': user?.assignedBarangay || '',
         },
       }).catch(err => console.warn('Backend API certificate delete sync warning:', err));
     } catch {
@@ -1019,9 +996,6 @@ export const storageService = {
         headers: {
           'Content-Type': 'application/json',
           ...getSessionAuthorizationHeader(),
-          'x-user-role': user?.role || 'focal',
-          'x-user-barangay-id': user?.barangay_id || '',
-          'x-user-barangay-name': user?.assignedBarangay || '',
         },
         body: JSON.stringify(cert),
       }).catch(err => console.warn('Backend API certificate issue sync warning:', err));
@@ -1045,9 +1019,6 @@ export const storageService = {
       const headers: Record<string, string> = {
         ...getSessionAuthorizationHeader(),
       };
-      if (user?.role) headers['x-user-role'] = user.role;
-      if (user?.barangay_id) headers['x-user-barangay-id'] = user.barangay_id;
-      if (user?.assignedBarangay) headers['x-user-barangay-name'] = user.assignedBarangay;
 
       const res = await fetch('/api/certificates', { headers });
       if (res.ok) {
@@ -1077,9 +1048,6 @@ export const storageService = {
       const headers: Record<string, string> = {
         ...getSessionAuthorizationHeader(),
       };
-      if (user?.role) headers['x-user-role'] = user.role;
-      if (user?.barangay_id) headers['x-user-barangay-id'] = user.barangay_id;
-      if (user?.assignedBarangay) headers['x-user-barangay-name'] = user.assignedBarangay;
 
       const res = await fetch(`/api/reports/official?${query.toString()}`, { headers });
       if (res.ok) {
@@ -1219,8 +1187,6 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': user?.role || 'admin',
-          'x-user-name': user?.name || 'Administrator',
         },
         body: JSON.stringify(config),
       }).catch(err => console.warn('Landing config backend sync warning:', err));
@@ -1471,10 +1437,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
   // African Swine Fever (ASF) Regulations & Executive Orders / Legal Decrees
   getAsfRegulations(): ASFRegulatoryDocument[] {
     const stored = getItem<ASFRegulatoryDocument[] | null>(STORAGE_KEYS.ASF_REGULATIONS, null);
-    if (!stored || stored.length === 0 || !stored.some(d => d.id === 'mo-hinunangan-2025-59' && d.articles && d.articles.length >= 10)) {
-      setItem(STORAGE_KEYS.ASF_REGULATIONS, ALL_ASF_REGULATIONS);
-      return ALL_ASF_REGULATIONS;
-    }
+    if (!stored) return (typeof navigator !== 'undefined' && (!navigator.onLine || this.getSimulatedOffline())) ? ALL_ASF_REGULATIONS : [];
     // Deduplicate by ID to guarantee unique keys across all components and storage
     const seenIds = new Set<string>();
     const deduplicated: ASFRegulatoryDocument[] = [];
@@ -1500,217 +1463,60 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     setItem(STORAGE_KEYS.ASF_REGULATIONS, deduplicated);
   },
 
-  updateAsfRegulation(doc: ASFRegulatoryDocument, performedBy?: string, changeSummary?: string): void {
+  async updateAsfRegulation(doc: ASFRegulatoryDocument, _performedBy?: string, _changeSummary?: string): Promise<void> {
+    if (navigator.onLine && !this.getSimulatedOffline()) {
+      await requestJson(`/api/legal-documents/${encodeURIComponent(doc.id)}`, { method: 'PUT', body: JSON.stringify(doc) });
+    }
     const list = this.getAsfRegulations();
-    const idx = list.findIndex(d => d.id === doc.id);
-    
-    // Auto add version and audit
-    const updatedDoc: ASFRegulatoryDocument = { ...doc };
-    if (changeSummary) {
-      const versions = updatedDoc.versionHistory || [];
-      const newVersion = (versions[0]?.version || 1) + 1;
-      updatedDoc.versionHistory = [
-        {
-          version: newVersion,
-          updatedAt: new Date().toISOString(),
-          updatedBy: performedBy || 'System Admin',
-          changeSummary,
-        },
-        ...versions,
-      ];
-      
-      const logs = updatedDoc.auditLogs || [];
-      updatedDoc.auditLogs = [
-        {
-          id: `log-${Date.now()}`,
-          action: 'edited',
-          timestamp: new Date().toISOString(),
-          performedBy: performedBy || 'System Admin',
-          details: changeSummary,
-        },
-        ...logs,
-      ];
-    }
-
-    if (idx >= 0) {
-      list[idx] = updatedDoc;
-    } else {
-      list.push(updatedDoc);
-    }
-    this.saveAsfRegulations(list);
-
-    // Sync update to Express backend API
-    try {
-      fetch(`/api/legal-documents/${encodeURIComponent(updatedDoc.id)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': 'admin',
-          'x-user-name': performedBy || 'System Admin',
-        },
-        body: JSON.stringify(updatedDoc),
-      }).catch(err => console.warn('Legal document API update warning:', err));
-    } catch {
-      // offline fallback
-    }
+    this.saveAsfRegulations([...list.filter(item => item.id !== doc.id), doc]);
   },
 
-  addAsfRegulation(doc: ASFRegulatoryDocument, performedBy?: string): void {
-    const list = this.getAsfRegulations();
-    const existingIndex = list.findIndex(d => d.id === doc.id);
-    const newDoc: ASFRegulatoryDocument = {
-      ...doc,
-      id: doc.id || `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      status: doc.status || 'active',
-      versionHistory: doc.versionHistory || [
-        {
-          version: 1,
-          updatedAt: new Date().toISOString(),
-          updatedBy: performedBy || 'System Admin',
-          changeSummary: 'Document created and enacted in system.',
-        },
-      ],
-      auditLogs: doc.auditLogs || [
-        {
-          id: `log-${Date.now()}`,
-          action: 'created',
-          timestamp: new Date().toISOString(),
-          performedBy: performedBy || 'System Admin',
-          details: `Document ${doc.officialNumber} created.`,
-        },
-      ],
-    };
-    if (existingIndex >= 0) {
-      list[existingIndex] = newDoc;
-    } else {
-      list.unshift(newDoc);
+  async addAsfRegulation(doc: ASFRegulatoryDocument, _performedBy?: string): Promise<void> {
+    const document = { ...doc, id: doc.id || crypto.randomUUID() };
+    if (navigator.onLine && !this.getSimulatedOffline()) {
+      await requestJson('/api/legal-documents', { method: 'POST', body: JSON.stringify(document) });
     }
-    this.saveAsfRegulations(list);
-
-    // Sync create to Express backend API
-    try {
-      fetch('/api/legal-documents', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': 'admin',
-          'x-user-name': performedBy || 'System Admin',
-        },
-        body: JSON.stringify(newDoc),
-      }).catch(err => console.warn('Legal document API create warning:', err));
-    } catch {
-      // offline fallback
-    }
+    this.saveAsfRegulations([document, ...this.getAsfRegulations().filter(item => item.id !== document.id)]);
   },
 
-  archiveAsfRegulation(id: string, performedBy?: string): void {
-    const list = this.getAsfRegulations();
-    const idx = list.findIndex(d => d.id === id);
-    if (idx >= 0) {
-      list[idx] = {
-        ...list[idx],
-        status: 'archived',
-        isArchived: true,
-        auditLogs: [
-          {
-            id: `log-${Date.now()}`,
-            action: 'archived',
-            timestamp: new Date().toISOString(),
-            performedBy: performedBy || 'System Admin',
-            details: 'Document moved to archive.',
-          },
-          ...(list[idx].auditLogs || []),
-        ],
-      };
-      this.saveAsfRegulations(list);
-
-      try {
-        fetch(`/api/legal-documents/${encodeURIComponent(id)}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-role': 'admin',
-            'x-user-name': performedBy || 'System Admin',
-          },
-          body: JSON.stringify(list[idx]),
-        }).catch(err => console.warn('Legal document API archive warning:', err));
-      } catch {
-        // offline fallback
-      }
-    }
+  async archiveAsfRegulation(id: string, performedBy?: string): Promise<void> {
+    const document = this.getAsfRegulations().find(item => item.id === id);
+    if (!document) throw new Error('Legal document not found.');
+    await this.updateAsfRegulation({ ...document, status: 'archived', isArchived: true }, performedBy);
   },
 
-  restoreAsfRegulation(id: string, performedBy?: string): void {
-    const list = this.getAsfRegulations();
-    const idx = list.findIndex(d => d.id === id);
-    if (idx >= 0) {
-      list[idx] = {
-        ...list[idx],
-        status: 'active',
-        isArchived: false,
-        auditLogs: [
-          {
-            id: `log-${Date.now()}`,
-            action: 'restored',
-            timestamp: new Date().toISOString(),
-            performedBy: performedBy || 'System Admin',
-            details: 'Document restored to active status.',
-          },
-          ...(list[idx].auditLogs || []),
-        ],
-      };
-      this.saveAsfRegulations(list);
-
-      try {
-        fetch(`/api/legal-documents/${encodeURIComponent(id)}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-role': 'admin',
-            'x-user-name': performedBy || 'System Admin',
-          },
-          body: JSON.stringify(list[idx]),
-        }).catch(err => console.warn('Legal document API restore warning:', err));
-      } catch {
-        // offline fallback
-      }
-    }
+  async restoreAsfRegulation(id: string, performedBy?: string): Promise<void> {
+    const document = this.getAsfRegulations().find(item => item.id === id);
+    if (!document) throw new Error('Legal document not found.');
+    await this.updateAsfRegulation({ ...document, status: 'active', isArchived: false }, performedBy);
   },
 
-  deleteAsfRegulation(id: string, performedBy?: string): void {
-    const list = this.getAsfRegulations().filter(d => d.id !== id);
-    this.saveAsfRegulations(list);
-
-    try {
-      fetch(`/api/legal-documents/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: {
-          'x-user-role': 'admin',
-          'x-user-name': performedBy || 'System Admin',
-        },
-      }).catch(err => console.warn('Legal document API delete warning:', err));
-    } catch {
-      // offline fallback
+  async deleteAsfRegulation(id: string, _performedBy?: string): Promise<void> {
+    if (navigator.onLine && !this.getSimulatedOffline()) {
+      await requestJson(`/api/legal-documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
     }
+    this.saveAsfRegulations(this.getAsfRegulations().filter(document => document.id !== id));
   },
 
   async fetchAsfRegulationsFromApi(): Promise<ASFRegulatoryDocument[]> {
-    try {
-      const res = await fetch('/api/legal-documents');
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
-          setItem(STORAGE_KEYS.ASF_REGULATIONS, json.data);
-          return json.data;
-        }
-      }
-    } catch (err) {
-      console.warn('API legal regulations fetch warning, using local cache:', err);
-    }
-    return this.getAsfRegulations();
+    if (!navigator.onLine || this.getSimulatedOffline()) return this.getAsfRegulations();
+    const result = await requestJson<{ data: ASFRegulatoryDocument[] }>('/api/legal-documents', {}, false);
+    setItem(STORAGE_KEYS.ASF_REGULATIONS, result.data);
+    return result.data;
   },
 
-  resetAsfRegulations(): ASFRegulatoryDocument[] {
+  async resetAsfRegulations(): Promise<ASFRegulatoryDocument[]> {
+    if (navigator.onLine && !this.getSimulatedOffline()) {
+      const current = await this.fetchAsfRegulationsFromApi();
+      const seedIds = new Set(ALL_ASF_REGULATIONS.map(document => document.id));
+      for (const document of ALL_ASF_REGULATIONS) {
+        const exists = current.some(item => item.id === document.id);
+        await requestJson(exists ? `/api/legal-documents/${encodeURIComponent(document.id)}` : '/api/legal-documents', {
+          method: exists ? 'PUT' : 'POST', body: JSON.stringify(document),
+        });
+      }
+      for (const document of current) if (!seedIds.has(document.id)) await requestJson(`/api/legal-documents/${encodeURIComponent(document.id)}`, { method: 'DELETE' });
+    }
     setItem(STORAGE_KEYS.ASF_REGULATIONS, ALL_ASF_REGULATIONS);
     return ALL_ASF_REGULATIONS;
   },

@@ -58,7 +58,7 @@ export async function insertMedia(media: Partial<MediaItemRecord>): Promise<Medi
       uploadedBy: media.uploadedBy || null,
     };
 
-    const result = await db.insert(mediaFiles).values(values).returning();
+    const result = await db.insert(mediaFiles).values(values).onConflictDoUpdate({ target: mediaFiles.id, set: values }).returning();
     const r = result[0];
     return {
       id: r.id,

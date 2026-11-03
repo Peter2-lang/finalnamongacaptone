@@ -36,17 +36,6 @@ function getAuthHeaders(): Record<string, string> {
     const user = storageService.getCurrentUser();
     const token = storageService.getSessionToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (user) {
-      headers['x-user-role'] = user.role || 'focal';
-      headers['x-user-id'] = user.id || '';
-      headers['x-user-name'] = user.username || user.name || '';
-      if (user.assignedBarangay) {
-        headers['x-user-assigned-barangay'] = user.assignedBarangay;
-      }
-      if (user.barangay_id) {
-        headers['x-user-barangay-id'] = user.barangay_id;
-      }
-    }
   } catch {
     // Ignore error in non-browser environments
   }
@@ -96,7 +85,7 @@ export const swineApi = {
       throw new Error(message);
     }
 
-    const data: SwineApiResponse = await res.json();
+    const data: SwineApiResponse = await res.json().catch(() => { throw new Error('Invalid response from the swine API.'); });
     if (!data.success) {
       throw new Error(data.error || 'Failed to retrieve swine records.');
     }
@@ -121,7 +110,7 @@ export const swineApi = {
       throw new Error(errJson?.error || 'Unable to retrieve swine record from the database.');
     }
 
-    const result: SingleSwineApiResponse = await res.json();
+    const result: SingleSwineApiResponse = await res.json().catch(() => { throw new Error('Invalid response from the swine API.'); });
     const record = result.data || result.record;
     if (!record) {
       throw new Error('Swine record not found in the database.');

@@ -908,8 +908,9 @@ export const assistantService = {
         }),
       });
 
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.reply) throw new Error(data?.error || `Assistant request failed (${res.status}).`);
       if (res.ok) {
-        const data = await res.json();
         if (data.reply) {
           return {
             reply: data.reply,
@@ -918,8 +919,8 @@ export const assistantService = {
           };
         }
       }
-    } catch {
-      // Offline fallback
+    } catch (error) {
+      if (navigator.onLine && !storageService.getSimulatedOffline()) return { reply: error instanceof Error ? error.message : 'Assistant unavailable. Please try again.' };
     }
 
     // Fallback to local intelligence engine using sanitized public content
@@ -947,10 +948,7 @@ export const assistantService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': currentUser?.role || currentRole,
-          'x-user-id': currentUser?.id || '',
-          'x-user-name': currentUser?.name || currentUser?.fullName || 'User',
-          'x-user-assigned-barangay': currentUser?.assignedBarangay || '',
+          ...(storageService.getSessionToken() ? { Authorization: `Bearer ${storageService.getSessionToken()}` } : {}),
         },
         body: JSON.stringify({
           message,
@@ -961,8 +959,9 @@ export const assistantService = {
         }),
       });
 
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.reply) throw new Error(data?.error || `Assistant request failed (${res.status}).`);
       if (res.ok) {
-        const data = await res.json();
         if (data.reply) {
           return {
             reply: data.reply,
@@ -971,8 +970,8 @@ export const assistantService = {
           };
         }
       }
-    } catch {
-      // Offline fallback
+    } catch (error) {
+      if (navigator.onLine && !storageService.getSimulatedOffline()) return { reply: error instanceof Error ? error.message : 'Assistant unavailable. Please try again.' };
     }
 
     // Fallback to local intelligence engine using authorized browser storage

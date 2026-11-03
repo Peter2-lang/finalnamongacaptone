@@ -1,3 +1,4 @@
+import { uploadImageDirect } from './directUpload.ts';
 import { INITIAL_LANDING_CMS_CONFIG } from '../data/initialLandingCmsData';
 import { LandingCmsConfig, LegalDocumentsLandingConfig, MediaItem } from '../types/landingCms';
 import { storageService } from './storageService';
@@ -31,10 +32,8 @@ function getAuthHeaders(): Record<string, string> {
   const user = storageService.getCurrentUser();
   return {
     'Content-Type': 'application/json',
+    ... (storageService.getSessionToken() ? { Authorization: `Bearer ${storageService.getSessionToken()}` } : {}),
     ...(user ? {
-      'x-user-role': user.role,
-      'x-user-id': user.id,
-      'x-user-name': user.username || user.email.split('@')[0],
     } : {}),
   };
 }
@@ -99,13 +98,15 @@ async function replaceInlineImageDataUrls(value: unknown, memo = new Map<string,
       'image/webp': 'webp',
       'image/gif': 'gif',
     };
+    const bytes = Uint8Array.from(atob(payload), character => character.charCodeAt(0));
+    const filePath = await uploadImageDirect(new File([bytes], `landing-image.${extensionByMime[mimeType]}`, { type: mimeType }), 'landing');
     const response = await fetch('/api/media/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
         fileName: `landing-image.${extensionByMime[mimeType]}`,
         mimeType,
-        base64: value,
+        filePath,
         category: 'landing-cms',
       }),
       cache: 'no-store',
@@ -197,14 +198,14 @@ export const landingCmsService = {
     if (file.size === 0 || file.size > 15 * 1024 * 1024) {
       throw new Error('The selected file is empty or exceeds the 15 MB limit.');
     }
-    const base64 = await readFileAsDataUrl(file);
+    const filePath = await uploadImageDirect(file, 'landing');
     const response = await fetch('/api/admin/landing-cms/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
-        base64,
+        filePath,
         category,
       }),
       cache: 'no-store',

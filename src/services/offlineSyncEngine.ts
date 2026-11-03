@@ -215,13 +215,6 @@ class OfflineSyncEngine {
         };
         const sessionToken = storageService.getSessionToken();
         if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
-        if (user) {
-          headers['x-user-role'] = user.role || 'focal';
-          headers['x-user-id'] = user.id || '';
-          headers['x-user-name'] = user.username || user.name || '';
-          if (user.assignedBarangay) headers['x-user-assigned-barangay'] = user.assignedBarangay;
-          if (user.barangay_id) headers['x-user-barangay-id'] = user.barangay_id;
-        }
 
         const pushPayload = {
           operations: pendingQueue.map(item => ({
@@ -293,13 +286,6 @@ class OfflineSyncEngine {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const sessionToken = storageService.getSessionToken();
       if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
-      if (user) {
-        headers['x-user-role'] = user.role || 'focal';
-        headers['x-user-id'] = user.id || '';
-        headers['x-user-name'] = user.username || user.name || '';
-        if (user.assignedBarangay) headers['x-user-assigned-barangay'] = user.assignedBarangay;
-        if (user.barangay_id) headers['x-user-barangay-id'] = user.barangay_id;
-      }
 
       const pullRes = await fetch('/api/sync/pull', { method: 'GET', headers });
       if (!pullRes.ok) {

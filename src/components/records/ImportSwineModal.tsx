@@ -599,9 +599,6 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
             ...(storageService.getSessionToken()
               ? { Authorization: `Bearer ${storageService.getSessionToken()}` }
               : {}),
-            'x-user-role': currentUser?.role || 'admin',
-            'x-user-id': currentUser?.id || 'admin',
-            'x-user-name': currentUser?.name || 'Administrator',
           },
           body: JSON.stringify({
             records: recordsToImport,

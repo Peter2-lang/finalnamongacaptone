@@ -215,11 +215,12 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
   };
 
   // Confirm and persist imported documents to database
-  const handleConfirmAndSave = () => {
+  const handleConfirmAndSave = async () => {
+    try {
     const importedDocs: ASFRegulatoryDocument[] = [];
     const performerName = currentUser?.fullName || currentUser?.username || 'Admin';
 
-    processedItems.forEach(item => {
+    for (const item of processedItems) {
       if (item.detection) {
         const doc = LegalDocumentParserService.convertDetectionToDocument(
           item.detection,
@@ -228,11 +229,11 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
         );
 
         if (item.detection.isDuplicate && item.detection.duplicateAction === 'overwrite') {
-          storageService.updateAsfRegulation(doc, performerName, 'Overwritten via Smart Import');
+          await storageService.updateAsfRegulation(doc, performerName, 'Overwritten via Smart Import');
         } else if (item.detection.isDuplicate && item.detection.duplicateAction === 'new_version') {
-          storageService.updateAsfRegulation(doc, performerName, `Updated to Version ${(doc.versionHistory?.length || 1)} via Smart Import`);
+          await storageService.updateAsfRegulation(doc, performerName, `Updated to Version ${(doc.versionHistory?.length || 1)} via Smart Import`);
         } else {
-          storageService.addAsfRegulation(doc, performerName);
+          await storageService.addAsfRegulation(doc, performerName);
         }
 
         // Record in Import History log
@@ -257,10 +258,13 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
 
         importedDocs.push(doc);
       }
-    });
+    }
 
     onImportSuccess(importedDocs);
     onClose();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to import legal documents.');
+    }
   };
 
   return (

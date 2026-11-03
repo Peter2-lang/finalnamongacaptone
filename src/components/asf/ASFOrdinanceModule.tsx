@@ -77,7 +77,17 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   const [isImportHistoryOpen, setIsImportHistoryOpen] = useState(false);
   const [isOriginalViewerOpen, setIsOriginalViewerOpen] = useState(false);
 
-  const isAdmin = currentUser?.role === 'admin';
+  React.useEffect(() => {
+    let active = true;
+    storageService.fetchAsfRegulationsFromApi().then(documents => {
+      if (active) setRegulations(documents);
+    }).catch(error => {
+      if (active) setSuccessToast(error instanceof Error ? error.message : 'Unable to load legal documents.');
+    });
+    return () => { active = false; };
+  }, []);
+
+  const isAdmin = (currentUser?.role === 'admin' || currentUser?.role === 'super_admin');
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -149,33 +159,46 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
     setIsEditModalOpen(true);
   };
 
-  const handleSaveDoc = (doc: ASFRegulatoryDocument, changeSummary?: string) => {
+  const handleSaveDoc = async (doc: ASFRegulatoryDocument, changeSummary?: string) => {
+    try {
     if (docToEdit) {
-      storageService.updateAsfRegulation(doc, currentUser?.name || currentUser?.username || 'Admin', changeSummary);
+      await storageService.updateAsfRegulation(doc, currentUser?.name || currentUser?.username || 'Admin', changeSummary);
       showToast(`Updated "${doc.officialNumber}" successfully.`);
     } else {
-      storageService.addAsfRegulation(doc, currentUser?.name || currentUser?.username || 'Admin');
+      await storageService.addAsfRegulation(doc, currentUser?.name || currentUser?.username || 'Admin');
       showToast(`Created "${doc.officialNumber}" successfully.`);
       setSelectedDocId(doc.id);
     }
     setRegulations(storageService.getAsfRegulations());
+    } catch (error) {
+      throw error;
+    }
   };
 
-  const handleArchiveDoc = (doc: ASFRegulatoryDocument) => {
-    storageService.archiveAsfRegulation(doc.id, currentUser?.name || currentUser?.username || 'Admin');
+  const handleArchiveDoc = async (doc: ASFRegulatoryDocument) => {
+    try {
+    await storageService.archiveAsfRegulation(doc.id, currentUser?.name || currentUser?.username || 'Admin');
     setRegulations(storageService.getAsfRegulations());
     showToast(`Archived "${doc.officialNumber}". Moved to Archived tab.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save legal document.');
+    }
   };
 
-  const handleRestoreDoc = (doc: ASFRegulatoryDocument) => {
-    storageService.restoreAsfRegulation(doc.id, currentUser?.name || currentUser?.username || 'Admin');
+  const handleRestoreDoc = async (doc: ASFRegulatoryDocument) => {
+    try {
+    await storageService.restoreAsfRegulation(doc.id, currentUser?.name || currentUser?.username || 'Admin');
     setRegulations(storageService.getAsfRegulations());
     showToast(`Restored "${doc.officialNumber}" to active status.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save legal document.');
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
+    try {
     if (!deleteConfirmDoc) return;
-    storageService.deleteAsfRegulation(deleteConfirmDoc.id);
+    await storageService.deleteAsfRegulation(deleteConfirmDoc.id);
     const updated = storageService.getAsfRegulations();
     setRegulations(updated);
     if (selectedDocId === deleteConfirmDoc.id) {
@@ -183,15 +206,20 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
     }
     showToast(`Permanently deleted "${deleteConfirmDoc.officialNumber}".`);
     setDeleteConfirmDoc(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save legal document.');
+    }
   };
 
-  const handleResetToOfficialSeeds = () => {
+  const handleResetToOfficialSeeds = async () => {
+    try {
     if (window.confirm('Reset all Legal Decrees to official municipal & provincial enacted versions (MO 2025-59, Res 376-2026, PO 2023-144)?')) {
-      const reset = storageService.resetAsfRegulations();
+      const reset = await storageService.resetAsfRegulations();
       setRegulations(reset);
       setSelectedDocId(reset[0]?.id || '');
       showToast('Successfully restored official statutory documents.');
     }
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to restore official documents.'); }
   };
 
   return (

@@ -19,7 +19,7 @@ interface LegalDocumentEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   documentToEdit?: ASFRegulatoryDocument | null;
-  onSave: (doc: ASFRegulatoryDocument, changeSummary?: string) => void;
+  onSave: (doc: ASFRegulatoryDocument, changeSummary?: string) => void | Promise<void>;
   currentUserRole?: string;
 }
 
@@ -225,7 +225,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
   };
 
   // Submit Handler
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !officialNumber.trim()) {
       alert('Please fill in both the Document Title and Official Number.');
@@ -275,8 +275,12 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       status: documentToEdit?.status || 'active',
     };
 
-    onSave(updatedDoc, changeSummary || (isEditMode ? 'Updated legal document contents' : 'Created legal document'));
-    onClose();
+    try {
+      await onSave(updatedDoc, changeSummary || (isEditMode ? 'Updated legal document contents' : 'Created legal document'));
+      onClose();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to save legal document.');
+    }
   };
 
   return (

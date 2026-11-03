@@ -1,7 +1,7 @@
+import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { HINUNANGAN_BARANGAYS } from '../data/barangays.ts';
-import { ALL_ASF_REGULATIONS } from '../data/asfRegulationsData.ts';
 import {
   getAllSwineRecords,
   getSwineRecordById,
@@ -19,7 +19,7 @@ import { getAllUsers, getUserByAuthUserId, getUserByUsernameOrEmail, insertUserP
 import { getAllMessages, createMessage, markMessageRead, deleteMessageById } from '../db/messages.ts';
 import { getAllMedia, insertMedia, deleteMediaById } from '../db/media.ts';
 import { getStoredSystemSetting, getSystemSetting, setSystemSetting } from '../db/settings.ts';
-import { initPostgresTables, pool, testDatabaseConnection, updateDatabaseConnection } from '../db/index.ts';
+import { initPostgresTables, pool } from '../db/index.ts';
 import {
   getFullRegistrySchemaFromDb,
   syncFullRegistrySchemaToDb,
@@ -34,6 +34,7 @@ import { DEFAULT_MASTER_CONFIG } from '../data/defaultMasterConfig.ts';
 import { INITIAL_LANDING_CMS_CONFIG } from '../data/initialLandingCmsData.ts';
 import {
   createCertificateAssetSignedUrl,
+  verifyDirectImage,
   deleteLandingCmsAsset,
   uploadCertificateAsset,
   uploadLandingCmsAsset,
@@ -44,6 +45,7 @@ import { getSupabaseAdminConfigError, getSupabaseAuthConfigStatus, supabaseAdmin
 
 export function createApp() {
   const app = express();
+  app.set('case sensitive routing', true);
 
   type SessionUser = {
     userId: string;
@@ -135,32 +137,15 @@ export function createApp() {
     console.warn('PostgreSQL table check notice:', err?.message || err);
   });
 
-  app.use(express.json({ limit: '30mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+  app.use(express.json({ limit: '4mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '4mb' }));
 
   app.use(async (req, res, next) => {
-    const requiresSession =
-      /^\/api\/(?:swine(?:-records)?|sync|registry-schema|module-data|accounts|certificates|reports)(?:\/|$)/.test(req.path) ||
-      /^\/api\/auth\/(?:profile|superadmin-profile)$/.test(req.path) ||
-      /^\/api\/admin\/registry-form-schema(?:\/|$)/.test(req.path) ||
-      ((req.path === '/api/barangays' || req.path.startsWith('/api/barangays/')) && req.method !== 'GET');
-    if (!requiresSession) return next();
-    // Only check routes starting with /api/ or /health
-    if (!req.path.startsWith('/api/') && req.path !== '/health') {
-      return next();
-    }
-
-    // Explicitly allowed public routes that do NOT require an active session
+    if (!req.path.startsWith('/api/')) return next();
     const isPublicRoute =
-      req.path === '/health' ||
       req.path === '/api/health' ||
-      req.path === '/api/auth/login' ||
-      req.path === '/api/landing-cms/published' ||
-      (req.path === '/api/landing-config' && req.method === 'GET') ||
-      (req.path === '/api/landing/settings' && req.method === 'GET') ||
-      req.path === '/api/legal-documents' ||
-      req.path === '/api/public/assistant/chat' ||
-      (req.path === '/api/barangays' && req.method === 'GET');
+      (req.method === 'POST' && ['/api/auth/login', '/api/auth/superadmin-login', '/api/public/assistant/chat'].includes(req.path)) ||
+      (req.method === 'GET' && ['/api/landing-cms/published', '/api/landing-config', '/api/landing/settings', '/api/legal-documents', '/api/barangays'].includes(req.path));
 
     const authorization = req.headers.authorization || '';
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
@@ -1065,38 +1050,7 @@ export function createApp() {
       if (confirmed === null) throw new Error('Database did not return the saved module data.');
       return res.json({ success: true, data: confirmed ?? saved       });
 
-      app.post('/api/certificate-assets/upload', async (req, res) => {
-        const user = getUserSecurityContext(req);
-        if (!user.isAdmin && !user.isFocal) {
-          return res.status(403).json({ success: false, error: 'Only Admin, Super Admin, or Focal Person accounts can upload certificate images.' });
-        }
-        if (!supabaseAdminClient) {
-          return res.status(503).json({ success: false, error: getSupabaseAdminConfigError() });
-        }
-        const { fileName, base64, mimeType } = req.body || {};
-        if (typeof fileName !== 'string' || typeof base64 !== 'string' || typeof mimeType !== 'string') {
-          return res.status(400).json({ success: false, error: 'An image file, filename, and MIME type are required.' });
-        }
-        try {
-          const asset = await uploadCertificateAsset(
-            supabaseAdminClient,
-            fileName,
-            mimeType,
-            base64,
-            { isAdmin: user.isAdmin, assignedBarangay: user.assignedBarangay }
-          );
-          return res.status(201).json({ success: true, data: asset });
-        } catch (error) {
-          console.error('[certificate-assets] upload failed', {
-            userId: user.userId,
-            role: user.role,
-            detail: error instanceof Error ? error.message.slice(0, 300) : 'Unknown storage error',
-          });
-          const message = error instanceof Error ? error.message : 'Unable to upload the certificate image.';
-          const status = /image|mime|payload|15 MB|assigned barangay/i.test(message) ? 400 : 500;
-          return res.status(status).json({ success: false, error: message });
-        }
-      });
+
     } catch (error) {
       const failure = formatCertificateTemplateDatabaseError(error);
       console.error('[module-data] save failed', {
@@ -1118,6 +1072,68 @@ export function createApp() {
   // 2. SWINE RECORDS - STRICT DATABASE SOURCE OF TRUTH
   // =========================================================================
 
+  app.post('/api/storage/upload-url', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    const { target, fileName, mimeType } = req.body || {};
+    if (!user.isAdmin && !(target === 'certificate' && user.isFocal && user.assignedBarangay)) return res.status(403).json({ success: false, error: 'Upload permission denied.' });
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+    if (!['certificate', 'landing', 'media'].includes(target) || typeof fileName !== 'string' || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mimeType)) return res.status(400).json({ success: false, error: 'Choose a supported image and upload target.' });
+    const bucket = target === 'certificate' ? 'certificates' : (process.env.SUPABASE_LANDING_MEDIA_BUCKET || 'landing-page-media');
+    const prefix = target === 'certificate'
+      ? user.isAdmin ? 'shared/certificate-assets/' : `barangays/${user.assignedBarangay.trim().toLowerCase().replace(/[^a-z0-9 _-]/g, '_')}/certificate-assets/`
+      : `direct/${user.userId}/`;
+    const filePath = `${prefix}${randomUUID()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120)}`;
+    try {
+      const signed = await supabaseAdminClient.storage.from(bucket).createSignedUploadUrl(filePath);
+      if (signed.error) throw signed.error;
+      return res.json({ success: true, bucket, filePath, token: signed.data.token });
+    } catch { return res.status(503).json({ success: false, error: 'Unable to prepare a Storage upload.' }); }
+  });
+
+  async function completedDirectImage(req: express.Request, certificate = false) {
+    if (!supabaseAdminClient) throw new Error('Supabase Storage is unavailable.');
+    const user = getUserSecurityContext(req);
+    const { filePath, fileName, mimeType } = req.body;
+    if (typeof filePath !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') throw new Error('Invalid uploaded image metadata.');
+    const prefix = certificate
+      ? user.isAdmin ? 'shared/certificate-assets/' : `barangays/${user.assignedBarangay.trim().toLowerCase().replace(/[^a-z0-9 _-]/g, '_')}/certificate-assets/`
+      : `direct/${user.userId}/`;
+    return verifyDirectImage(supabaseAdminClient, certificate ? 'certificates' : (process.env.SUPABASE_LANDING_MEDIA_BUCKET || 'landing-page-media'), filePath, fileName, mimeType, prefix);
+  }
+
+      app.post('/api/certificate-assets/upload', async (req, res) => {
+        const user = getUserSecurityContext(req);
+        if (!user.isAdmin && !user.isFocal) {
+          return res.status(403).json({ success: false, error: 'Only Admin, Super Admin, or Focal Person accounts can upload certificate images.' });
+        }
+        if (!supabaseAdminClient) {
+          return res.status(503).json({ success: false, error: getSupabaseAdminConfigError() });
+        }
+        const { fileName, base64, mimeType } = req.body || {};
+        if (typeof fileName !== 'string' || (typeof base64 !== 'string' && typeof req.body.filePath !== 'string') || typeof mimeType !== 'string') {
+          return res.status(400).json({ success: false, error: 'An image file, filename, and MIME type are required.' });
+        }
+        try {
+          const asset = req.body.filePath ? await completedDirectImage(req, true) : await uploadCertificateAsset(
+            supabaseAdminClient,
+            fileName,
+            mimeType,
+            base64,
+            { isAdmin: user.isAdmin, assignedBarangay: user.assignedBarangay }
+          );
+          return res.status(201).json({ success: true, data: asset });
+        } catch (error) {
+          console.error('[certificate-assets] upload failed', {
+            userId: user.userId,
+            role: user.role,
+            detail: error instanceof Error ? error.message.slice(0, 300) : 'Unknown storage error',
+          });
+          const message = error instanceof Error ? error.message : 'Unable to upload the certificate image.';
+          const status = /image|mime|payload|15 MB|assigned barangay/i.test(message) ? 400 : 500;
+          return res.status(status).json({ success: false, error: message });
+        }
+      });
+
   // Next authoritative Pig ID Generator
   // Next authoritative Pig ID Generator using atomic database sequence
   app.get('/api/swine-records/next-id', async (_req, res) => {
@@ -1126,8 +1142,7 @@ export function createApp() {
       return res.json({ success: true, nextPigId });
     } catch (err: any) {
       console.error('Error generating next pig ID:', err);
-      const fallbackSeq = String(Math.floor(1000 + Math.random() * 9000));
-      return res.json({ success: true, nextPigId: `HIN-${new Date().getFullYear()}-${fallbackSeq}` });
+      return res.status(503).json({ success: false, error: 'Unable to allocate an authoritative Pig ID. Please retry when the database is available.' });
     }
   });
 
@@ -1445,6 +1460,8 @@ export function createApp() {
 
   // Toggle Sell Status API
   const handleToggleSell = async (req: express.Request, res: express.Response) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin && !user.isFocal) return res.status(403).json({ success: false, error: 'Your role cannot update swine records.' });
     const { id } = req.params;
     const { readyToSell, priceEstimate } = req.body || {};
 
@@ -1454,11 +1471,14 @@ export function createApp() {
         return res.status(404).json({ success: false, error: 'Swine record not found.' });
       }
 
+      if (user.isFocal && (!user.assignedBarangay || existing.barangay.toLowerCase() !== user.assignedBarangay.toLowerCase())) return res.status(403).json({ success: false, error: 'Record is outside your assigned barangay.' });
+      if (typeof readyToSell !== 'boolean') return res.status(400).json({ success: false, error: 'readyToSell must be a boolean.' });
+
       const updated = {
         ...existing,
         readyToSell: Boolean(readyToSell),
         status: readyToSell ? 'ready_to_sell' : (existing.status === 'ready_to_sell' ? 'healthy' : existing.status),
-        priceEstimate: priceEstimate !== undefined ? String(priceEstimate) : existing.estimatedPricePhp,
+        estimatedPricePhp: priceEstimate !== undefined ? String(priceEstimate) : existing.estimatedPricePhp,
       };
 
       const saved = await upsertSwineRecord(updated);
@@ -2008,61 +2028,14 @@ export function createApp() {
   // Database configuration test & update endpoints
   // Database configuration test & update endpoints (RESTRICTED TO SUPER ADMIN ONLY)
   app.post('/api/admin/database/test', async (req, res) => {
-    const user = getUserSecurityContext(req);
-    if (!user.isSuperAdmin) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Only Super Administrators can test database configurations.' });
-    }
-
-    const { connectionString } = req.body || {};
-    if (!connectionString || typeof connectionString !== 'string') {
-      return res.status(400).json({ success: false, error: 'Connection string is required.' });
-    }
-
-    const trimmedUri = connectionString.trim();
+    if (!getUserSecurityContext(req).isSuperAdmin) return res.status(403).json({ success: false, error: 'Super administrator access required.' });
     try {
-      const parsed = new URL(trimmedUri);
-      if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
-        return res.status(400).json({ success: false, error: 'Invalid database connection protocol. Expected postgres:// or postgresql://.' });
-      }
-      const hostname = parsed.hostname.toLowerCase();
-      if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal' || hostname === 'metadata') {
-        return res.status(400).json({ success: false, error: 'Connection to cloud metadata host is prohibited.' });
-      }
-    } catch {
-      return res.status(400).json({ success: false, error: 'Malformed PostgreSQL connection URI format.' });
-    }
-
-    const result = await testDatabaseConnection(trimmedUri);
-    return res.json(result);
+      await pool.query('SELECT 1');
+      return res.json({ success: true, message: 'Configured database is connected.' });
+    } catch { return res.status(503).json({ success: false, error: 'Configured database is unavailable.' }); }
   });
-
-  app.post('/api/admin/database/save', async (req, res) => {
-    const user = getUserSecurityContext(req);
-    if (!user.isSuperAdmin) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Only Super Administrators can switch database connections.' });
-    }
-
-    const { connectionString } = req.body || {};
-    if (!connectionString || typeof connectionString !== 'string') {
-      return res.status(400).json({ success: false, error: 'Connection string is required.' });
-    }
-
-    const trimmedUri = connectionString.trim();
-    try {
-      const parsed = new URL(trimmedUri);
-      if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
-        return res.status(400).json({ success: false, error: 'Invalid database connection protocol. Expected postgres:// or postgresql://.' });
-      }
-      const hostname = parsed.hostname.toLowerCase();
-      if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal' || hostname === 'metadata') {
-        return res.status(400).json({ success: false, error: 'Connection to cloud metadata host is prohibited.' });
-      }
-    } catch {
-      return res.status(400).json({ success: false, error: 'Malformed PostgreSQL connection URI format.' });
-    }
-
-    const result = await updateDatabaseConnection(trimmedUri);
-    return res.json(result);
+  app.post('/api/admin/database/save', (_req, res) => {
+    return res.status(409).json({ success: false, error: 'Manage DATABASE_URL through server environment variables, then redeploy.' });
   });
 
   // =========================================================================
@@ -2306,7 +2279,7 @@ export function createApp() {
   app.post('/api/messages', async (req, res) => {
     const user = getUserSecurityContext(req);
     const payload = req.body;
-    if (!payload || !payload.message) {
+    if (!payload || ![payload.message, payload.content, payload.body].some(value => typeof value === 'string' && value.trim())) {
       return res.status(400).json({ success: false, error: 'Message content is required.' });
     }
 
@@ -2327,8 +2300,11 @@ export function createApp() {
 
   app.patch('/api/messages/:id/read', async (req, res) => {
     const { id } = req.params;
+    const user = getUserSecurityContext(req);
     try {
-      await markMessageRead(id);
+      const visible = await getAllMessages({ role: user.role, barangay: user.assignedBarangay, userId: user.userId });
+      if (!visible.some(message => message.id === id)) return res.status(404).json({ success: false, error: 'Message not found in your scope.' });
+      if (!await markMessageRead(id)) throw new Error('Unable to update message');
       return res.json({ success: true, message: 'Message marked as read.' });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to update message.' });
@@ -2381,7 +2357,7 @@ export function createApp() {
     }
 
     const { fileName, base64, mimeType, category, altText } = req.body || {};
-    if (typeof base64 !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') {
+    if ((typeof base64 !== 'string' && typeof req.body.filePath !== 'string') || typeof fileName !== 'string' || typeof mimeType !== 'string') {
       return res.status(400).json({ success: false, error: 'An image file, original filename, and MIME type are required.' });
     }
 
@@ -2389,7 +2365,7 @@ export function createApp() {
     let uploadedPath: string | null = null;
 
     try {
-      const uploaded = await uploadLandingCmsAsset(
+      const uploaded = req.body.filePath ? await completedDirectImage(req) : await uploadLandingCmsAsset(
         sanitizedFileName,
         mimeType,
         base64,
@@ -2449,6 +2425,7 @@ export function createApp() {
   // =========================================================================
   app.get('/api/settings', async (req, res) => {
     const key = (req.query.key as string) || 'system_branding';
+    if (!['system_branding', 'api_configuration'].includes(key)) return res.status(403).json({ success: false, error: 'This setting is restricted.' });
     try {
       const value = await getSystemSetting(key);
       return res.json({ success: true, key, value });
@@ -2463,8 +2440,8 @@ export function createApp() {
       return res.status(403).json({ success: false, error: 'Access Denied: Only administrators can update system settings.' });
     }
     const { key, value } = req.body || {};
-    if (!key) {
-      return res.status(400).json({ success: false, error: 'Setting key is required.' });
+    if (!['system_branding', 'api_configuration'].includes(key)) {
+      return res.status(400).json({ success: false, error: 'A supported setting key is required.' });
     }
     try {
       const saved = await setSystemSetting(key, value);
@@ -2642,11 +2619,11 @@ export function createApp() {
       return res.status(403).json({ success: false, error: 'You do not have permission to upload landing page media.' });
     }
     const { fileName, mimeType, base64, category } = req.body || {};
-    if (typeof base64 !== 'string' || !base64 || typeof fileName !== 'string') {
+    if ((!base64 && typeof req.body.filePath !== 'string') || typeof fileName !== 'string') {
       return res.status(400).json({ success: false, error: 'A file name and image payload are required.' });
     }
     try {
-      const uploaded = await uploadLandingCmsAsset(fileName, mimeType || 'application/octet-stream', base64, category || 'backgrounds');
+      const uploaded = req.body.filePath ? await completedDirectImage(req) : await uploadLandingCmsAsset(fileName, mimeType || 'application/octet-stream', base64, category || 'backgrounds');
       console.info('LANDING_CMS_IMAGE_UPLOAD success:', { storagePath: uploaded.filePath, timestamp: new Date().toISOString() });
       return res.status(201).json({ success: true, ...uploaded, fileName, mimeType: mimeType || 'application/octet-stream' });
     } catch (err: any) {
@@ -2658,6 +2635,11 @@ export function createApp() {
   // =========================================================================
   // 10. SUPER ADMIN MASTER CONFIGURATION & SYSTEM APPEARANCE
   // =========================================================================
+  app.use('/api/config', (req, res, next) => {
+    if (!getUserSecurityContext(req).isSuperAdmin) return res.status(403).json({ success: false, error: 'Super administrator access required.' });
+    next();
+  });
+
   app.get('/api/config/master', async (_req, res) => {
     try {
       const config = (await getSystemSetting('master_system_config', DEFAULT_MASTER_CONFIG)) || DEFAULT_MASTER_CONFIG;
@@ -2920,9 +2902,47 @@ export function createApp() {
   // =========================================================================
   // 10. LEGAL DOCUMENTS & ASF REGULATIONS API
   // =========================================================================
-  app.get('/api/legal-documents', (_req, res) => {
-    res.json({ success: true, count: ALL_ASF_REGULATIONS.length, data: ALL_ASF_REGULATIONS });
+  app.get('/api/legal-documents', async (_req, res) => {
+    try {
+      const result = await pool.query('SELECT document FROM legal_documents ORDER BY updated_at DESC, id');
+      const documents = result.rows.map(row => row.document);
+      return res.json({ success: true, count: documents.length, data: documents });
+    } catch {
+      return res.status(503).json({ success: false, error: 'Legal documents database unavailable.' });
+    }
   });
+
+  app.get('/api/legal-documents/audit-logs', async (req, res) => {
+    if (!getUserSecurityContext(req).isAdmin) return res.status(403).json({ success: false, error: 'Administrator access required.' });
+    try {
+      const result = await pool.query(`SELECT id, document_id AS "documentId", document_title AS "documentTitle",
+        action, actor_name AS "user", actor_role AS role, created_at AS timestamp, details
+        FROM legal_document_audit_logs ORDER BY created_at DESC LIMIT 1000`);
+      return res.json({ success: true, data: result.rows });
+    } catch {
+      return res.status(503).json({ success: false, error: 'Legal audit database unavailable.' });
+    }
+  });
+
+  const writeLegalDocument = (operation: 'create' | 'update' | 'delete'): express.RequestHandler => async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin) { res.status(403).json({ success: false, error: 'Administrator access required.' }); return; }
+    if (operation !== 'delete' && (!isLegalDocument(req.body) || (operation === 'update' && req.body.id !== req.params.id))) {
+      res.status(400).json({ success: false, error: 'A valid document with matching ID, title, official number, type and articles is required.' }); return;
+    }
+    const id = operation === 'create' ? req.body.id : req.params.id;
+    try {
+      const found = await mutateLegalDocument(pool, operation, id, operation === 'delete' ? undefined : req.body, user);
+      if (!found) { res.status(404).json({ success: false, error: 'Legal document not found.' }); return; }
+      res.status(operation === 'create' ? 201 : 200).json({ success: true, data: operation === 'delete' ? null : req.body });
+    } catch (error) {
+      const conflict = getDatabaseErrorCode(error) === '23505';
+      res.status(conflict ? 409 : 503).json({ success: false, error: conflict ? 'A document with this ID already exists.' : 'Unable to save legal document.' });
+    }
+  };
+  app.post('/api/legal-documents', writeLegalDocument('create'));
+  app.put('/api/legal-documents/:id', writeLegalDocument('update'));
+  app.delete('/api/legal-documents/:id', writeLegalDocument('delete'));
 
   // =========================================================================
   // 11. ENTERPRISE OFFLINE SYNCHRONIZATION API (IDEMPOTENT BATCH SYNC)
@@ -3026,6 +3046,7 @@ export function createApp() {
       const { clientOperationId, operation, entity, entityId, payload } = op;
 
       try {
+        if (typeof clientOperationId !== 'string' || !clientOperationId || typeof entityId !== 'string') throw new Error('Stable operation and entity IDs are required.');
         if (entity === 'swine') {
           if (user.isAgent) {
             results.push({
@@ -3050,13 +3071,15 @@ export function createApp() {
               results.push({ clientOperationId, entityId, success: false, error: 'Record is outside your assigned barangay.' });
               continue;
             }
+            const replay = await getSwineRecordById(uuidForSyncOperation(`${user.userId}:${clientOperationId}`));
+            if (replay) {
+              results.push({ clientOperationId, entityId, serverEntityId: replay.id, serverPigId: replay.pigIdTag, success: true });
+              continue;
+            }
             let tag = (payload.pigIdTag || payload.earTagNo || '').trim();
             // If temporary local tag, generate authoritative backend Pig ID
             // If temporary local tag, generate authoritative backend Pig ID from sequence
             if (!tag || tag.startsWith('LOCAL-') || !PIG_ID_TAG_REGEX.test(tag)) {
-              const currentYear = new Date().getFullYear();
-              const { total } = await getAllSwineRecords();
-              tag = `HIN-${currentYear}-${String(total + 1).padStart(4, '0')}`;
               tag = await getNextAuthoritativePigIdTag();
             }
 
@@ -3067,7 +3090,7 @@ export function createApp() {
 
             const cleanRecord = {
               ...payload,
-              id: uuidForSyncOperation(String(clientOperationId || entityId)),
+              id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
               pigIdTag: tag,
               earTagNo: tag,
               registeredBy: payload.registeredBy || user.username,
@@ -3135,9 +3158,11 @@ export function createApp() {
             }
           }
         } else if (entity === 'media') {
+          if (!user.isAdmin) throw new Error('Administrator access required for media.');
           const resolvedUrl = payload.fileUrl || payload.base64 || payload.dataUrlOrBase64;
           if (resolvedUrl) {
             const savedMedia = await insertMedia({
+              id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
               fileName: payload.fileName || `media-${Date.now()}`,
               fileUrl: resolvedUrl,
               mimeType: payload.mimeType || 'image/jpeg',
@@ -3156,18 +3181,20 @@ export function createApp() {
             results.push({ clientOperationId, entityId, success: false, error: 'Empty media content' });
           }
         } else if (entity === 'certificate') {
+          if (!user.isAdmin && (!user.isFocal || !user.assignedBarangay)) throw new Error('Certificate writes require an administrator or assigned focal person.');
           if (!user.isAdmin && user.assignedBarangay) {
             payload.barangay = user.assignedBarangay;
             payload.farmerBarangay = user.assignedBarangay;
           }
           const savedCert = await upsertCertificate({
             ...payload,
-            id: payload.id || `cert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
           });
           results.push({ clientOperationId, entityId, serverEntityId: savedCert.id, success: true });
         } else if (entity === 'message') {
           const newMsg = await createMessage({
             ...payload,
+            id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
             senderId: user.userId,
             senderName: user.username,
             senderRole: user.role as any,
@@ -3175,7 +3202,7 @@ export function createApp() {
           });
           results.push({ clientOperationId, entityId, serverEntityId: newMsg.id, success: true });
         } else {
-          results.push({ clientOperationId, entityId, success: true });
+          results.push({ clientOperationId, entityId, success: false, error: 'Unsupported sync entity.' });
         }
       } catch (err: any) {
         console.error(`Sync error on operation ${clientOperationId}:`, err);
@@ -3199,6 +3226,20 @@ export function createApp() {
   // =========================================================================
   // 12. DA HINUNANGAN PUBLIC ASSISTANT API (DEDICATED PUBLIC PORTAL ENDPOINT)
   // =========================================================================
+  const chatRequests = new Map<string, { count: number; reset: number }>();
+  const limitChat: express.RequestHandler = (req, res, next) => {
+    const now = Date.now();
+    for (const [key, entry] of chatRequests) if (entry.reset <= now) chatRequests.delete(key);
+    const key = getUserSecurityContext(req).userId || req.ip || 'public';
+    const entry = chatRequests.get(key) || { count: 0, reset: now + 60_000 };
+    if (++entry.count > 20) { res.setHeader('Retry-After', Math.ceil((entry.reset - now) / 1000)); res.status(429).json({ success: false, error: 'Too many requests. Please try again in a minute.' }); return; }
+    chatRequests.set(key, entry);
+    const message: unknown = req.body?.message;
+    if (typeof message !== 'string' || !message.trim() || message.length > 8000) { res.status(400).json({ success: false, error: 'Enter a message of 1–8000 characters.' }); return; }
+    next();
+  };
+  app.post(['/api/public/assistant/chat', '/api/assistant/chat'], limitChat);
+
   app.post('/api/public/assistant/chat', async (req, res) => {
     const { message = '' } = req.body || {};
 
@@ -4130,6 +4171,16 @@ How may I assist your agricultural operations today?`,
     }
   });
 
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ success: false, error: 'API route not found.' });
+  });
+  app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const status = error && typeof error === 'object' && 'status' in error ? Number(error.status) : 500;
+    res.status(status >= 400 && status <= 599 ? status : 500).json({
+      success: false,
+      error: status === 413 ? 'Request too large. Upload files directly to Supabase Storage.' : status === 400 ? 'Invalid request body.' : 'The request could not be completed.',
+    });
+  });
   return app;
 }
 

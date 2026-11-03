@@ -133,3 +133,18 @@ export async function deleteLandingCmsAsset(filePath: string): Promise<void> {
   const result = await supabase.storage.from(bucket).remove([filePath]);
   if (result.error) throw new Error(`Failed to remove Supabase Storage object: ${result.error.message}`);
 }
+/** Validate a completed direct upload before it can be referenced by application rows. */
+export async function verifyDirectImage(
+  supabase: SupabaseClient, bucket: string, filePath: string, fileName: string, mimeType: string,
+  allowedPrefix: string,
+): Promise<LandingUploadResult> {
+  if (!filePath.startsWith(allowedPrefix) || filePath.includes('..')) throw new Error('Image path is outside your upload scope.');
+  const result = await supabase.storage.from(bucket).download(filePath);
+  if (result.error) throw new Error('Uploaded image could not be found.');
+  const bytes = Buffer.from(await result.data.arrayBuffer());
+  decodeImage(fileName, mimeType, `data:${mimeType};base64,${bytes.toString('base64')}`);
+  let fileUrl: string;
+  if (bucket === 'certificates') fileUrl = await createCertificateAssetSignedUrl(supabase, filePath);
+  else fileUrl = supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl;
+  return { filePath, fileUrl, fileSize: bytes.length };
+}

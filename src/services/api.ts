@@ -1,3 +1,4 @@
+import { uploadImageDirect } from './directUpload.ts';
 import {
   Barangay,
   CertificateTemplate,
@@ -25,17 +26,6 @@ function getAuthHeaders(): Record<string, string> {
     const user = storageService.getCurrentUser();
     const token = storageService.getSessionToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (user) {
-      headers['x-user-role'] = user.role || 'focal';
-      headers['x-user-id'] = user.id || '';
-      headers['x-user-name'] = user.username || user.name || '';
-      if (user.assignedBarangay) {
-        headers['x-user-assigned-barangay'] = user.assignedBarangay;
-      }
-      if (user.barangay_id) {
-        headers['x-user-barangay-id'] = user.barangay_id;
-      }
-    }
   } catch {
     // Non-browser or SSR fallback
   }
@@ -259,6 +249,7 @@ export const accountsApi = {
       body: JSON.stringify(user),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to save user account to database.');
     }
@@ -273,6 +264,7 @@ export const accountsApi = {
       body: JSON.stringify({ initialPassword, confirmPassword }),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to reset account password.');
     }
@@ -286,6 +278,7 @@ export const accountsApi = {
       body: JSON.stringify(user),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to update user account in database.');
     }
@@ -312,6 +305,7 @@ export const moduleDataApi = {
       headers: await getFreshAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       const message = data?.error || 'Unable to load shared module data from database.';
       throw new Error(data?.diagnosticCode ? `${message} (Database code: ${data.diagnosticCode})` : message);
@@ -326,6 +320,7 @@ export const moduleDataApi = {
       body: JSON.stringify({ data: value }),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       const message = data?.error || 'Unable to save shared module data to database.';
       throw new Error(data?.diagnosticCode ? `${message} (Database code: ${data.diagnosticCode})` : message);
@@ -370,6 +365,7 @@ export const farmersApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !Array.isArray(data.data) || typeof data.total !== 'number') {
       throw new Error(data?.error || "Unable to load this farmer's swine from the database.");
     }
@@ -398,6 +394,7 @@ export const barangaysApi = {
       body: JSON.stringify(barangay),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) throw new Error(data?.error || 'Unable to save barangay to database.');
     return data.data;
   },
@@ -409,6 +406,7 @@ export const barangaysApi = {
       body: JSON.stringify(barangay),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) throw new Error(data?.error || 'Unable to update barangay in database.');
     return data.data;
   },
@@ -419,6 +417,7 @@ export const barangaysApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) throw new Error(data?.error || 'Unable to deactivate barangay in database.');
   },
 };
@@ -463,6 +462,7 @@ export const certificatesApi = {
       body: JSON.stringify(cert),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to save certificate to database.');
     }
@@ -476,6 +476,7 @@ export const certificatesApi = {
       body: JSON.stringify(cert),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to update certificate in database.');
     }
@@ -488,6 +489,7 @@ export const certificatesApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to archive certificate in database.');
     }
@@ -515,6 +517,7 @@ export const messagesApi = {
       body: JSON.stringify(msg),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to send message to database.');
     }
@@ -526,7 +529,9 @@ export const messagesApi = {
       method: 'PATCH',
       headers: getAuthHeaders(),
     });
-    return res.ok;
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) throw new Error(data?.error || `Request failed (${res.status}).`);
+    return true;
   },
 
   async delete(id: string): Promise<boolean> {
@@ -534,7 +539,9 @@ export const messagesApi = {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    return res.ok;
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) throw new Error(data?.error || `Request failed (${res.status}).`);
+    return true;
   },
 };
 
@@ -555,13 +562,14 @@ export const mediaApi = {
     return data.data || [];
   },
 
-  async upload(payload: { fileName: string; fileUrl?: string; base64?: string; mimeType?: string; category?: string; altText?: string }): Promise<any> {
+  async upload(payload: { fileName: string; fileUrl?: string; filePath?: string; base64?: string; mimeType?: string; category?: string; altText?: string }): Promise<any> {
     const res = await fetch('/api/media/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || 'Unable to upload media to database.');
     }
@@ -579,15 +587,8 @@ export const mediaApi = {
     if (!extensionsByMime[file.type]?.includes(extension) || file.size === 0 || file.size > 15 * 1024 * 1024) {
       throw new Error('Choose a JPEG, PNG, WebP, or GIF image no larger than 15 MB.');
     }
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string'
-        ? resolve(reader.result)
-        : reject(new Error('Unable to read the selected image.'));
-      reader.onerror = () => reject(new Error('Unable to read the selected image.'));
-      reader.readAsDataURL(file);
-    });
-    return this.upload({ fileName: file.name, mimeType: file.type, base64, category });
+    const filePath = await uploadImageDirect(file, 'media');;
+    return this.upload({ fileName: file.name, mimeType: file.type, filePath, category });
   },
 
   async uploadCertificateAsset(file: File): Promise<{ filePath: string; fileUrl: string; fileSize: number }> {
@@ -601,20 +602,14 @@ export const mediaApi = {
     if (!extensionsByMime[file.type]?.includes(extension) || file.size === 0 || file.size > 15 * 1024 * 1024) {
       throw new Error('Choose a JPEG, PNG, WebP, or GIF image no larger than 15 MB.');
     }
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string'
-        ? resolve(reader.result)
-        : reject(new Error('Unable to read the selected image.'));
-      reader.onerror = () => reject(new Error('Unable to read the selected image.'));
-      reader.readAsDataURL(file);
-    });
+    const filePath = await uploadImageDirect(file, 'certificate');;
     const res = await fetch('/api/certificate-assets/upload', {
       method: 'POST',
       headers: await getFreshAuthHeaders(),
-      body: JSON.stringify({ fileName: file.name, mimeType: file.type, base64 }),
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type, filePath }),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.data?.filePath || !data.data?.fileUrl) {
       throw new Error(data?.error || 'Unable to upload certificate image to private Supabase Storage.');
     }
@@ -626,7 +621,9 @@ export const mediaApi = {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    return res.ok;
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) throw new Error(data?.error || `Request failed (${res.status}).`);
+    return true;
   },
 };
 
@@ -634,6 +631,7 @@ export const settingsApi = {
   async getPublishedLandingCms(): Promise<LandingCmsConfig> {
     const res = await fetch('/api/landing-cms/published', { cache: 'no-store' });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
       throw new Error(data?.error || 'Unable to load published landing page configuration.');
     }
@@ -643,6 +641,7 @@ export const settingsApi = {
   async getLandingCmsDraft(): Promise<LandingCmsConfig> {
     const res = await fetch('/api/admin/landing-cms/draft', { headers: getAuthHeaders(), cache: 'no-store' });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
       throw new Error(data?.error || 'Unable to load landing page draft.');
     }
@@ -656,6 +655,7 @@ export const settingsApi = {
       body: JSON.stringify(config),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
       throw new Error(data?.error || 'Unable to save landing page draft.');
     }
@@ -669,6 +669,7 @@ export const settingsApi = {
       body: JSON.stringify(config),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
       throw new Error(data?.error || 'Unable to publish landing page configuration.');
     }
@@ -682,18 +683,14 @@ export const settingsApi = {
     fileName: string;
     mimeType: string;
   }> {
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Unable to read selected file.'));
-      reader.onerror = () => reject(new Error('Unable to read selected file.'));
-      reader.readAsDataURL(file);
-    });
+    const filePath = await uploadImageDirect(file, 'landing');;
     const res = await fetch('/api/admin/landing-cms/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ fileName: file.name, mimeType: file.type, base64, category }),
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type, filePath, category }),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.fileUrl || !data.filePath) {
       throw new Error(data?.error || 'Unable to upload landing page media.');
     }
@@ -706,6 +703,7 @@ export const settingsApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     return data?.config;
   },
 
@@ -716,6 +714,7 @@ export const settingsApi = {
       body: JSON.stringify(config),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     return data?.config;
   },
 
@@ -725,6 +724,7 @@ export const settingsApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.theme) {
       throw new Error(data?.error || 'Failed to load sidebar configuration.');
     }
@@ -738,6 +738,7 @@ export const settingsApi = {
       body: JSON.stringify(theme),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.theme) {
       throw new Error(data?.error || 'Failed to save sidebar configuration.');
     }
@@ -750,6 +751,7 @@ export const settingsApi = {
       headers: getAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     return data?.schema;
   },
 
@@ -760,6 +762,7 @@ export const settingsApi = {
       body: JSON.stringify(schema),
     });
     const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     return data?.schema;
   },
 };
