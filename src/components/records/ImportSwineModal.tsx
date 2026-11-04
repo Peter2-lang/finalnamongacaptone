@@ -127,6 +127,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
   const [targetSectionId, setTargetSectionId] = useState<string>('sec_swine_info');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importSubmissionInProgressRef = useRef(false);
 
   // Synchronize with latest schema
   useEffect(() => {
@@ -452,6 +453,8 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
 
   // Execute Database Import & Schema Synchronization
   const handleExecuteImport = async () => {
+    if (importSubmissionInProgressRef.current) return;
+    importSubmissionInProgressRef.current = true;
     setIsImporting(true);
     setCurrentStep('importing');
     setImportProgress(10);
@@ -678,6 +681,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
       setFileReadError(err.message || 'An unexpected error occurred during database import.');
       setCurrentStep('validation');
     } finally {
+      importSubmissionInProgressRef.current = false;
       setIsImporting(false);
     }
   };

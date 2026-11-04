@@ -13,14 +13,14 @@ async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMedia
   const mod=await load(paths[component]);
   const host=document.createElement('div');host.style.cssText='height:800px;width:100%';document.body.replaceChildren(host);
   const root=createRoot(host);const win=window as any;
-  win.auditPicks=[];win.auditViews=[];
+  win.auditPicks=[];win.auditViews=[];win.auditSuccess=[];
   if(component==='GisMap'){
    const source=await (await fetch('/src/components/gis/GisMap.tsx')).text();
    const leafletPath=source.match(/from ["']([^"']*\/leaflet\.js[^"']*)["']/)![1];
    const L=(await load(leafletPath)).default;
    L.Map.addInitHook(function(this:any){win.auditMap=this;});
   }
-  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:()=>{}}:{currentUserRole:'focal'};
+  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:(count:number)=>win.auditSuccess.push(count)}:{currentUserRole:'focal'};
   win.auditRender=(next:any)=>root.render(React.createElement(mod[component],{...base,...props,...next}));
   win.auditRender({});
   await new Promise(resolve=>setTimeout(resolve,150));
@@ -35,6 +35,43 @@ test('import modal closed/open/closed maintains hook order',async({page})=>{
  await page.evaluate(()=>(window as any).auditRender({isOpen:false}));
  await expect(page.getByText('Smart Swine Registry Importer',{exact:false})).toHaveCount(0);
  expect(errors).toEqual([]);
+});
+
+test('CSV import parses headers, detects custom columns and previews valid and invalid rows',async({page})=>{
+ await mount(page,'ImportSwineModal');
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({
+  name:'registry.csv',mimeType:'text/csv',
+  buffer:Buffer.from('Farmer Name,Barangay,Latitude,Longitude,Cage Number\nTest Farmer,Ambacon,10.4,125.2,C-01\n,Ambacon,10.4,125.2,C-02'),
+ });
+ await expect(page.getByText('Detected Columns in Spreadsheet',{exact:false})).toBeVisible();
+ await expect(page.getByText('Cage Number',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await expect(page.getByText('Total Rows',{exact:true})).toBeVisible();
+ await expect(page.getByText('Warnings (Auto-fixed)',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByText('Fatal Errors',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByText(/Farmer Name is required/i).first()).toBeVisible();
+});
+
+test('swine import sends a commit only once when the commit action is double-clicked',async({page})=>{
+ let importRequests=0;
+ await mount(page,'ImportSwineModal');
+ await page.route('**/api/swine-records/import',async route=>{
+  importRequests++;
+  const body=route.request().postDataJSON();
+  await route.fulfill({json:{success:true,data:body.records.map((record:any,index:number)=>({...record,id:`server-id-${index}`,pigIdTag:`HIN-2026-${String(index+100).padStart(4,'0')}`}))}});
+ });
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'one-row.csv',mimeType:'text/csv',buffer:Buffer.from('Farmer Name,Barangay\nTest Farmer,Ambacon')});
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ const commit=page.getByRole('button',{name:/Commit 1 Records to Database/});
+ await commit.evaluate(button=>{
+  button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+ });
+ await expect(page.getByRole('heading',{name:'Spreadsheet Successfully Imported!',exact:true})).toBeVisible();
+ expect(importRequests).toBe(1);
+ expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([1]);
 });
 
 test('GIS 20 normal clicks never select registration coordinates',async({page})=>{

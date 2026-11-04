@@ -837,15 +837,16 @@ export function validateImportRow(
           severity: 'warning',
         });
       } else if (duplicateHandling === 'rename') {
-        finalTag = `HIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        // The server allocates the replacement tag from its authoritative sequence.
+        finalTag = '';
         warnings.push({
           row: rowNumber,
           pigId: finalTag,
           farmerName,
           barangay: rawBarangay,
           field: 'pig_id_tag',
-          value: finalTag,
-          message: `Duplicate Pig ID in batch. Auto-assigned new tag: ${finalTag}`,
+          value: pigId,
+          message: `Duplicate Pig ID in batch. A new official tag will be allocated when this row is saved.`,
           severity: 'warning',
         });
       }
@@ -874,25 +875,25 @@ export function validateImportRow(
           severity: 'warning',
         });
       } else if (duplicateHandling === 'rename') {
-        finalTag = `HIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        // Do not guess an official identifier client-side; the API assigns it.
+        finalTag = '';
         warnings.push({
           row: rowNumber,
           pigId: finalTag,
           farmerName,
           barangay: rawBarangay,
           field: 'pig_id_tag',
-          value: finalTag,
-          message: `Pig ID already registered. Auto-assigned unique tag: ${finalTag}`,
+          value: pigId,
+          message: `Pig ID already registered. A new official tag will be allocated when this row is saved.`,
           severity: 'warning',
         });
       }
     }
-    seenBatchTags.add(finalTag.toUpperCase());
+    if (finalTag) seenBatchTags.add(finalTag.toUpperCase());
   } else {
-    // Generate authoritative Tag if missing
-    finalTag = `HIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    mappedObj['pig_id_tag'] = finalTag;
-    seenBatchTags.add(finalTag.toUpperCase());
+    // Leave the tag empty so the authorized server sequence assigns it on save.
+    finalTag = '';
+    mappedObj['pig_id_tag'] = '';
   }
 
   // 4. Validate Birth Date
@@ -966,12 +967,14 @@ export function validateImportRow(
   }
 
   // 7. Coordinates & Boundary
-  let lat = 10.3969;
-  let lng = 125.1999;
-  if (rawLat && rawLng) {
-    const parsedLat = parseFloat(rawLat);
-    const parsedLng = parseFloat(rawLng);
-    if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+  let lat = 0;
+  let lng = 0;
+  if ((rawLat !== undefined && rawLat !== null && String(rawLat).trim() !== '') ||
+      (rawLng !== undefined && rawLng !== null && String(rawLng).trim() !== '')) {
+    const parsedLat = Number.parseFloat(String(rawLat));
+    const parsedLng = Number.parseFloat(String(rawLng));
+    if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng) &&
+        parsedLat >= -90 && parsedLat <= 90 && parsedLng >= -180 && parsedLng <= 180) {
       lat = parsedLat;
       lng = parsedLng;
       const isInside = isPointInsideHinunangan(lat, lng);
@@ -987,6 +990,17 @@ export function validateImportRow(
           severity: 'warning',
         });
       }
+    } else {
+      warnings.push({
+        row: rowNumber,
+        pigId: finalTag,
+        farmerName,
+        barangay: rawBarangay,
+        field: 'coordinates',
+        value: `${String(rawLat ?? '')}, ${String(rawLng ?? '')}`,
+        message: 'GPS coordinates are incomplete or invalid. The record will be imported without a map location.',
+        severity: 'warning',
+      });
     }
   }
 
