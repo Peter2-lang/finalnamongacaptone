@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import * as XLSX from 'xlsx';
 
 // Component fixtures exercise actual React components and Leaflet, without touching a database.
 async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMediaSettings',props:Record<string,unknown>={}){
@@ -51,6 +52,23 @@ test('CSV import parses headers, detects custom columns and previews valid and i
  await expect(page.getByText('Warnings (Auto-fixed)',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
  await expect(page.getByText('Fatal Errors',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
  await expect(page.getByText(/Farmer Name is required/i).first()).toBeVisible();
+});
+
+test('XLSX import parses the first worksheet and maps its headers',async({page})=>{
+ const workbook=XLSX.utils.book_new();
+ const worksheet=XLSX.utils.aoa_to_sheet([['Farmer Name','Barangay'],['XLSX Farmer','Ambacon']]);
+ XLSX.utils.book_append_sheet(workbook,worksheet,'Registry');
+ const buffer=XLSX.write(workbook,{bookType:'xlsx',type:'buffer'}) as Buffer;
+ await mount(page,'ImportSwineModal');
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({
+  name:'registry.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer,
+ });
+ await expect(page.getByText('Detected Columns in Spreadsheet',{exact:false})).toBeVisible();
+ await expect(page.getByText('Farmer Name',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await expect(page.getByText('Total Rows',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Commit 1 Records to Database/})).toBeEnabled();
 });
 
 test('swine import sends a commit only once when the commit action is double-clicked',async({page})=>{
