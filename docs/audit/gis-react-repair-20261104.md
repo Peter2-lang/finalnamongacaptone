@@ -123,3 +123,8 @@ Production was not promoted or replaced. No production data were created, change
 ### Continued production module-suite verification
 
 After the final GIS repair, reran the full production-bundle `system.spec.ts` suite using isolated browser fixtures. **14 passed, 2 skipped, zero failed** across desktop and mobile: four role navigation fixtures, anonymous admin-route denial, GIS empty clicks/refresh, and populated/empty dashboard snapshots. The two skips are the development-only import of source modules. Full output: [production-module-suite.txt](evidence/gis-react-20261104/production-module-suite.txt). This closes the earlier full-suite GIS regression gap; it still does not establish real credential or database behavior.
+
+
+### Production status check
+
+Read-only Vercel production health check at `2026-11-04T05:05:29.581Z`: HTTP 200, database connected, schema ready, cloud online, authentication available. Production still serves deployment `dpl_5EPuzkSKm3wSU5LLNwFRhoGwV4kA` from commit `0bd949b0677095d70349783c66fbe13a08d2eb92`; the GIS fixes have **not** been released there. See [production-health.json](evidence/gis-react-20261104/production-health.json). Health confirms availability only, not workflow correctness.
