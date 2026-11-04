@@ -58,7 +58,7 @@ import { GoogleGisMap } from './GoogleGisMap';
 const createSwineMarkerIcon = (isReadyToSell: boolean, tagId: string = '') => {
   const bg = isReadyToSell ? '#f59e0b' : '#dc2626';
   const iconHtml = `
-    <div style="position: relative; transform: translate(-50%, -100%); cursor: pointer; display: flex; flex-direction: column; align-items: center;" class="swine-map-marker">
+    <div style="position: relative; cursor: pointer; display: flex; flex-direction: column; align-items: center;" class="swine-map-marker">
       <div style="background-color: ${bg}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.4); font-size: 14px;">
         🐖
       </div>
@@ -79,7 +79,7 @@ const createSwineMarkerIcon = (isReadyToSell: boolean, tagId: string = '') => {
 // Custom Farmer Marker Icon with 👤
 const createFarmerMarkerIcon = (farmerName: string) => {
   const iconHtml = `
-    <div style="position: relative; transform: translate(-50%, -100%); cursor: pointer; display: flex; flex-direction: column; align-items: center;" class="farmer-map-marker">
+    <div style="position: relative; cursor: pointer; display: flex; flex-direction: column; align-items: center;" class="farmer-map-marker">
       <div style="background-color: #2563eb; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.35); font-size: 11px;">
         👤
       </div>
@@ -193,6 +193,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   onPickLocationRef.current = onPickLocation;
   const onViewSwineRecordRef = useRef(onViewSwineRecord);
   onViewSwineRecordRef.current = onViewSwineRecord;
+  const swineMarkersRef = useRef<Map<string, L.Marker>>(new Map());
 
   const isManualPinModeRef = useRef(isManualPinMode);
   isManualPinModeRef.current = isManualPinMode;
@@ -410,10 +411,19 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     boundariesLayerGroupRef.current = L.layerGroup().addTo(map);
     labelsLayerGroupRef.current = L.layerGroup().addTo(map);
     swinePinsLayerGroupRef.current = L.layerGroup().addTo(map);
+    swineMarkersRef.current.clear();
     farmerPinsLayerGroupRef.current = L.layerGroup().addTo(map);
     droppedPinLayerRef.current = L.layerGroup().addTo(map);
 
     mapInstanceRef.current = map;
+    // Leaflet's keyboard handler focuses its container on mouse-down and restores
+    // window scroll only. Our map lives in a scrolling main element, so focus it
+    // first without scrolling; otherwise mouse-up can miss the original marker.
+    const container = map.getContainer();
+    const focusWithoutScrolling = (event: MouseEvent) => {
+      if (event.button === 0) container.focus({preventScroll: true});
+    };
+    container.addEventListener('mousedown', focusWithoutScrolling, true);
 
     map.on('zoomend', () => {
       setCurrentZoom(map.getZoom());
@@ -442,6 +452,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
     return () => {
       clearTimeout(timer);
+      container.removeEventListener('mousedown', focusWithoutScrolling, true);
       map.remove();
       mapInstanceRef.current = null;
     };
@@ -644,15 +655,35 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // 4. Render Swine Markers with "View Swine Record" Button
   useEffect(() => {
     if (!swinePinsLayerGroupRef.current) return;
-    swinePinsLayerGroupRef.current.clearLayers();
-
+    // Reconcile by record ID so refreshes cannot replace an in-progress click target.
+    const visibleIds = new Set(showSwinePins ? swineWithGps.map(s => s.id) : []);
+    swineMarkersRef.current.forEach((marker, id) => {
+      if (!visibleIds.has(id)) {
+        swinePinsLayerGroupRef.current!.removeLayer(marker);
+        swineMarkersRef.current.delete(id);
+      }
+    });
     if (!showSwinePins) return;
 
     swineWithGps.forEach(swine => {
       const isReady = swine.readyToSell || swine.status === 'ready_to_sell';
-      const marker = L.marker([swine.latitude, swine.longitude], {
+      const existingMarker = swineMarkersRef.current.get(swine.id);
+      const marker = existingMarker || L.marker([swine.latitude, swine.longitude], {
         icon: createSwineMarkerIcon(isReady, swine.pigIdTag || swine.earTagNo || ''),
+        zIndexOffset: 2000,
       });
+      if (existingMarker) {
+        const previous = marker.getLatLng();
+        if (previous.lat !== swine.latitude || previous.lng !== swine.longitude) {
+          marker.setLatLng([swine.latitude, swine.longitude]);
+        }
+        const iconKey = `${isReady}:${swine.pigIdTag || swine.earTagNo || ''}`;
+        if ((marker as L.Marker & {registryIconKey?: string}).registryIconKey !== iconKey) {
+          marker.setIcon(createSwineMarkerIcon(isReady, swine.pigIdTag || swine.earTagNo || ''));
+        }
+      }
+      (marker as L.Marker & {registryIconKey?: string}).registryIconKey = `${isReady}:${swine.pigIdTag || swine.earTagNo || ''}`;
+      swineMarkersRef.current.set(swine.id, marker);
 
       // Swine Info Popup
       const weightDisplay = swine.actualWeightKg
@@ -694,15 +725,18 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         </div>
       `;
 
-      marker.bindPopup(popupHtml);
-      marker.on('popupopen', () => {
+      if (!marker.getPopup()) marker.bindPopup(popupHtml);
+      else if (marker.getPopup()!.getContent() !== popupHtml) marker.setPopupContent(popupHtml);
+      const bindRecordAction = () => {
         const btn = document.getElementById(`btn-view-swine-${swine.id}`);
         if (btn && onViewSwineRecordRef.current) {
           btn.onclick = () => {
             onViewSwineRecordRef.current?.(swine);
           };
         }
-      });
+      };
+      marker.off('popupopen').on('popupopen', bindRecordAction);
+      if (marker.isPopupOpen()) bindRecordAction();
 
 
       marker.addTo(swinePinsLayerGroupRef.current!);
@@ -719,6 +753,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     farmerMarkers.forEach(farmer => {
       const marker = L.marker([farmer.lat, farmer.lng], {
         icon: createFarmerMarkerIcon(farmer.farmerName),
+        zIndexOffset: 1900,
       });
 
       const popupHtml = `
@@ -727,7 +762,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
             <strong style="color: #2563eb; font-size: 13px;">👤 Registered Swine Farmer</strong>
           </div>
           <div style="font-size: 11px; line-height: 1.5;">
-            <div><span style="color: #71717a;">Name:</span> <strong>${farmer.farmerName}</strong></div>
+            <div><span style="color: #71717a;">Name:</span> <strong>${escapeHtml(farmer.farmerName)}</strong></div>
             <div><span style="color: #71717a;">Contact:</span> <strong>${escapeHtml(farmer.contact)}</strong></div>
             <div><span style="color: #71717a;">Barangay:</span> <strong>${escapeHtml(farmer.barangay)}</strong></div>
             <div><span style="color: #71717a;">Total Swine:</span> <strong style="color: #047857;">${farmer.swineCount} heads</strong></div>

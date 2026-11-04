@@ -19,7 +19,7 @@ async function fixture(page:Page,role:string,state:{records:any[]}={records:[]})
   else if(path==='/api/landing-cms/published'||path.includes('landing-cms/draft'))data=INITIAL_LANDING_CMS_CONFIG;
   else if(path.includes('landing-config')||path.includes('landing/settings'))data={};
   else if(path==='/api/health')return route.fulfill({json:{service:'hinunangan-swine-registry',status:'healthy',database:'connected',schema:'ready',cloud:'online',authentication:'available'}});
-  else if(path==='/api/sync/pull')data={swineRecords:[],certificates:[],messages:[]};
+  else if(path==='/api/sync/pull')data={swineRecords:state.records,certificates:[],messages:[]};
   else if(path.startsWith('/api/settings'))data={};
   await route.fulfill({json:{success:true,data,total:0,count:0,schema:path.includes('registry-schema')?{version:1,sections:[]}:undefined,config:path.includes('landing')?INITIAL_LANDING_CMS_CONFIG:undefined,theme:path.includes('sidebar-theme')?{}:undefined}});
  });
@@ -79,7 +79,9 @@ test('GIS normal clicks and refresh keep the application in GIS',async({page})=>
  await page.waitForLoadState('networkidle');
  const info=page.getByRole('button',{name:'Close barangay information'});if(await info.isVisible())await info.click();
  await page.getByRole('button',{name:'Reset View',exact:true}).click();
- await page.locator('.swine-map-marker').click();await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ const scrollBeforeMarker=await page.locator('main').evaluate(node=>node.scrollTop);
+ await page.locator('.swine-map-marker > div').first().click();await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ expect(await page.locator('main').evaluate(node=>node.scrollTop)).toBe(scrollBeforeMarker);
  await expect(map).toBeVisible();await page.reload();await expect(map).toBeVisible();
 });
 
