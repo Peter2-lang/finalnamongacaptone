@@ -7,3 +7,11 @@ test('message reads preserve subject, urgency and attachments with legacy compat
  const legacy=mapDbToMessage({id:'legacy',text:'Legacy body',attachments:[{path:'old/file'}]});
  assert.equal(legacy.subject,'Legacy body');assert.deepEqual(legacy.attachments,[{path:'old/file'}]);
 });
+
+test('message read receipts are scoped to the requesting user',()=>{
+ const row={id:'m',senderId:'admin-1',text:'Broadcast',isRead:false,attachments:{readBy:['focal-1']}};
+ assert.equal(mapDbToMessage(row,'focal-1').isRead,true);
+ assert.equal(mapDbToMessage(row,'focal-2').isRead,false);
+ assert.equal(mapDbToMessage(row,'admin-1').isRead,true);
+ assert.deepEqual(mapDbToMessage(row,'focal-2').readBy,['focal-1']);
+});

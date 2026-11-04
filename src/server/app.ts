@@ -2304,10 +2304,13 @@ export function createApp() {
   app.patch('/api/messages/:id/read', async (req, res) => {
     const { id } = req.params;
     const user = getUserSecurityContext(req);
+    if (!user.isAuthenticated || !user.userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required to mark messages as read.' });
+    }
     try {
       const visible = await getAllMessages({ role: user.role, barangay: user.assignedBarangay, userId: user.userId });
       if (!visible.some(message => message.id === id)) return res.status(404).json({ success: false, error: 'Message not found in your scope.' });
-      if (!await markMessageRead(id)) throw new Error('Unable to update message');
+      if (!await markMessageRead(id, user.userId)) throw new Error('Unable to update message');
       return res.json({ success: true, message: 'Message marked as read.' });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to update message.' });

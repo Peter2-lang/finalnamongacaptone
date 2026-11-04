@@ -40,6 +40,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
   const focalBarangay = currentUser?.assignedBarangay;
+  const userId = currentUser?.authUserId || currentUser?.id;
+  const isReadByCurrentUser = (message: MessageItem) => message.isRead === true || Boolean(userId && message.readBy?.includes(userId));
   React.useEffect(() => {
     let mounted = true;
     if (!storageService.isEffectiveOffline()) messagesApi.getAll().then(items => {
@@ -117,10 +119,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
   const handleSelectMessage = async (msg: MessageItem) => {
     setSelectedMessage(msg);
-    if (!msg.isRead) {
+    if (!isReadByCurrentUser(msg)) {
       try {
         await messagesApi.markRead(msg.id);
-        storageService.markMessageAsRead(msg.id);
+        storageService.markMessageAsRead(msg.id, userId);
         setMessages(storageService.getMessages());
         onRefreshBadge?.();
       } catch (error) { setError(error instanceof Error ? error.message : 'Unable to mark message as read.'); }
@@ -146,7 +148,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold px-3 py-1 bg-stone-100 text-stone-700 rounded-lg border border-stone-200">
-            {visibleMessages.filter(m => !m.isRead).length} Unread Dispatch(es)
+            {visibleMessages.filter(m => !isReadByCurrentUser(m)).length} Unread Dispatch(es)
           </span>
         </div>
       </div>
@@ -211,8 +213,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     onChange={e => setPriority(e.target.value as MessageItem['priority'])}
                     className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white font-semibold"
                   >
-                    <option value="routine">Routine Notification</option>
-                    <option value="alert">⚠️ Inspection Advisory</option>
+                    <option value="normal">Routine Notification</option>
+                    <option value="advisory">⚠️ Inspection Advisory</option>
                     <option value="urgent">🚨 Urgent / ASF Warning</option>
                   </select>
                 </div>
@@ -275,7 +277,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     className={`p-3.5 text-xs transition cursor-pointer flex items-start justify-between gap-3 ${
                       selectedMessage?.id === msg.id
                         ? 'bg-emerald-50/70 border-l-4 border-emerald-700'
-                        : msg.isRead
+                        : isReadByCurrentUser(msg)
                         ? 'hover:bg-stone-50'
                         : 'bg-amber-50/40 font-bold hover:bg-amber-50'
                     }`}
@@ -309,7 +311,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <span className="text-[10px] text-stone-400 block">
                         {new Date(msg.timestamp || msg.createdAt || Date.now()).toLocaleDateString()}
                       </span>
-                      {!msg.isRead && (
+                      {!isReadByCurrentUser(msg) && (
                         <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block mt-1"></span>
                       )}
                     </div>
