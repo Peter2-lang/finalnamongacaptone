@@ -118,3 +118,8 @@ Final 28-scenario GIS run: **26 PASS, 2 platform-specific skips, zero failures**
 Final immutable Preview: https://lguhinunanganswineregistry-6d4mhfz8h-peter2-langs-projects.vercel.app — deployment `dpl_3eRFwkqFoQWTRkM3uLEso7mcksQs`, **READY**, application commit `23fd5b45ae04003356b1e4ea535a02f95e0629b6`. `/api/health` returned **HTTP 200** at `2026-11-04T04:53:22.570Z`: healthy, database connected, schema ready, cloud online, authentication available. See [final-preview.json](evidence/gis-react-20261104/final-preview.json). This health check does not establish live CRUD, RLS, role authentication or upload success.
 
 Production was not promoted or replaced. No production data were created, changed or deleted. The subsequent evidence-only commit does not alter the application code tested in this immutable Preview.
+
+
+### Continued production module-suite verification
+
+After the final GIS repair, reran the full production-bundle `system.spec.ts` suite using isolated browser fixtures. **14 passed, 2 skipped, zero failed** across desktop and mobile: four role navigation fixtures, anonymous admin-route denial, GIS empty clicks/refresh, and populated/empty dashboard snapshots. The two skips are the development-only import of source modules. Full output: [production-module-suite.txt](evidence/gis-react-20261104/production-module-suite.txt). This closes the earlier full-suite GIS regression gap; it still does not establish real credential or database behavior.
