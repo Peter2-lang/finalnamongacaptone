@@ -23,7 +23,8 @@ BEGIN
   CROSS JOIN LATERAL (VALUES (to_jsonb(r)->>'pig_id_tag'),(to_jsonb(r)->>'computed_pig_id'),(to_jsonb(r)->>'ear_tag_no'),(to_jsonb(r)->>'original_tag_number'),(to_jsonb(r)->>'ear_tag_number')) tags(tag)
   WHERE tag ~ '^HIN-[0-9]{4}-[0-9]+$';
   sequence_start := greatest(coalesce(maximum,0)+1,1);
-  IF sequence_start>=9223372036854775807 THEN RAISE EXCEPTION 'Tag range requires manual review; no changes made.'; END IF;
+  IF sequence_start>=9223372036854775807 THEN RAISE EXCEPTION 'Tag range requires
+   manual review; no changes made.'; END IF;
   EXECUTE format('CREATE SEQUENCE public.swine_tag_seq AS bigint START WITH %s INCREMENT BY 1 NO CYCLE',sequence_start);
   COMMENT ON SEQUENCE public.swine_tag_seq IS 'hinunangan-reviewed:202611030003';
   REVOKE ALL ON SEQUENCE public.swine_tag_seq FROM PUBLIC;
