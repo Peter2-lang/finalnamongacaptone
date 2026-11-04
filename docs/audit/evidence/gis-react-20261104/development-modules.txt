@@ -1,0 +1,731 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test
+
+[WebServer] (node:18019) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:18067) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 42 tests using 1 worker
+
+(node:18156) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order (4.7s)
+  ✓   2 [desktop] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates (3.8s)
+  ✓   3 [desktop] › tests/browser/gis-regression.spec.ts:47:1 › GIS denied GPS permission preserves viewing mode (2.8s)
+  ✓   4 [desktop] › tests/browser/gis-regression.spec.ts:58:1 › GIS mouse wheel zoom preserves viewing mode (2.8s)
+  ✓   5 [desktop] › tests/browser/gis-regression.spec.ts:69:1 › GIS zoom, pan, reset, GPS and explicit location selection (6.4s)
+  ✓   6 [desktop] › tests/browser/gis-regression.spec.ts:95:1 › GIS swine markers open popup without edit or coordinate selection (3.6s)
+  ✓   7 [desktop] › tests/browser/gis-regression.spec.ts:102:1 › photo settings role transitions maintain hook order (2.9s)
+  ✓   8 [desktop] › tests/browser/gis-regression.spec.ts:112:1 › print utility isolates intended document and restores after printing (1.4s)
+  ✓   9 [desktop] › tests/browser/gis-regression.spec.ts:134:45 › GIS admin markers obey visibility scope (2.9s)
+  ✓  10 [desktop] › tests/browser/gis-regression.spec.ts:134:45 › GIS focal markers obey visibility scope (2.5s)
+  ✓  11 [desktop] › tests/browser/gis-regression.spec.ts:134:45 › GIS agent markers obey visibility scope (2.6s)
+  ✓  12 [desktop] › tests/browser/gis-regression.spec.ts:146:1 › GIS boundaries, heatmap and base layers stay in viewing mode (5.1s)
+  -  13 [desktop] › tests/browser/gis-regression.spec.ts:157:1 › mobile touch dragging and pinch zoom operate on Leaflet
+  ✓  14 [desktop] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (52.3s)
+  ✓  15 [desktop] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (27.1s)
+  ✓  16 [desktop] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (14.7s)
+  ✓  17 [desktop] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (11.9s)
+  ✓  18 [desktop] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.4s)
+  ✓  19 [desktop] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser (5.1s)
+  ✓  20 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (7.2s)
+  ✓  21 [desktop] › tests/browser/system.spec.ts:81:1 › dashboard counters follow populated and empty API snapshots after refresh (11.3s)
+(node:23820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  22 [mobile] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order (2.5s)
+  ✓  23 [mobile] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates (4.7s)
+  ✓  24 [mobile] › tests/browser/gis-regression.spec.ts:47:1 › GIS denied GPS permission preserves viewing mode (2.5s)
+  -  25 [mobile] › tests/browser/gis-regression.spec.ts:58:1 › GIS mouse wheel zoom preserves viewing mode
+  ✓  26 [mobile] › tests/browser/gis-regression.spec.ts:69:1 › GIS zoom, pan, reset, GPS and explicit location selection (3.5s)
+  ✓  27 [mobile] › tests/browser/gis-regression.spec.ts:95:1 › GIS swine markers open popup without edit or coordinate selection (2.5s)
+  ✓  28 [mobile] › tests/browser/gis-regression.spec.ts:102:1 › photo settings role transitions maintain hook order (2.4s)
+  ✓  29 [mobile] › tests/browser/gis-regression.spec.ts:112:1 › print utility isolates intended document and restores after printing (1.1s)
+  ✓  30 [mobile] › tests/browser/gis-regression.spec.ts:134:45 › GIS admin markers obey visibility scope (2.2s)
+  ✓  31 [mobile] › tests/browser/gis-regression.spec.ts:134:45 › GIS focal markers obey visibility scope (2.4s)
+  ✓  32 [mobile] › tests/browser/gis-regression.spec.ts:134:45 › GIS agent markers obey visibility scope (2.5s)
+  ✓  33 [mobile] › tests/browser/gis-regression.spec.ts:146:1 › GIS boundaries, heatmap and base layers stay in viewing mode (3.8s)
+  ✓  34 [mobile] › tests/browser/gis-regression.spec.ts:157:1 › mobile touch dragging and pinch zoom operate on Leaflet (3.8s)
+  ✓  35 [mobile] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (1.6m)
+  ✓  36 [mobile] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (1.1m)
+  ✓  37 [mobile] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (48.3s)
+  ✓  38 [mobile] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (43.7s)
+  ✓  39 [mobile] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (4.7s)
+  ✓  40 [mobile] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser (12.5s)
+  ✘  41 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (3.0m)
+(node:42154) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  42 [mobile] › tests/browser/system.spec.ts:81:1 › dashboard counters follow populated and empty API snapshots after refresh (21.8s)
+
+
+  1) [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Browser logs:
+
+    [pid=23909][err] [1104/042008.047955:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042008.425421:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042009.694693:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042009.694824:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042010.263596:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042010.444931:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042010.444988:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042010.719419:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042012.912029:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042012.978918:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042015.400923:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042015.506149:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042015.516875:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042015.686003:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042015.686137:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042015.947652:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042020.661309:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042021.101417:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042022.295666:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042022.295780:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042022.725532:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042022.916790:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042022.916848:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042023.341192:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042025.767547:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042025.801996:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042027.547493:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042027.562218:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042028.154553:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042028.171689:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042028.187009:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042028.760944:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042032.974113:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042033.311351:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042034.413223:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042034.421292:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042034.421352:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042034.769581:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042034.769633:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042034.843671:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042037.928814:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042038.027913:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042039.514042:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042039.915389:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042039.915822:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042040.531110:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042040.548905:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042040.898865:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042042.946918:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042043.032652:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042044.926452:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042044.926841:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042044.985231:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042045.236699:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042045.245652:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042045.683838:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042048.319768:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042048.781633:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042050.825297:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042050.826111:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042050.826194:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042051.561078:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042051.561152:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042052.084610:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042054.563224:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042054.622533:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042057.653955:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042057.787720:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042057.797875:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042058.389162:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042058.389239:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042059.303496:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042101.024150:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042101.130256:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042104.646621:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042104.942020:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042105.096031:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042105.379982:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042105.380142:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042105.604799:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042107.988555:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042108.024639:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042110.332302:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042110.370588:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042110.653202:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042110.902089:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042110.902138:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042111.269184:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042114.997612:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042115.044109:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042117.316873:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042117.327929:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042117.605977:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042117.816840:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042117.816910:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042118.138207:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042120.642098:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042120.708068:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042122.799189:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042123.278101:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042123.278185:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042124.818416:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042124.818476:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042124.913827:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042127.150462:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042127.207221:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042129.548023:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042129.548319:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042129.834244:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042130.189735:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042130.189825:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042130.882685:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042132.858589:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042132.927495:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042135.347497:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042135.347653:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042135.683558:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042135.886024:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042135.886095:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042136.109105:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042139.341148:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042139.379122:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042140.914571:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042140.914660:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042141.877256:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042142.182813:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042142.182975:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042142.810324:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042145.502888:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042145.890068:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042147.662372:INFO:CONSOLE:136] "[AUTH] session_restore_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (136)
+    [pid=23909][err] [1104/042147.662894:INFO:CONSOLE:136] "[AUTH] session_restore_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (136)
+    [pid=23909][err] [1104/042148.487544:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042149.858465:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042149.919419:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042152.635023:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042152.804296:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042152.804396:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042153.396881:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042153.396953:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042153.925794:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909][err] [1104/042202.543913:INFO:CONSOLE:789] "[vite] connecting...", source: http://127.0.0.1:4173/@vite/client (789)
+    [pid=23909][err] [1104/042202.613987:INFO:CONSOLE:912] "[vite] connected.", source: http://127.0.0.1:4173/@vite/client (912)
+    [pid=23909][err] [1104/042205.272117:INFO:CONSOLE:35] "Service Worker registration blocked by Playwright", source: http://127.0.0.1:4173/src/main.tsx (35)
+    [pid=23909][err] [1104/042205.441638:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042205.441996:INFO:CONSOLE:141] "[AUTH] session_restore_user_check [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (141)
+    [pid=23909][err] [1104/042205.567467:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042206.312790:INFO:CONSOLE:162] "[AUTH] session_restore_profile_authorized [object Object]", source: http://127.0.0.1:4173/src/services/api.ts (162)
+    [pid=23909][err] [1104/042207.474586:INFO:CONSOLE:24] "Unable to subscribe to swine record changes (CHANNEL_ERROR).", source: http://127.0.0.1:4173/src/main.tsx (24)
+    [pid=23909] <gracefully close start>
+    Call log:
+      - waiting for locator('.swine-map-marker')
+        - locator resolved to <div class="swine-map-marker">…</div>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 100ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 100ms
+        3 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      4 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      4 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      3 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      32 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is visible, enabled and stable
+           - scrolling into view if needed
+           - done scrolling
+           - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+         - retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is visible, enabled and stable
+           - scrolling into view if needed
+           - done scrolling
+           - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+         - retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is visible, enabled and stable
+           - scrolling into view if needed
+           - done scrolling
+           - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+         - retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is visible, enabled and stable
+           - scrolling into view if needed
+           - done scrolling
+           - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      5 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      7 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      3 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      7 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      3 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <button id="btn-view-swine-fixture-pig">↵            View Swine Record↵          </button> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      2 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="bg-stone-900/90 text-white px-3 py-1.5 rounded-xl border border-stone-700 shadow-md backdrop-blur-md flex items-center gap-2 text-xs">…</div> from <div class="absolute top-3 left-3 z-30 flex items-center gap-2">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+        - retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      5 × retrying click action
+          - waiting 500ms
+          - waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div class="leaflet-popup-content-wrapper">…</div> from <div class="leaflet-pane leaflet-popup-pane">…</div> subtree intercepts pointer events
+      - retrying click action
+        - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+
+
+      75 |  for(let n=0;n<20;n++)await map.click({position:{x:150+n,y:220},force:true});
+      76 |  await expect(page.getByRole('heading',{name:'Hinunangan Municipal GIS Biosurveillance & Swine Map',exact:true})).toBeVisible();
+    > 77 |  state.records.push({id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true});
+         |                                          ^
+      78 |  await page.reload();await expect(map).toBeVisible();
+      79 |  const info=page.getByRole('button',{name:'Close barangay information'});if(await info.isVisible())await info.click();
+      80 |  await page.getByRole('button',{name:'Reset View',exact:true}).click();
+        at /workspaces/finalnamongacaptone/tests/browser/system.spec.ts:77:42
+
+    Error Context: test-results/development/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/development/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/development/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+  2 skipped
+  39 passed (12.2m)

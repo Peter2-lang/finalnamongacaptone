@@ -1,0 +1,71 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test --config=playwright.production.config.ts --grep GIS normal clicks
+
+[WebServer] (node:61426) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]
+[WebServer] (!) Some chunks are larger than 1000 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer]
+[WebServer]   build/server.cjs      985.7kb
+[WebServer]   build/server.cjs.map    1.8mb
+[WebServer]
+[WebServer] ⚡ Done in 279ms
+[WebServer]
+[WebServer]   build/vercel.cjs  985.0kb
+[WebServer]
+[WebServer] ⚡ Done in 74ms
+[WebServer] (node:63528) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:63544) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:63602) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (30.2s)
+(node:64670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (7.4s)
+
+
+  1) [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.leaflet-popup')
+    Expected substring: "HIN-2026-0001"
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" locator('.leaflet-popup') with timeout 20000ms
+      - waiting for locator('.leaflet-popup')
+
+
+      80 |  const info=page.getByRole('button',{name:'Close barangay information'});if(await info.isVisible())await info.click();
+      81 |  await page.getByRole('button',{name:'Reset View',exact:true}).click();
+    > 82 |  await page.locator('.swine-map-marker > div').first().click();await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+         |                                                                                                             ^
+      83 |  await expect(map).toBeVisible();await page.reload();await expect(map).toBeVisible();
+      84 | });
+      85 |
+        at /workspaces/finalnamongacaptone/tests/browser/system.spec.ts:82:109
+
+    Error Context: test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-desktop/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+  1 passed (1.7m)

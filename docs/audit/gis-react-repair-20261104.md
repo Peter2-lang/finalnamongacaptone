@@ -1,6 +1,6 @@
 # GIS, hook ordering and feature audit — 2026-11-04
 
-Release status: **Local repairs verified; deployment of these repairs pending; live workflow verification incomplete.** No production records were created, updated or deleted. No migrations were applied. Existing screen colors and sidebar layout were preserved. New map controls address missing functionality.
+Release status: **Final Preview READY; live workflow verification incomplete; production unchanged.** No production records were created, updated or deleted. No migrations were applied. Existing screen colors and sidebar layout were preserved. New map controls address missing functionality.
 
 ## Reproduced root causes
 
@@ -23,7 +23,7 @@ Additional confirmed defects repaired during browser verification:
 
 | Files / functions | Final behavior |
 | --- | --- |
-| `src/components/gis/GisMap.tsx`: map initialization click handler, boundary handlers, marker effect, manual pin toggle | Viewing clicks never call the registration callback. Explicit location-selection/picker mode can select coordinates. Marker clicks keep the popup open; record navigation requires the explicit popup action. Boundaries stop bubbling into location selection. |
+| `src/components/gis/GisMap.tsx`: map initialization click handler, boundary handlers, marker effect, manual pin toggle | Viewing clicks never call the registration callback. Explicit location-selection/picker mode can select coordinates. Marker clicks keep the popup open; record navigation requires the explicit popup action. Focus uses `preventScroll`; keyed markers survive refreshes, their hit areas align with their icons, and their stacking remains above labels. Boundaries stop bubbling into location selection. |
 | `src/components/gis/GoogleGisMap.tsx`: GoogleMap click, AdvancedMarker click, camera controls | Location callback requires `isLocationPicker`; marker click selects popup only. Controls call the actual map instance. |
 | `src/components/gis/MapNavigationControls.tsx` | Accessible zoom in/out, default Hinunangan reset, geolocation permission request and device-location focus; denial/unavailability feedback; controls do not bubble clicks. |
 | `src/App.tsx`: GIS rendering | Removed marker-to-edit callback. Agent GIS navigation now renders the view-only map instead of falling through to the sales catalog. |
@@ -62,7 +62,7 @@ The regenerated static inventory covers 82 components and 105 API registrations.
 
 ## Verification and deployment
 
-Final command results and preview status are recorded below after all verification completes. Earlier failed browser runs revealed harness issues (wrong heading, duplicate module import URL, synthetic mouse events aimed under overlays), and a real control/legend overlap. These failures were investigated; they are not counted as successful runs.
+Final command results and preview status are recorded below. Earlier failed browser runs revealed harness issues (wrong heading, duplicate module import URL, synthetic mouse events aimed under overlays), and a real control/legend overlap. These failures were investigated; they are not counted as successful runs.
 
 Real data operations remain blocked on identification of an isolated test environment and authorized role accounts. The repository's Supabase linked project reference does not match either project accessible through the connected Supabase account. Preview health reports a connected, ready database, but a health check is not CRUD, RLS or policy verification.
 
@@ -81,3 +81,40 @@ These test results do not establish production readiness for every workflow. Pro
 - The four-role browser fixtures do not establish real authentication. No live credentials were supplied in this session, and no authentication was bypassed to perform real data operations.
 
 Final browser results and deployment provenance follow when available.
+
+
+### Popup stability follow-up
+
+A final browser check exposed marker churn: `LeafletGisMap` rebuilt all markers whenever the parent supplied a fresh `onViewSwineRecord` callback. That could close a popup during unrelated parent counter/session rendering. The marker listener now calls the latest callback through a ref, and callback identity no longer invalidates the marker effect. The popup-open → parent-callback-change regression passes on desktop and mobile (`popup-stability.txt`).
+
+The integration test was also corrected to exercise 20 empty-map clicks before loading marker fixtures. Its previous fixed coordinates could activate a marker's explicit **View Swine Record** button on mobile, correctly opening Records and invalidating the empty-map assertion. It now waits for initial refresh requests before checking the populated marker popup.
+
+The full development run recorded 39 passes, one mobile GIS failure and two platform skips. The full production run recorded 13 passes, one mobile GIS failure and two development-source-import skips. Those failed runs are retained; final targeted GIS reruns below verify the corrected scenario and popup fix. They must not be described as clean full-suite runs.
+
+
+### Final full-page GIS diagnosis
+
+The failing integration scenario exposed a separate, confirmed Leaflet focus defect. Instrumented browser events recorded `<main>` scrolling from 0 to 81 pixels between `mousedown` and `mouseup`: Leaflet's keyboard handler focuses the entire map container and restores only window scroll. The visible marker therefore moved away from the pointer; mouse-up hit a barangay label and the resulting click targeted the map pane. The map now focuses itself with `{preventScroll:true}` in the mouse-down capture phase, before Leaflet's handler. Keyboard focus remains available. Both desktop and mobile full-page integration checks now pass (four focused checks including component popup refresh stability).
+
+Marker DOM is also reconciled by record ID, its geometry uses Leaflet's anchor without a second inner translation, and livestock hit areas are above barangay labels. This preserves popup and pointer targets across equivalent data refreshes and label overlap. Farmer popup names are HTML-encoded. The corrected fixture returns consistent authoritative records from both `/api/swine-records` and `/api/sync/pull`; previously the sync fixture incorrectly returned an empty registry.
+
+Earlier hypotheses (callback churn, inconsistent fixtures, hit-area overlap) identified separate improvements but did not alone resolve the full-page click failure. The scroll event trace and passing full-page rerun establish the final focus fix; earlier failed runs are not passes.
+
+
+### Final source and verification status
+
+- Final application commit: `23fd5b45ae04003356b1e4ea535a02f95e0629b6`, pushed to `fix/system-functional-repair-20261103`.
+- Final focus/refresh checks: 4/4 PASS in development (desktop and mobile component plus full-page checks).
+- Final production GIS checks: 2/2 PASS. This suite runs `npm run build` before starting the preview server; both the frontend/PWA and backend builds completed successfully. It includes unchanged parent scroll during marker clicks, 20 empty-map clicks, marker popups and page refresh.
+- Final source-wide hook audit and GIS scope tests: 2/2 PASS.
+- Final type-check: PASS.
+- The complete Node suite previously passed 84/84 tests. The later application changes are confined to Leaflet rendering and test fixtures.
+- Broad role/module navigation was exercised in the earlier full runs. Their failing GIS case has now been diagnosed and retested; the logs remain as failures rather than being rewritten as clean full-suite results.
+- Live-role login/logout/token refresh, real Supabase CRUD/counter/map/print persistence, Storage uploads, physical printing, Google Maps runtime authorization, actual device GPS, and multi-device/offline conflict workflows remain unverified. No test accounts or isolated environment were supplied in response to the access question. Existing dependency advisories and the bundle-size warning from the earlier audit remain unresolved. Production readiness is not certified.
+- No migrations were applied and no real registry records were mutated. The unrelated existing SQL edit and generated inventory/action-register working-tree changes were left out of the application commits.
+
+Final 28-scenario GIS run: **26 PASS, 2 platform-specific skips, zero failures**. The skips are desktop touch gestures and mobile mouse wheel. This includes all final map changes, importer/media hook transitions, print isolation, role-scoped markers, empty clicks, marker popup refresh stability, GPS success/denial, mouse-wheel/double-click zoom, pan, reset, layers, boundaries, mobile pinch/drag, page refresh, and unchanged parent scroll during marker click. See [final-gis-tests.txt](evidence/gis-react-20261104/final-gis-tests.txt).
+
+Final immutable Preview: https://lguhinunanganswineregistry-6d4mhfz8h-peter2-langs-projects.vercel.app — deployment `dpl_3eRFwkqFoQWTRkM3uLEso7mcksQs`, **READY**, application commit `23fd5b45ae04003356b1e4ea535a02f95e0629b6`. `/api/health` returned **HTTP 200** at `2026-11-04T04:53:22.570Z`: healthy, database connected, schema ready, cloud online, authentication available. See [final-preview.json](evidence/gis-react-20261104/final-preview.json). This health check does not establish live CRUD, RLS, role authentication or upload success.
+
+Production was not promoted or replaced. No production data were created, changed or deleted. The subsequent evidence-only commit does not alter the application code tested in this immutable Preview.
