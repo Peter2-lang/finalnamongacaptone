@@ -67,11 +67,16 @@ test('all frontend modules evaluate in a browser',async({page})=>{
 });
 
 test('GIS normal clicks and refresh keep the application in GIS',async({page})=>{
- await fixture(page,'admin',{records:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]});await page.goto('/gis');
+ // Empty-map clicks must not accidentally exercise a marker popup's explicit View action.
+ const state:{records:any[]}={records:[]};
+ await fixture(page,'admin',state);await page.goto('/gis');
  const map=page.locator('.leaflet-container');await expect(map).toBeVisible();
  const close=page.getByRole('button',{name:'Close map legend'});if(await close.isVisible())await close.click();
  for(let n=0;n<20;n++)await map.click({position:{x:150+n,y:220},force:true});
  await expect(page.getByRole('heading',{name:'Hinunangan Municipal GIS Biosurveillance & Swine Map',exact:true})).toBeVisible();
+ state.records.push({id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true});
+ await page.reload();await expect(map).toBeVisible();
+ await page.waitForLoadState('networkidle');
  const info=page.getByRole('button',{name:'Close barangay information'});if(await info.isVisible())await info.click();
  await page.getByRole('button',{name:'Reset View',exact:true}).click();
  await page.locator('.swine-map-marker').click();await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');

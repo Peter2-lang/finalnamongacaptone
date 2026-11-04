@@ -191,6 +191,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // Refs for stable map click event handler
   const onPickLocationRef = useRef(onPickLocation);
   onPickLocationRef.current = onPickLocation;
+  const onViewSwineRecordRef = useRef(onViewSwineRecord);
+  onViewSwineRecordRef.current = onViewSwineRecord;
 
   const isManualPinModeRef = useRef(isManualPinMode);
   isManualPinModeRef.current = isManualPinMode;
@@ -695,9 +697,9 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       marker.bindPopup(popupHtml);
       marker.on('popupopen', () => {
         const btn = document.getElementById(`btn-view-swine-${swine.id}`);
-        if (btn && onViewSwineRecord) {
+        if (btn && onViewSwineRecordRef.current) {
           btn.onclick = () => {
-            onViewSwineRecord(swine);
+            onViewSwineRecordRef.current?.(swine);
           };
         }
       });
@@ -705,7 +707,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
       marker.addTo(swinePinsLayerGroupRef.current!);
     });
-  }, [showSwinePins, swineWithGps, onViewSwineRecord, onSelectSwine]);
+  }, [showSwinePins, swineWithGps]);
 
   // 5. Render Farmer Markers
   useEffect(() => {

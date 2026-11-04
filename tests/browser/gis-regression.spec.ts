@@ -96,6 +96,9 @@ test('GIS swine markers open popup without edit or coordinate selection',async({
  await mount(page,'GisMap',{swineList:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]});
  await page.locator('.swine-map-marker').first().click();
  await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ // Parent counter/session renders supply fresh callbacks and must not close the popup.
+ await page.evaluate(()=>(window as any).auditRender({onViewSwineRecord:()=>{}}));
+ await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
  expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
 });
 
