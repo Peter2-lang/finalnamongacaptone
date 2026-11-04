@@ -93,6 +93,10 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
     return <AccessDenied403 onBackToDashboard={() => onNavigateTab && onNavigateTab('dashboard')} />;
   }
 
+  return <PhotoMediaSettingsContent onNavigateTab={onNavigateTab} onRefresh={onRefresh} initialCategory={initialCategory} />;
+};
+
+const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigateTab, onRefresh, initialCategory}) => {
   const [config, setConfig] = useState<LandingCmsConfig>(() => landingCmsService.getDraftConfig());
   const [publishedConfig, setPublishedConfig] = useState<LandingCmsConfig>(() =>
     landingCmsService.getPublishedConfig()

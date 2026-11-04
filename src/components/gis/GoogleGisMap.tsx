@@ -1,3 +1,4 @@
+import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
@@ -53,6 +54,7 @@ import {
 import {
   HeatmapMode,
   computeBarangayGisMetrics,
+  filterSwineByAuthorization,
   generateHeatmapPoints,
   getHeatmapColor,
   getPopulationClassColor,
@@ -78,6 +80,16 @@ function MapCameraController({
     }
   }, [map, targetCenter, targetZoom]);
   return null;
+}
+
+function GoogleMapNavigationControls() {
+  const map = useMap();
+  return <MapNavigationControls
+    onZoomIn={() => map?.setZoom((map.getZoom() ?? 13) + 1)}
+    onZoomOut={() => map?.setZoom((map.getZoom() ?? 13) - 1)}
+    onReset={() => {map?.setCenter({lat:10.4015,lng:125.195});map?.setZoom(13);}}
+    onLocate={(lat,lng) => {map?.setCenter({lat,lng});map?.setZoom(16);}}
+  />;
 }
 
 // Guard component that safely renders map overlays ONLY after the Google Maps API and Map instance are fully initialized
@@ -109,7 +121,7 @@ export interface GoogleGisMapProps {
 }
 
 export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
-  swineList,
+  swineList: suppliedSwineList,
   barangays,
   selectedBarangay,
   currentUser,
@@ -139,6 +151,10 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     );
     return match ? match.name : assignedBarangay;
   }, [assignedBarangay]);
+
+  const swineList = useMemo(() => filterSwineByAuthorization(
+    suppliedSwineList, isFocal ? 'focal' : currentRole, authorizedBarangayName
+  ), [suppliedSwineList, isFocal, currentRole, authorizedBarangayName]);
 
   // Center coordinate calculation
   const defaultCenter = useMemo(() => {
@@ -182,7 +198,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // UI Panels
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
-  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(true);
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() => typeof window === 'undefined' || window.matchMedia('(min-width: 640px)').matches);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
 
@@ -457,7 +473,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       </div>
 
       {/* Top Right Controls & Search */}
-      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+      <div className="absolute top-12 md:top-3 right-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end items-center gap-2">
         {/* Search Bar */}
         <div className="relative">
           <div className="flex items-center bg-stone-900/90 border border-stone-700 rounded-xl px-2.5 py-1.5 shadow-md backdrop-blur-md text-xs text-white">
@@ -518,7 +534,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
         </button>
 
         {/* Map Type Toggle */}
-        <div className="hidden sm:flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
+        <div className="flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
           <button
             onClick={() => setMapType('hybrid')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
@@ -760,7 +776,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           gestureHandling="greedy"
           className="w-full h-full"
           onClick={e => {
-            if (e.detail.latLng) {
+            if (isLocationPicker && onPickLocation && e.detail.latLng) {
               const { lat, lng } = e.detail.latLng;
               setPickedPoint({ lat, lng });
               const closest = findClosestBarangay(lat, lng);
@@ -771,6 +787,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           }}
         >
           <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} />
+          <GoogleMapNavigationControls />
 
           <GoogleMapOverlays>
             {/* 1. Barangay Cadastral Boundaries (Filtered by Authorization) */}
@@ -855,7 +872,6 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     onClick={() => {
                       setSelectedSwineRecord(swine);
                       setSelectedFarmerData(null);
-                      if (onSelectSwine) onSelectSwine(swine);
                     }}
                   >
                     <div
@@ -897,7 +913,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               farmerMarkers.map((farmer, idx) => (
                 <AdvancedMarker
                   key={`farmer-${idx}`}
-                  position={{ lat: farmer.lat + 0.0003, lng: farmer.lng + 0.0003 }}
+                  position={{ lat: farmer.lat, lng: farmer.lng }}
                   onClick={() => {
                     setSelectedFarmerData(farmer);
                     setSelectedSwineRecord(null);
@@ -905,7 +921,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 >
                   <div
                     style={{
-                      transform: 'translate(-50%, -100%)',
+                      transform: 'translate(calc(-50% + 40px), -100%)',
                       cursor: 'pointer',
                       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
                     }}
@@ -1025,7 +1041,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 Focal Officer: {selectedBarangayData.focalPersonName || 'Municipal Office'}
               </span>
             </div>
-            <button onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
+            <button type="button" aria-label="Close barangay information" onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1097,7 +1113,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           <div className="bg-stone-900/95 border border-stone-700 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-white text-xs w-64 space-y-2">
             <div className="flex items-center justify-between pb-1 border-b border-stone-800">
               <span className="font-bold text-[11px] text-stone-300 uppercase tracking-wider">GIS Map Legend</span>
-              <button onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
+              <button type="button" aria-label="Close map legend" onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
             </div>

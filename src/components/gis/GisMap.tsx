@@ -1,3 +1,6 @@
+import 'leaflet/dist/leaflet.css';
+import {escapeHtml} from '../../utils/exportEncoding';
+import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
 import React, { Component, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
@@ -42,6 +45,7 @@ import {
 import {
   HeatmapMode,
   computeBarangayGisMetrics,
+  filterSwineByAuthorization,
   generateHeatmapPoints,
   getHeatmapColor,
   getPopulationClassColor,
@@ -59,7 +63,7 @@ const createSwineMarkerIcon = (isReadyToSell: boolean, tagId: string = '') => {
         🐖
       </div>
       <div style="background: rgba(24, 24, 27, 0.9); color: white; font-weight: 700; font-size: 9px; padding: 1px 4px; border-radius: 4px; border: 1px solid #3f3f46; white-space: nowrap; margin-top: 2px;">
-        ${tagId}
+        ${escapeHtml(tagId)}
       </div>
     </div>
   `;
@@ -80,7 +84,7 @@ const createFarmerMarkerIcon = (farmerName: string) => {
         👤
       </div>
       <div style="background: rgba(24, 24, 27, 0.9); color: white; font-weight: 700; font-size: 8px; padding: 1px 4px; border-radius: 4px; border: 1px solid #3f3f46; white-space: nowrap; margin-top: 2px;">
-        ${farmerName}
+        ${escapeHtml(farmerName)}
       </div>
     </div>
   `;
@@ -88,8 +92,9 @@ const createFarmerMarkerIcon = (farmerName: string) => {
     className: 'custom-farmer-marker-div',
     html: iconHtml,
     iconSize: [28, 38],
-    iconAnchor: [14, 38],
-    popupAnchor: [0, -36],
+    // Offset the icon in pixels; retain the farmer's actual GPS coordinate.
+    iconAnchor: [-26, 38],
+    popupAnchor: [40, -36],
   });
 };
 
@@ -150,7 +155,7 @@ interface LeafletGisMapProps extends GisMapProps {
 }
 
 const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
-  swineList,
+  swineList: suppliedSwineList,
   barangays,
   selectedBarangay,
   currentUser,
@@ -210,6 +215,10 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     return match ? match.name : assignedBarangay;
   }, [assignedBarangay]);
 
+  const swineList = useMemo(() => filterSwineByAuthorization(
+    suppliedSwineList, isFocal ? 'focal' : currentRole, authorizedBarangayName
+  ), [suppliedSwineList, isFocal, currentRole, authorizedBarangayName]);
+
   // Map Controls State
   const [mapMode, setMapMode] = useState<'street' | 'satellite' | 'terrain'>('street');
   const [currentZoom, setCurrentZoom] = useState<number>(13);
@@ -234,7 +243,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
   // UI Panels & Feedback
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
-  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(true);
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() => typeof window === 'undefined' || window.matchMedia('(min-width: 640px)').matches);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [selectedBarangayData, setSelectedBarangayData] = useState<BarangayGisMetrics | null>(null);
@@ -409,6 +418,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     });
 
     map.on('click', (e: L.LeafletMouseEvent) => {
+      // Viewing clicks must never invoke the registration callback.
+      if (!isManualPinModeRef.current && !isLocationPickerRef.current) return;
       const { lat, lng } = e.latlng;
       const closest = findClosestBarangay(lat, lng);
       const roundedLat = Number(lat.toFixed(6));
@@ -500,7 +511,10 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         fillOpacity: isSelected ? Math.max(boundaryOpacity + 0.25, 0.42) : boundaryOpacity,
       });
 
-      poly.on('click', () => handleBarangayClick(b.name));
+      poly.on('click', (event: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(event);
+        handleBarangayClick(b.name);
+      });
       poly.addTo(boundariesLayerGroupRef.current!);
       if (isSelected) {
         poly.bringToFront();
@@ -644,7 +658,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         : swine.estimatedWeightKg || (swine.weightKg ? `${swine.weightKg} kg` : 'N/A');
       const statusBadge = isReady
         ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">READY FOR SALE</span>'
-        : `<span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase;">${swine.status}</span>`;
+        : `<span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase;">${escapeHtml(swine.status)}</span>`;
 
       const dobVal = swine.birthDate || swine.dateOfBirth || swine.date_of_birth || swine.dob;
       const calculatedAge = calculateSwineAge(dobVal);
@@ -656,21 +670,21 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       const popupHtml = `
         <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 240px; color: #18181b;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e4e4e7; padding-bottom: 6px; margin-bottom: 8px;">
-            <strong style="color: #065f46; font-size: 13px;">🐖 ${swineIdDisplay}</strong>
+            <strong style="color: #065f46; font-size: 13px;">🐖 ${escapeHtml(swineIdDisplay)}</strong>
             ${statusBadge}
           </div>
           <div style="font-size: 11px; line-height: 1.6; margin-bottom: 10px;">
-            <div><span style="color: #71717a;">Farmer:</span> <strong>${swine.farmerName}</strong></div>
-            <div><span style="color: #71717a;">Barangay:</span> <strong>${swine.barangay}</strong></div>
-            <div><span style="color: #71717a;">Breed:</span> <strong>${breedDisplay}</strong></div>
-            <div><span style="color: #71717a;">Sex:</span> <strong>${sexDisplay}</strong></div>
+            <div><span style="color: #71717a;">Farmer:</span> <strong>${escapeHtml(swine.farmerName)}</strong></div>
+            <div><span style="color: #71717a;">Barangay:</span> <strong>${escapeHtml(swine.barangay)}</strong></div>
+            <div><span style="color: #71717a;">Breed:</span> <strong>${escapeHtml(breedDisplay)}</strong></div>
+            <div><span style="color: #71717a;">Sex:</span> <strong>${escapeHtml(sexDisplay)}</strong></div>
             <div><span style="color: #71717a;">Date of Birth:</span> <strong>${dobDisplay}</strong></div>
             <div style="background: #ecfdf5; padding: 4px 6px; border-radius: 6px; margin: 4px 0; border: 1px solid #a7f3d0;">
               <span style="color: #065f46; font-weight: bold;">Age:</span>
               <strong style="color: #064e3b; margin-left: 4px;">${calculatedAge.display}</strong>
             </div>
-            <div><span style="color: #71717a;">Weight:</span> <strong>${weightDisplay}</strong></div>
-            <div><span style="color: #71717a;">Status:</span> <strong style="text-transform: uppercase;">${isReady ? 'Ready for Sale' : swine.status}</strong></div>
+            <div><span style="color: #71717a;">Weight:</span> <strong>${escapeHtml(weightDisplay)}</strong></div>
+            <div><span style="color: #71717a;">Status:</span> <strong style="text-transform: uppercase;">${escapeHtml(isReady ? 'Ready for Sale' : swine.status)}</strong></div>
           </div>
           <button id="btn-view-swine-${swine.id}" style="width: 100%; background: #047857; color: white; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
             View Swine Record
@@ -688,9 +702,6 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         }
       });
 
-      marker.on('click', () => {
-        if (onSelectSwine) onSelectSwine(swine);
-      });
 
       marker.addTo(swinePinsLayerGroupRef.current!);
     });
@@ -704,7 +715,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     if (!showFarmerPins) return;
 
     farmerMarkers.forEach(farmer => {
-      const marker = L.marker([farmer.lat + 0.0002, farmer.lng + 0.0002], {
+      const marker = L.marker([farmer.lat, farmer.lng], {
         icon: createFarmerMarkerIcon(farmer.farmerName),
       });
 
@@ -715,8 +726,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           </div>
           <div style="font-size: 11px; line-height: 1.5;">
             <div><span style="color: #71717a;">Name:</span> <strong>${farmer.farmerName}</strong></div>
-            <div><span style="color: #71717a;">Contact:</span> <strong>${farmer.contact}</strong></div>
-            <div><span style="color: #71717a;">Barangay:</span> <strong>${farmer.barangay}</strong></div>
+            <div><span style="color: #71717a;">Contact:</span> <strong>${escapeHtml(farmer.contact)}</strong></div>
+            <div><span style="color: #71717a;">Barangay:</span> <strong>${escapeHtml(farmer.barangay)}</strong></div>
             <div><span style="color: #71717a;">Total Swine:</span> <strong style="color: #047857;">${farmer.swineCount} heads</strong></div>
           </div>
         </div>
@@ -861,7 +872,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       </div>
 
       {/* Top Right Controls & Search */}
-      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+      <div className="absolute top-12 md:top-3 right-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end items-center gap-2">
         {/* Search Bar */}
         <div className="relative">
           <div className="flex items-center bg-stone-900/90 border border-stone-700 rounded-xl px-2.5 py-1.5 shadow-md backdrop-blur-md text-xs text-white">
@@ -906,8 +917,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           )}
         </div>
 
-        {/* Manual Pin Mode Toggle Button */}
-        <button
+        {/* Explicit registration location selection; unavailable to read-only roles. */}
+        {onPickLocation && currentRole !== 'agent' && currentRole !== 'landing' && <button type="button"
           onClick={() => setIsManualPinMode(!isManualPinMode)}
           className={`px-3 py-1.5 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold transition cursor-pointer ${
             isManualPinMode
@@ -917,8 +928,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           title="Enable Manual Pin Mode to click and drop custom GPS coordinates for swine registration"
         >
           <MapPin className={`w-3.5 h-3.5 ${isManualPinMode ? 'text-white' : 'text-emerald-400'}`} />
-          <span>{isManualPinMode ? 'Pin Mode Active' : 'Manual Pin'}</span>
-        </button>
+          <span>{isManualPinMode ? 'Pin Mode Active' : 'Select Location for Registration'}</span>
+        </button>}
 
         {/* Heatmap Checkbox & Toggle Button */}
         <label
@@ -931,6 +942,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         >
           <input
             type="checkbox"
+            aria-label="Heatmap"
             checked={showHeatmap}
             onChange={e => setShowHeatmap(e.target.checked)}
             className="w-3.5 h-3.5 rounded accent-orange-500 cursor-pointer"
@@ -953,7 +965,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         </button>
 
         {/* Map Type Toggle */}
-        <div className="hidden sm:flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
+        <div className="flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
           <button
             onClick={() => setMapMode('street')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
@@ -1191,6 +1203,12 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         </div>
       )}
 
+      <MapNavigationControls
+        onZoomIn={() => mapInstanceRef.current?.zoomIn(1, {animate: false})}
+        onZoomOut={() => mapInstanceRef.current?.zoomOut(1, {animate: false})}
+        onReset={() => mapInstanceRef.current?.setView([10.4015, 125.195], 13, {animate: false})}
+        onLocate={(lat, lng) => mapInstanceRef.current?.setView([lat, lng], 16, {animate: false})}
+      />
       {/* Map Container */}
       <div ref={mapContainerRef} className="w-full h-full z-10" />
 
@@ -1206,7 +1224,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                 Focal Officer: {selectedBarangayData.focalPersonName || 'Municipal Office'}
               </span>
             </div>
-            <button onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
+            <button type="button" aria-label="Close barangay information" onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1278,7 +1296,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           <div className="bg-stone-900/95 border border-stone-700 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-white text-xs w-64 space-y-2">
             <div className="flex items-center justify-between pb-1 border-b border-stone-800">
               <span className="font-bold text-[11px] text-stone-300 uppercase tracking-wider">GIS Map Legend</span>
-              <button onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
+              <button type="button" aria-label="Close map legend" onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
             </div>

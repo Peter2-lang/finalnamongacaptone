@@ -1,0 +1,40 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test tests/browser/gis-regression.spec.ts
+
+[WebServer] (node:6036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6154) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 22 tests using 1 worker
+
+(node:6295) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order (8.1s)
+  ✓   2 [desktop] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates (5.4s)
+  ✓   3 [desktop] › tests/browser/gis-regression.spec.ts:47:1 › GIS zoom, pan, reset, GPS and explicit location selection (6.8s)
+  ✓   4 [desktop] › tests/browser/gis-regression.spec.ts:73:1 › GIS swine markers open popup without edit or coordinate selection (2.3s)
+  ✓   5 [desktop] › tests/browser/gis-regression.spec.ts:80:1 › photo settings role transitions maintain hook order (1.9s)
+  ✓   6 [desktop] › tests/browser/gis-regression.spec.ts:90:1 › print utility isolates intended document and restores after printing (1.1s)
+  ✓   7 [desktop] › tests/browser/gis-regression.spec.ts:112:45 › GIS admin markers obey visibility scope (1.8s)
+  ✓   8 [desktop] › tests/browser/gis-regression.spec.ts:112:45 › GIS focal markers obey visibility scope (1.6s)
+  ✓   9 [desktop] › tests/browser/gis-regression.spec.ts:112:45 › GIS agent markers obey visibility scope (1.8s)
+  ✓  10 [desktop] › tests/browser/gis-regression.spec.ts:124:1 › GIS boundaries, heatmap and base layers stay in viewing mode (3.5s)
+  -  11 [desktop] › tests/browser/gis-regression.spec.ts:135:1 › mobile touch dragging and pinch zoom operate on Leaflet
+(node:8512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  12 [mobile] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order (1.9s)
+  ✓  13 [mobile] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates (2.9s)
+  ✓  14 [mobile] › tests/browser/gis-regression.spec.ts:47:1 › GIS zoom, pan, reset, GPS and explicit location selection (2.6s)
+  ✓  15 [mobile] › tests/browser/gis-regression.spec.ts:73:1 › GIS swine markers open popup without edit or coordinate selection (1.6s)
+  ✓  16 [mobile] › tests/browser/gis-regression.spec.ts:80:1 › photo settings role transitions maintain hook order (1.8s)
+  ✓  17 [mobile] › tests/browser/gis-regression.spec.ts:90:1 › print utility isolates intended document and restores after printing (868ms)
+  ✓  18 [mobile] › tests/browser/gis-regression.spec.ts:112:45 › GIS admin markers obey visibility scope (1.8s)
+  ✓  19 [mobile] › tests/browser/gis-regression.spec.ts:112:45 › GIS focal markers obey visibility scope (2.2s)
+  ✓  20 [mobile] › tests/browser/gis-regression.spec.ts:112:45 › GIS agent markers obey visibility scope (2.7s)
+  ✓  21 [mobile] › tests/browser/gis-regression.spec.ts:124:1 › GIS boundaries, heatmap and base layers stay in viewing mode (3.0s)
+  ✓  22 [mobile] › tests/browser/gis-regression.spec.ts:135:1 › mobile touch dragging and pinch zoom operate on Leaflet (3.0s)
+
+  1 skipped
+  21 passed (1.5m)

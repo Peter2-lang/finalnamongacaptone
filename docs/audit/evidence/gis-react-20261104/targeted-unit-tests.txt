@@ -1,0 +1,10 @@
+✔ src/utils/gisCalculations.test.ts (309.417701ms)
+✔ src/utils/hookOrder.test.ts (4539.63142ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4859.807853

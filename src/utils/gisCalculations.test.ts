@@ -214,4 +214,18 @@ assert(lowColor.startsWith('rgba('), 'Low intensity renders rgba color');
 assert(midColor.startsWith('rgba('), 'Medium intensity renders rgba color');
 assert(highColor.startsWith('rgba('), 'High intensity renders rgba color');
 
+assert(filterSwineByAuthorization(mockTestSwineRecords, 'focal', undefined).length === 0,
+  'An unassigned focal person receives no GIS records');
+assert(filterSwineByAuthorization([
+  ...mockTestSwineRecords,
+  {...mockTestSwineRecords[0], id: 'missing-barangay', barangay: ''},
+], 'focal', '   ').length === 0,
+  'A blank focal assignment cannot expose records with a missing barangay');
+assert(filterSwineByAuthorization([
+  {...mockTestSwineRecords[0], readyToSell: true, isArchived: false},
+  {...mockTestSwineRecords[0], readyToSell: false, isArchived: false},
+  {...mockTestSwineRecords[0], readyToSell: true, isArchived: true},
+], 'agent', undefined).length === 1,
+  'Agents receive only ready, nonarchived GIS records');
+
 console.log('\n🎉 ALL GIS MAP AND ACCESS CONTROL TESTS PASSED SUCCESSFULLY!\n');

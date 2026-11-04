@@ -68,8 +68,10 @@ export function filterSwineByAuthorization(
   role: string | undefined,
   assignedBarangay: string | undefined
 ): SwineRecord[] {
-  if (role === 'focal' && assignedBarangay) {
-    const target = assignedBarangay.trim().toLowerCase();
+  if (role === 'agent') return swineList.filter(s => s.readyToSell === true && !s.isArchived);
+  if (role === 'focal') {
+    const target = assignedBarangay?.trim().toLowerCase();
+    if (!target) return [];
     return swineList.filter(s => (s.barangay || '').trim().toLowerCase() === target);
   }
   return swineList;

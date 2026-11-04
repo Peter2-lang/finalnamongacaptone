@@ -1,0 +1,34 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test --config=playwright.production.config.ts --output=test-results/final-production
+
+[WebServer] (node:64790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64850) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 16 tests using 1 worker
+
+(node:64949) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (55.1s)
+  ✓   2 [desktop] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (32.1s)
+  ✓   3 [desktop] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (16.8s)
+  ✓   4 [desktop] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (9.2s)
+  ✓   5 [desktop] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.0s)
+  -   6 [desktop] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✓   7 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (5.2s)
+  ✓   8 [desktop] › tests/browser/system.spec.ts:78:1 › dashboard counters follow populated and empty API snapshots after refresh (6.1s)
+(node:71432) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [mobile] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (44.2s)
+  ✓  10 [mobile] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (22.1s)
+  ✓  11 [mobile] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (13.5s)
+  ✓  12 [mobile] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (11.0s)
+  ✓  13 [mobile] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.0s)
+  -  14 [mobile] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✓  15 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (5.1s)
+  ✓  16 [mobile] › tests/browser/system.spec.ts:78:1 › dashboard counters follow populated and empty API snapshots after refresh (8.9s)
+
+  2 skipped
+  14 passed (4.0m)

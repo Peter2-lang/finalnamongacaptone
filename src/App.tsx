@@ -312,6 +312,14 @@ export default function App() {
 
   const refreshAllData = async () => {
     setLandingConfig(storageService.getLandingConfig());
+    // Anonymous landing pages must not request protected registry endpoints.
+    if (!currentUser) {
+      setSwineList([]);
+      setBarangays([]);
+      setUnreadCount(0);
+      setReadyTakeoffCount(0);
+      return;
+    }
 
     if (currentUser && storageService.getSessionToken()) {
       try {
@@ -871,7 +879,11 @@ export default function App() {
             onOpenLogin={() => handleOpenLogin('admin')}
           />
         ) : currentRole === 'agent' ? (
-          activeTab === 'messages' ? (
+          activeTab === 'gis' ? (
+            <div className="p-4 sm:p-6 w-full">
+              <GisMap swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
+            </div>
+          ) : activeTab === 'messages' ? (
             <MessagingCenter
               barangays={barangays}
               currentUser={currentUser}
@@ -951,7 +963,7 @@ export default function App() {
                     </p>
                   </div>
                   <div>
-                    <button
+                    <button type="button"
                       onClick={() => {
                         setEditingSwine(null);
                         setActiveTab('add_swine');
@@ -975,7 +987,6 @@ export default function App() {
                   currentUser={currentUser}
                   currentRole={currentRole}
                   targetSwineId={gisTargetSwineId}
-                  onSelectSwine={handleEditSwine}
                   onViewSwineRecord={handleViewSwineRecord}
                   onPickLocation={(lat, lng, closestBarangay) => {
                     setPendingGisCoordinates({ latitude: lat, longitude: lng, barangay: closestBarangay });

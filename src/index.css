@@ -361,8 +361,12 @@ body {
     display: none !important;
   }
 
-  body[data-print-target] [data-print-document],
-  body[data-print-target] [data-print-document] * {
+  body[data-print-target] [data-print-document][data-print-selected="false"] {
+    display: none !important;
+  }
+
+  body[data-print-target] #root [data-print-document],
+  body[data-print-target] #root [data-print-document] * {
     visibility: visible !important;
   }
 

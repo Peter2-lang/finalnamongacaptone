@@ -148,7 +148,6 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
 
   // Existing ear tags set for fast lookup
   const existingEarTags = new Set<string>(
@@ -682,6 +681,8 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
       setIsImporting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">

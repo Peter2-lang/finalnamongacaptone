@@ -1,3 +1,4 @@
+import {csvCell, escapeHtml} from '../../utils/exportEncoding';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
@@ -1123,41 +1124,18 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       'Registered Date',
     ];
 
-    const dynamicHeaders = customDynamicColumns.map(c => `"${c.field.label.replace(/"/g, '""')}"`);
-    const allHeaders = [...headers, ...dynamicHeaders];
-
-    const rows = sortedRecords.map(s => {
-      const standardVals = [
-        `"${s.computedPigId}"`,
-        `"${s.farmerName.replace(/"/g, '""')}"`,
-        `"${s.farmerContact || ''}"`,
-        `"${s.barangay}"`,
-        `"${(s.breed || 'Standard Commercial').replace(/"/g, '""')}"`,
-        `"${s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '')}"`,
-        `"${s.computedDobFormatted || ''}"`,
-        `"${s.computedAgeLabel.replace(/"/g, '""')}"`,
-        s.computedAgeDays,
-        s.computedAgeMonths,
-        `"${s.computedEstimatedWeight}"`,
-        s.computedActualWeight !== null ? s.computedActualWeight : '""',
-        `"${s.swineType.toUpperCase()}"`,
-        `"${s.computedFarmScale}"`,
-        `"${s.computedAsfZone}"`,
-        `"${s.computedHasWarning ? 'WARNING' : 'SAFE'}"`,
-        `"${s.status.toUpperCase()}"`,
-        `"${s.computedIsReady ? 'YES' : 'NO'}"`,
-        s.estimatedPricePhp || 0,
-        `"${new Date(s.registeredAt).toISOString().split('T')[0]}"`,
-      ];
-      const dynamicVals = customDynamicColumns.map(c => {
-        const v = getFieldValue(s, c.field);
-        const formatted = formatFieldValue(v, c.field);
-        return `"${formatted.replace(/"/g, '""')}"`;
-      });
-      return [...standardVals, ...dynamicVals];
-    });
-
-    const csvContent = [allHeaders.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const allHeaders = [...headers, ...customDynamicColumns.map(c => c.field.label)];
+    const rows = sortedRecords.map(s => [
+      s.computedPigId, s.farmerName, s.farmerContact, s.barangay,
+      s.breed || 'Standard Commercial', (s.gender || s.sex || '').toUpperCase(),
+      s.computedDobFormatted, s.computedAgeLabel, s.computedAgeDays, s.computedAgeMonths,
+      s.computedEstimatedWeight, s.computedActualWeight, (s.swineType || '').toUpperCase(),
+      s.computedFarmScale, s.computedAsfZone, s.computedHasWarning ? 'WARNING' : 'SAFE',
+      (s.status || '').toUpperCase(), s.computedIsReady ? 'YES' : 'NO', s.estimatedPricePhp || 0,
+      s.registeredAt && !Number.isNaN(Date.parse(s.registeredAt)) ? new Date(s.registeredAt).toISOString().split('T')[0] : '',
+      ...customDynamicColumns.map(c => formatFieldValue(getFieldValue(s, c.field), c.field)),
+    ]);
+    const csvContent = [allHeaders, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1175,25 +1153,25 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           .map(c => {
             const v = getFieldValue(s, c.field);
             const formatted = formatFieldValue(v, c.field);
-            return `<td style="padding: 6px; border: 1px solid #ccc;">${formatted}</td>`;
+            return `<td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(formatted)}</td>`;
           })
           .join('');
 
         return `
         <tr style="border-bottom: 1px solid #ddd;">
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; font-family: monospace;">${s.computedPigId}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.farmerName}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.barangay}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.breed || 'Standard'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '—')}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedDobFormatted || '—'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${s.computedAgeLabel}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedEstimatedWeight}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedActualWeight ? `${s.computedActualWeight} kg` : '—'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.swineType.toUpperCase()}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedFarmScale}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; color: ${s.computedAsfZone === 'RED' ? '#b91c1c' : s.computedAsfZone === 'PINK' ? '#db2777' : s.computedAsfZone === 'YELLOW' ? '#d97706' : '#15803d'};">${s.computedAsfZone}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${s.computedIsReady ? 'READY FOR SALE' : s.status.toUpperCase()}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; font-family: monospace;">${escapeHtml(s.computedPigId)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.farmerName)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.barangay)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.breed || 'Standard')}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '—'))}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedDobFormatted || '—')}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${escapeHtml(s.computedAgeLabel)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedEstimatedWeight)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedActualWeight ? `${escapeHtml(s.computedActualWeight)} kg` : '—'}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.swineType.toUpperCase())}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedFarmScale)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; color: ${s.computedAsfZone === 'RED' ? '#b91c1c' : s.computedAsfZone === 'PINK' ? '#db2777' : s.computedAsfZone === 'YELLOW' ? '#d97706' : '#15803d'};">${escapeHtml(s.computedAsfZone)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${escapeHtml(s.computedIsReady ? 'READY FOR SALE' : s.status.toUpperCase())}</td>
           ${customCells}
         </tr>
       `;
@@ -1201,7 +1179,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       .join('');
 
     const customWordHeaders = customDynamicColumns
-      .map(c => `<th style="padding: 6px; border: 1px solid #15803d;">${c.field.label}</th>`)
+      .map(c => `<th style="padding: 6px; border: 1px solid #15803d;">${escapeHtml(c.field.label)}</th>`)
       .join('');
 
     const wordContent = `
@@ -1218,7 +1196,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <p style="margin: 0; font-size: 10pt;">Republic of the Philippines • Province of Southern Leyte</p>
           <h2 style="margin: 4px 0;">MUNICIPALITY OF HINUNANGAN</h2>
           <h3 style="margin: 0;">DEPARTMENT OF AGRICULTURE - SWINE REGISTRY RECORDS</h3>
-          <p style="margin-top: 4px; font-size: 9pt; color: #555;">Official Swine Registry Summary • Generated: ${new Date().toLocaleDateString()}</p>
+          <p style="margin-top: 4px; font-size: 9pt; color: #555;">Official Swine Registry Summary • Generated: ${escapeHtml(new Date().toLocaleDateString())}</p>
         </div>
         <table>
           <thead>
@@ -1247,7 +1225,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <div style="width: 250px; text-align: center;">
             <p>Prepared by:</p>
             <br/><br/>
-            <p style="border-top: 1px solid #000; font-weight: bold; margin-top: 20px;">${currentUser?.name || 'Authorized DA Focal Person'}</p>
+            <p style="border-top: 1px solid #000; font-weight: bold; margin-top: 20px;">${escapeHtml(currentUser?.name || 'Authorized DA Focal Person')}</p>
             <p style="font-size: 9pt; margin: 0;">Agricultural Extension Worker</p>
           </div>
         </div>
@@ -1259,7 +1237,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `DA_Hinunangan_Swine_Records_${new Date().toISOString().split('T')[0]}.doc`;
+    link.download = `DA_Hinunangan_Swine_Records_${escapeHtml(new Date().toISOString().split('T')[0])}.doc`;
     link.click();
     URL.revokeObjectURL(url);
   };
