@@ -111,7 +111,6 @@ export interface GoogleGisMapProps {
   selectedBarangay?: string;
   currentUser?: UserAccount | null;
   currentRole?: UserRole | 'landing';
-  onSelectSwine?: (swine: SwineRecord) => void;
   onViewSwineRecord?: (swine: SwineRecord) => void;
   onPickLocation?: (lat: number, lng: number, closestBarangay?: string) => void;
   isLocationPicker?: boolean;
@@ -126,7 +125,6 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   selectedBarangay,
   currentUser,
   currentRole = currentUser?.role || 'admin',
-  onSelectSwine,
   onViewSwineRecord,
   onPickLocation,
   isLocationPicker = false,

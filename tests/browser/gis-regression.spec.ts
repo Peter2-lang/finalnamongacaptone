@@ -13,14 +13,14 @@ async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMedia
   const mod=await load(paths[component]);
   const host=document.createElement('div');host.style.cssText='height:800px;width:100%';document.body.replaceChildren(host);
   const root=createRoot(host);const win=window as any;
-  win.auditPicks=[];
+  win.auditPicks=[];win.auditViews=[];
   if(component==='GisMap'){
    const source=await (await fetch('/src/components/gis/GisMap.tsx')).text();
    const leafletPath=source.match(/from ["']([^"']*\/leaflet\.js[^"']*)["']/)![1];
    const L=(await load(leafletPath)).default;
    L.Map.addInitHook(function(this:any){win.auditMap=this;});
   }
-  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:()=>{}}:{currentUserRole:'focal'};
+  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:()=>{}}:{currentUserRole:'focal'};
   win.auditRender=(next:any)=>root.render(React.createElement(mod[component],{...base,...props,...next}));
   win.auditRender({});
   await new Promise(resolve=>setTimeout(resolve,150));
@@ -96,11 +96,14 @@ test('GIS swine markers open popup without edit or coordinate selection',async({
  await mount(page,'GisMap',{swineList:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]});
  await page.locator('.swine-map-marker').first().click();
  await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ await expect(page.locator('.leaflet-popup')).toContainText('Fixture Farmer');
  // Parent counter/session renders supply fresh callbacks and must not close the popup.
  await page.evaluate(()=>(window as any).auditRender({onViewSwineRecord:()=>{}}));
  await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
  await page.evaluate(()=>(window as any).auditRender({swineList:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]}));
  await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ await page.getByRole('button',{name:'View Swine Record',exact:true}).click();
+ expect(await page.evaluate(()=>(window as any).auditViews)).toEqual(['fixture-pig']);
  expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
 });
 

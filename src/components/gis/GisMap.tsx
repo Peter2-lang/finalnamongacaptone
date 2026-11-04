@@ -141,7 +141,6 @@ export interface GisMapProps {
   selectedBarangay?: string;
   currentUser?: UserAccount | null;
   currentRole?: UserRole | 'landing';
-  onSelectSwine?: (swine: SwineRecord) => void;
   onViewSwineRecord?: (swine: SwineRecord) => void;
   onPickLocation?: (lat: number, lng: number, closestBarangay?: string) => void;
   isLocationPicker?: boolean;
@@ -160,7 +159,6 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   selectedBarangay,
   currentUser,
   currentRole = currentUser?.role || 'admin',
-  onSelectSwine,
   onViewSwineRecord,
   onPickLocation,
   isLocationPicker = false,
