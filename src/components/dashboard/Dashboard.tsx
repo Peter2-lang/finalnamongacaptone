@@ -273,10 +273,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const currentTotalValue = currentChartData.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+    <div className="dashboard-page max-w-7xl mx-auto py-6 px-4 sm:px-8 space-y-6">
       {pendingCount>0 && <p role="status" className="text-sm text-amber-800">{pendingCount} pending local record(s) excluded from cloud statistics.</p>}
       {/* Executive Page Header with Integrated Scope Filter & Quick Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
+      <div className="dashboard-heading flex flex-col xl:flex-row xl:items-center justify-between gap-6 pb-1">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -345,7 +345,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 5 Core Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="dashboard-metrics grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-5 gap-4">
         {/* Metric 1: Total Swine */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
           <div className="flex items-center justify-between">

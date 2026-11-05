@@ -85,7 +85,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
     <>
       <section
         aria-label="Connectivity and synchronization status"
-        className={`relative z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-3 py-2 text-xs sm:px-4 sm:text-sm ${
+        className={`relative z-30 flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center justify-between gap-x-3 gap-y-2 border-b px-3 py-2 text-xs sm:px-4 sm:text-sm ${
           visibleError
             ? 'border-rose-300 border-l-4 bg-rose-50 text-rose-950'
             : cloudIsReachable && pendingQueueCount > 0
@@ -118,7 +118,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {(!cloudIsReachable || pendingQueueCount > 0 || syncState === 'ERROR') && (
             <button
               type="button"

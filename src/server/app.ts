@@ -1419,9 +1419,25 @@ export function createApp() {
         column: err?.column || err?.cause?.column,
       });
 
-      return res.status(500).json({
+      const userMessage = code === '23502'
+        ? 'A required database field is missing. Please select a valid barangay and complete the required fields.'
+        : code === '23503'
+          ? 'The selected barangay or related record is no longer valid. Please reselect it and try again.'
+          : code === '23505'
+            ? 'A record with this unique identifier already exists. Check the Pig ID Tag and try again.'
+            : code === '23514'
+              ? 'One or more values do not meet the database validation rules. Review the form and try again.'
+              : /^(08|53|57)/.test(String(code || '')) || ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT'].includes(String(code || ''))
+                ? 'Unable to connect to the database. Your form data is preserved; please retry when the connection is restored.'
+                : /barangay .* is not registered/i.test(message)
+                  ? 'Please select a valid barangay before saving the swine record.'
+                  : message;
+      const status = code === '23505' ? 409
+        : ['23502', '23503', '23514'].includes(String(code)) || userMessage.startsWith('Please select') ? 400
+          : userMessage.startsWith('Unable to connect') ? 503 : 500;
+      return res.status(status).json({
         success: false,
-        error: code ? `Database save failed (${code}): ${message}` : message,
+        error: code ? `Database save failed (${code}): ${userMessage}` : userMessage,
         ...(code ? { database_error_code: code } : {}),
         ...(detail ? { database_error_detail: detail } : {}),
         ...(hint ? { database_error_hint: hint } : {}),

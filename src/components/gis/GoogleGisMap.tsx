@@ -58,8 +58,12 @@ import {
   generateHeatmapPoints,
   getHeatmapColor,
   getPopulationClassColor,
+  filterSwineForHeatmap,
+  findBarangayContainingPoint,
+  SwineHeatmapClass,
   BarangayGisMetrics,
 } from '../../utils/gisCalculations';
+import { HeatmapClassificationFilters } from './HeatmapClassificationFilters';
 
 // Helper component to control map camera via useMap
 function MapCameraController({
@@ -183,6 +187,8 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   const [showAsfZones, setShowAsfZones] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('swine_density');
+  const [heatmapClasses, setHeatmapClasses] = useState<SwineHeatmapClass[] | null>(null);
+  const [heatmapReadyOnly, setHeatmapReadyOnly] = useState(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.5);
   const [boundaryOpacity, setBoundaryOpacity] = useState<number>(0.18);
 
@@ -206,6 +212,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   const [selectedBarangayData, setSelectedBarangayData] = useState<BarangayGisMetrics | null>(null);
   const [hoveredBarangay, setHoveredBarangay] = useState<string | null>(null);
   const [pickedPoint, setPickedPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [isManualPinMode, setIsManualPinMode] = useState(isLocationPicker);
 
   // Boundary Storage
   useEffect(() => {
@@ -221,10 +228,19 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     return computeBarangayGisMetrics(barangays, swineList, authorizedBarangayName);
   }, [barangays, swineList, authorizedBarangayName]);
 
+  const heatmapSwine = useMemo(
+    () => filterSwineForHeatmap(selectedBarangayFilter === 'all' ? swineList : swineList.filter(s => s.barangay.trim().toLowerCase() === selectedBarangayFilter.trim().toLowerCase()), heatmapClasses, heatmapReadyOnly),
+    [swineList, selectedBarangayFilter, heatmapClasses, heatmapReadyOnly]
+  );
+  const heatmapBarangayMetrics = useMemo(
+    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
+    [barangays, heatmapSwine, authorizedBarangayName]
+  );
+
   // Compute Heatmap Points
   const heatmapData = useMemo(() => {
-    return generateHeatmapPoints(allBarangayMetrics, heatmapMode);
-  }, [allBarangayMetrics, heatmapMode]);
+    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
+  }, [heatmapBarangayMetrics, heatmapMode]);
 
   // Filtered Swine Records for Display
   const filteredSwineRecords = useMemo(() => {
@@ -366,11 +382,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   // Reactive Synchronize map camera and pin when initialCenter coordinates change
   useEffect(() => {
     if (initialCenter && initialCenter[0] && initialCenter[1]) {
-      setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
+      if (isLocationPicker) setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
       setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
       setTargetZoom(15);
     }
-  }, [initialCenter?.[0], initialCenter?.[1]]);
+  }, [initialCenter?.[0], initialCenter?.[1], isLocationPicker]);
 
   // Search Results
   const searchResults = useMemo(() => {
@@ -419,13 +435,19 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       return;
     }
 
-    const metric = allBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
+    const metric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
     if (metric) {
       setSelectedBarangayData(metric);
       setTargetCenter({ lat: metric.latitude, lng: metric.longitude });
       setTargetZoom(14);
     }
   };
+
+  useEffect(() => {
+    if (!selectedBarangayData) return;
+    const updated = heatmapBarangayMetrics.find(m => m.barangayName === selectedBarangayData.barangayName);
+    if (updated) setSelectedBarangayData(updated);
+  }, [heatmapBarangayMetrics]);
 
   if (settingsLoading) return <div role="status" className="p-6">Loading map configuration…</div>;
   if (!apiSettings.googleMapsKey) {
@@ -472,6 +494,12 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
       {/* Top Right Controls & Search */}
       <div className="absolute top-12 md:top-3 right-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end items-center gap-2">
+        {onPickLocation && currentRole !== 'agent' && currentRole !== 'landing' && (
+          <button type="button" onClick={() => setIsManualPinMode(value => !value)} aria-pressed={isManualPinMode}
+            className={`px-3 py-1.5 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold ${isManualPinMode ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-stone-900/90 text-stone-200 border-stone-700 hover:bg-stone-800'}`}>
+            <MapPin className="w-3.5 h-3.5" />{isManualPinMode ? 'Pin Mode Active' : 'Select Location for Registration'}
+          </button>
+        )}
         {/* Search Bar */}
         <div className="relative">
           <div className="flex items-center bg-stone-900/90 border border-stone-700 rounded-xl px-2.5 py-1.5 shadow-md backdrop-blur-md text-xs text-white">
@@ -696,6 +724,8 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     <option value="registry_activity">Registry Activity Index</option>
                   </select>
                 </div>
+                <HeatmapClassificationFilters selectedClasses={heatmapClasses} onChange={setHeatmapClasses}
+                  readyOnly={heatmapReadyOnly} onReadyOnlyChange={setHeatmapReadyOnly} count={heatmapSwine.length} />
 
                 <div>
                   <div className="flex justify-between text-[10px] text-stone-400 mb-0.5">
@@ -774,18 +804,21 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           gestureHandling="greedy"
           className="w-full h-full"
           onClick={e => {
-            if (isLocationPicker && onPickLocation && e.detail.latLng) {
+            if ((isLocationPicker || isManualPinMode) && onPickLocation && e.detail.latLng) {
               const { lat, lng } = e.detail.latLng;
               setPickedPoint({ lat, lng });
-              const closest = findClosestBarangay(lat, lng);
-              if (onPickLocation) {
-                onPickLocation(Number(lat.toFixed(6)), Number(lng.toFixed(6)), closest.name);
-              }
+              const containingBarangay = findBarangayContainingPoint(lat, lng);
+              setAccessWarning(containingBarangay ? null : 'Selected point is outside configured barangay boundaries. Choose a location inside an official barangay.');
+              onPickLocation(Number(lat.toFixed(6)), Number(lng.toFixed(6)), containingBarangay);
             }
           }}
+          options={{ draggableCursor: isManualPinMode || isLocationPicker ? 'crosshair' : undefined }}
         >
           <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} />
           <GoogleMapNavigationControls />
+          {pickedPoint && <AdvancedMarker position={pickedPoint} zIndex={5000}>
+            <div aria-label="Selected GPS location" style={{ transform: 'translate(-50%, -100%)', fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.5))' }}>📍</div>
+          </AdvancedMarker>}
 
           <GoogleMapOverlays>
             {/* 1. Barangay Cadastral Boundaries (Filtered by Authorization) */}
@@ -806,8 +839,9 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 );
 
                 const riskLevel = metric?.riskLevel || b.defaultRiskLevel;
-                const populationColor = showHeatmap && heatmapMode === 'swine_density'
-                  ? getPopulationClassColor(metric?.populationClass || 'very_low')
+                const heatMetric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === b.name.toLowerCase());
+                const populationColor = showHeatmap && heatmapMode === 'swine_density' && heatMetric?.totalSwine
+                  ? getPopulationClassColor(heatMetric.populationClass)
                   : null;
                 const strokeColor = populationColor ||
                   (riskLevel === 'red' ? '#dc2626' : riskLevel === 'yellow' ? '#d97706' : '#059669');
@@ -1149,12 +1183,12 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     <>
                       <span className="text-[10px] text-stone-300 block mb-1 font-semibold">REGISTERED SWINE POPULATION</span>
                       <div className="space-y-1 text-[10px] text-stone-300">
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Highly populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />Moderately populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Less populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Very low / no registered swine</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Very high (61+)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />High (31–60)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Moderate (11–30)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Low (1–10); zero = no heat</div>
                       </div>
-                      <p className="text-[9px] text-stone-400 mt-1">Colors use registered swine counts and dynamically calculated population bands.</p>
+                      <p className="text-[9px] text-stone-400 mt-1">Colors show active registered swine counts in the selected classifications.</p>
                     </>
                   ) : (
                     <>

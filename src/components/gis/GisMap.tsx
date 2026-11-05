@@ -49,8 +49,12 @@ import {
   generateHeatmapPoints,
   getHeatmapColor,
   getPopulationClassColor,
+  filterSwineForHeatmap,
+  findBarangayContainingPoint,
+  SwineHeatmapClass,
   BarangayGisMetrics,
 } from '../../utils/gisCalculations';
+import { HeatmapClassificationFilters } from './HeatmapClassificationFilters';
 import { calculateSwineAge, formatDobDisplay } from '../../utils/swineRegistryLogic';
 import { GoogleGisMap } from './GoogleGisMap';
 
@@ -183,7 +187,9 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // Manual Pin Mode state
   const [isManualPinMode, setIsManualPinMode] = useState<boolean>(initialManualPinMode || isLocationPicker);
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; barangay: string } | null>(
-    initialCenter ? { lat: initialCenter[0], lng: initialCenter[1], barangay: findClosestBarangay(initialCenter[0], initialCenter[1]).name } : null
+    initialCenter && (initialManualPinMode || isLocationPicker)
+      ? { lat: initialCenter[0], lng: initialCenter[1], barangay: findBarangayContainingPoint(initialCenter[0], initialCenter[1]) || 'Outside configured barangay boundaries' }
+      : null
   );
 
   // Refs for stable map click event handler
@@ -231,6 +237,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   const [showLabels, setShowLabels] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('swine_density');
+  const [heatmapClasses, setHeatmapClasses] = useState<SwineHeatmapClass[] | null>(null);
+  const [heatmapReadyOnly, setHeatmapReadyOnly] = useState(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.5);
   const [boundaryOpacity, setBoundaryOpacity] = useState<number>(0.18);
 
@@ -279,10 +287,19 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     return computeBarangayGisMetrics(barangays, swineList, authorizedBarangayName);
   }, [barangays, swineList, authorizedBarangayName]);
 
+  const heatmapSwine = useMemo(
+    () => filterSwineForHeatmap(selectedBarangayFilter === 'all' ? swineList : swineList.filter(s => s.barangay.trim().toLowerCase() === selectedBarangayFilter.trim().toLowerCase()), heatmapClasses, heatmapReadyOnly),
+    [swineList, selectedBarangayFilter, heatmapClasses, heatmapReadyOnly]
+  );
+  const heatmapBarangayMetrics = useMemo(
+    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
+    [barangays, heatmapSwine, authorizedBarangayName]
+  );
+
   // Compute Heatmap Points
   const heatmapData = useMemo(() => {
-    return generateHeatmapPoints(allBarangayMetrics, heatmapMode);
-  }, [allBarangayMetrics, heatmapMode]);
+    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
+  }, [heatmapBarangayMetrics, heatmapMode]);
 
   // Filtered Swine Records for Display
   const filteredSwineRecords = useMemo(() => {
@@ -372,6 +389,17 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     return Array.from(map.values());
   }, [swineWithGps]);
 
+  useEffect(() => {
+    const container = mapInstanceRef.current?.getContainer();
+    if (container) container.style.cursor = isManualPinMode || isLocationPicker ? 'crosshair' : '';
+  }, [isManualPinMode, isLocationPicker]);
+
+  useEffect(() => {
+    if (!selectedBarangayData) return;
+    const updated = heatmapBarangayMetrics.find(m => m.barangayName === selectedBarangayData.barangayName);
+    if (updated) setSelectedBarangayData(updated);
+  }, [heatmapBarangayMetrics]);
+
   // 1. Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -418,6 +446,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     // window scroll only. Our map lives in a scrolling main element, so focus it
     // first without scrolling; otherwise mouse-up can miss the original marker.
     const container = map.getContainer();
+    container.style.cursor = (isManualPinModeRef.current || isLocationPickerRef.current) ? 'crosshair' : '';
     const focusWithoutScrolling = (event: MouseEvent) => {
       if (event.button === 0) container.focus({preventScroll: true});
     };
@@ -431,16 +460,17 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       // Viewing clicks must never invoke the registration callback.
       if (!isManualPinModeRef.current && !isLocationPickerRef.current) return;
       const { lat, lng } = e.latlng;
-      const closest = findClosestBarangay(lat, lng);
+      const containingBarangay = findBarangayContainingPoint(lat, lng);
       const roundedLat = Number(lat.toFixed(6));
       const roundedLng = Number(lng.toFixed(6));
 
       if (isManualPinModeRef.current || isLocationPickerRef.current) {
-        setDroppedPin({ lat: roundedLat, lng: roundedLng, barangay: closest.name });
+        setDroppedPin({ lat: roundedLat, lng: roundedLng, barangay: containingBarangay || 'Outside configured barangay boundaries' });
+        setAccessWarning(containingBarangay ? null : 'Selected point is outside configured barangay boundaries. Choose a location inside an official barangay.');
       }
 
       if (onPickLocationRef.current) {
-        onPickLocationRef.current(roundedLat, roundedLng, closest.name);
+        onPickLocationRef.current(roundedLat, roundedLng, containingBarangay);
       }
     });
 
@@ -474,14 +504,14 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       return;
     }
 
-    const metric = allBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
+    const metric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
     if (metric) {
       setSelectedBarangayData(metric);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.flyTo([metric.latitude, metric.longitude], 14, { duration: 1 });
       }
     }
-  }, [authorizedBarangayName, allBarangayMetrics]);
+  }, [authorizedBarangayName, heatmapBarangayMetrics]);
 
   // 2. Render Barangay Cadastral Boundaries
   useEffect(() => {
@@ -504,8 +534,9 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
       const metric = allBarangayMetrics.find(m => m.barangayName.toLowerCase() === b.name.toLowerCase());
       const riskLevel = metric?.riskLevel || b.defaultRiskLevel;
-      const populationColor = showHeatmap && heatmapMode === 'swine_density'
-        ? getPopulationClassColor(metric?.populationClass || 'very_low')
+      const heatMetric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === b.name.toLowerCase());
+      const populationColor = showHeatmap && heatmapMode === 'swine_density' && heatMetric?.totalSwine
+        ? getPopulationClassColor(heatMetric.populationClass)
         : null;
       const strokeColor = populationColor || (riskLevel === 'red' ? '#dc2626' : riskLevel === 'yellow' ? '#d97706' : '#059669');
 
@@ -542,7 +573,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         labelMarker.addTo(labelsLayerGroupRef.current!);
       }
     });
-  }, [showBoundaries, showLabels, boundaryOpacity, authorizedBarangayName, allBarangayMetrics, handleBarangayClick, selectedBarangay, selectedBarangayFilter, showHeatmap, heatmapMode]);
+  }, [showBoundaries, showLabels, boundaryOpacity, authorizedBarangayName, allBarangayMetrics, heatmapBarangayMetrics, handleBarangayClick, selectedBarangay, selectedBarangayFilter, showHeatmap, heatmapMode]);
 
   // 3. Render Heatmap Layer (Multi-layer soft radial gradient heatmap matching professional style)
   useEffect(() => {
@@ -820,17 +851,18 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // 8. Reactive Synchronize map camera and pin when initialCenter coordinates change
   useEffect(() => {
     if (initialCenter && initialCenter[0] && initialCenter[1]) {
-      const closest = findClosestBarangay(initialCenter[0], initialCenter[1]);
-      setDroppedPin({
-        lat: initialCenter[0],
-        lng: initialCenter[1],
-        barangay: closest.name,
-      });
+      if (isLocationPicker || initialManualPinMode) {
+        setDroppedPin({
+          lat: initialCenter[0],
+          lng: initialCenter[1],
+          barangay: findBarangayContainingPoint(initialCenter[0], initialCenter[1]) || 'Outside configured barangay boundaries',
+        });
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.flyTo([initialCenter[0], initialCenter[1]], 15, { duration: 0.8 });
       }
     }
-  }, [initialCenter?.[0], initialCenter?.[1]]);
+  }, [initialCenter?.[0], initialCenter?.[1], isLocationPicker, initialManualPinMode]);
 
   // Search Results
   const searchResults = useMemo(() => {
@@ -1157,13 +1189,21 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                     onChange={e => setHeatmapMode(e.target.value as HeatmapMode)}
                     className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1 text-xs text-stone-200 outline-none"
                   >
-                    <option value="swine_density">Total Swine Density</option>
+                    <option value="swine_density">Total Swine Density ({heatmapSwine.length})</option>
                     <option value="farmer_density">Farmer Density</option>
                     <option value="ready_to_sell">Ready-to-Sell Swine</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
                     <option value="registry_activity">Registry Activity Index</option>
                   </select>
                 </div>
+
+                <HeatmapClassificationFilters
+                  selectedClasses={heatmapClasses}
+                  onChange={setHeatmapClasses}
+                  readyOnly={heatmapReadyOnly}
+                  onReadyOnlyChange={setHeatmapReadyOnly}
+                  count={heatmapSwine.length}
+                />
 
                 <div>
                   <div className="flex justify-between text-[10px] text-stone-400 mb-0.5">
@@ -1373,12 +1413,12 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                   {heatmapMode === 'swine_density' ? (
                     <>
                       <div className="space-y-1 text-[10px] text-stone-300">
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Highly populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />Moderately populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Less populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Very low / no registered swine</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Very high (61+)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />High (31–60)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Moderate (11–30)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Low (1–10); zero = no heat</div>
                       </div>
-                      <p className="text-[9px] text-stone-400">Colors are based on registered swine counts. Population bands are calculated dynamically from the records currently available to your account.</p>
+                      <p className="text-[9px] text-stone-400">Colors show active registered swine counts in the selected classifications.</p>
                     </>
                   ) : (
                     <>

@@ -294,11 +294,7 @@ export function mapDbToSwine(row: any): SwineRecord {
     row.farm_name ||
     '';
 
-  const barangayId =
-    custom.barangayId ||
-    `brgy-${String(barangayName)
-      .toLowerCase()
-      .replace(/\s+/g, '-')}`;
+  const barangayId = row.barangayId || row.barangay_id || custom.barangayId || '';
 
   const latitude =
     custom.latitude !== undefined &&
@@ -367,7 +363,7 @@ export function mapDbToSwine(row: any): SwineRecord {
 
     barangay: barangayName,
 
-    barangay_id: barangayId,
+    barangay_id: row.barangayId || row.barangay_id || barangayId,
 
     farmType:
       farmScale === 'BACKYARD'
@@ -1118,7 +1114,7 @@ export async function upsertSwineRecord(
     const result =
       await tx
         .insert(swineRecords)
-        .values({ ...dbRecord, farmerId })
+        .values({ ...dbRecord, barangayId: barangay.id, farmerId })
         .onConflictDoUpdate({
           target:
             swineRecords.id,
@@ -1146,6 +1142,9 @@ export async function upsertSwineRecord(
 
             barangay:
               dbRecord.barangay,
+
+            barangayId:
+              barangay.id,
 
             birthDate:
               dbRecord.birthDate,

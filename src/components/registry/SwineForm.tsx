@@ -56,7 +56,8 @@ import {
   CONTACT_NUMBER_ERROR_MESSAGE,
 } from '../common/ContactNumberInput';
 import { GisMap } from '../gis/GisMap';
-import { getBarangayCoordinates } from '../../data/barangays';
+import { getBarangayCoordinates, HINUNANGAN_BARANGAYS } from '../../data/barangays';
+import { findBarangayContainingPoint } from '../../utils/gisCalculations';
 import { SwineMatrixModal } from './SwineMatrixModal';
 import {
   calculateAgeFromBirthDate,
@@ -1849,8 +1850,12 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   isLocationPicker={true}
                   initialCenter={[latitude, longitude]}
                   onPickLocation={(lat, lng, closestBg) => {
-                    if (!isPointInsideHinunangan(lat, lng)) {
-                      alert('Selected location is outside Hinunangan municipal territory.');
+                    if (!closestBg || !isPointInsideHinunangan(lat, lng)) {
+                      alert('Selected location is outside configured Hinunangan barangay boundaries. Please select a valid barangay location.');
+                      return;
+                    }
+                    if (currentUser?.role === 'focal' && closestBg.toLowerCase() !== (currentUser.assignedBarangay || '').toLowerCase()) {
+                      alert(`You may only select a location inside your assigned barangay (${currentUser.assignedBarangay || 'not assigned'}).`);
                       return;
                     }
                     setLatitude(Number(lat.toFixed(6)));
@@ -2408,6 +2413,14 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return;
     }
 
+    if (!HINUNANGAN_BARANGAYS.some(b => b.name.toLowerCase() === barangay.trim().toLowerCase())) {
+      const message = 'Please select a valid barangay before saving the swine record.';
+      setSubmitError(message);
+      alert(message);
+      stopSubmission();
+      return;
+    }
+
     // Validate the Philippine mobile number field before saving.
     const contactField = getField('fld_contact_phone');
     const contactSection = formSchema.sections.find(section =>
@@ -2481,6 +2494,16 @@ export const SwineForm: React.FC<SwineFormProps> = ({
           `Under Municipal Executive Order No. 12-2023, swine and farm registration is strictly EXCLUSIVE to the 40 official barangays of Hinunangan. Registrations originating from other municipalities or other provinces are not permitted.\n\n` +
           `Please adjust the coordinates or click "Re-center to Brgy GPS".`
       );
+      stopSubmission();
+      return;
+    }
+    const containingBarangay = findBarangayContainingPoint(Number(latitude), Number(longitude));
+    if (!containingBarangay || containingBarangay.toLowerCase() !== barangay.trim().toLowerCase()) {
+      const message = containingBarangay
+        ? `The GPS point is inside Barangay ${containingBarangay}, but the selected barangay is ${barangay}. Select a GPS pin inside the selected barangay.`
+        : 'The selected GPS point is outside configured barangay boundaries. Please select a valid location inside a Hinunangan barangay.';
+      setSubmitError(message);
+      alert(message);
       stopSubmission();
       return;
     }
@@ -2710,7 +2733,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       console.error('Error saving swine record to Supabase cloud:', err);
       const msg = err?.message || 'Failed to save swine record to Supabase cloud database. Please verify your connection and try again.';
       setSubmitError(msg);
-      alert(`⚠️ Supabase Cloud Save Error:\n\n${msg}\n\nPlease check your internet connection and try again.`);
+      alert(`⚠️ Supabase Cloud Save Error:\n\n${msg}\n\nYour form data has been preserved. Correct the issue shown above and retry.`);
     } finally {
       submissionInProgressRef.current = false;
       setIsSubmitting(false);

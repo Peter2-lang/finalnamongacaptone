@@ -737,7 +737,7 @@ export default function App() {
   return (
     <div
       style={fontStyle}
-      className={`${currentRole === 'landing' ? 'min-h-dvh' : 'h-dvh max-h-dvh overflow-hidden'} app-shell bg-slate-100 text-stone-900 flex flex-col font-sans antialiased selection:bg-emerald-200 relative`}
+      className={`${currentRole === 'landing' ? 'min-h-dvh' : 'h-dvh max-h-dvh overflow-hidden'} app-shell ${currentRole === 'landing' ? 'public-shell' : 'workspace-shell'} bg-slate-100 text-stone-900 flex flex-col font-sans antialiased selection:bg-emerald-200 relative`}
     >
       {/* Connected Interface Background Layer - Exclusively for Public Landing View */}
       {interfaceBg?.imageUrl && interfaceBg.enabled !== false && currentRole === 'landing' && (
@@ -800,11 +800,13 @@ export default function App() {
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
 
+      <a className="skip-navigation" href="#main-content">Skip to main content</a>
+
       {/* Main Layout Container with Desktop Locked-In Docked Sidebar & Mobile Drawer */}
       <div className="flex-1 min-h-0 flex overflow-hidden relative">
         {/* Desktop Sidebar (Toggleable via left hamburger menu button) */}
         {currentRole !== 'landing' && isSidebarOpen && (
-          <aside className="hidden lg:flex flex-col w-72 xl:w-80 shrink-0 border-r border-transparent bg-transparent z-20 h-full overflow-hidden transition-all duration-200">
+          <aside className="hidden lg:flex flex-col w-64 xl:w-72 shrink-0 border-r border-transparent bg-transparent z-20 h-full overflow-hidden transition-all duration-200">
             <Sidebar
               currentUser={currentUser}
               currentRole={currentRole}
@@ -860,6 +862,8 @@ export default function App() {
 
         {/* Main Dashboard Viewport - ALWAYS fully visible, bright, solid administrative canvas */}
         <main
+          id="main-content"
+          tabIndex={-1}
           style={{
             backgroundColor: currentRole !== 'landing' && colors?.backgroundColor ? colors.backgroundColor : undefined,
           }}
@@ -989,9 +993,8 @@ export default function App() {
                   targetSwineId={gisTargetSwineId}
                   onViewSwineRecord={handleViewSwineRecord}
                   onPickLocation={(lat, lng, closestBarangay) => {
+                    if (!closestBarangay) return;
                     setPendingGisCoordinates({ latitude: lat, longitude: lng, barangay: closestBarangay });
-                    setEditingSwine(null);
-                    setActiveTab('add_swine');
                   }}
                 />
               </div>

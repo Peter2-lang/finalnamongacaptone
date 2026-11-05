@@ -60,6 +60,50 @@ export interface BarangayGisMetrics {
   swineRecords: SwineRecord[];
 }
 
+export type SwineHeatmapClass = 'piglet' | 'grower' | 'finisher' | 'sow' | 'boar';
+
+const normalizeSwineClass = (value: unknown): SwineHeatmapClass | null => {
+  const type = String(value ?? '').trim().toLowerCase().replace(/[ _-]+/g, ' ');
+  if (type.includes('piglet')) return 'piglet';
+  if (type.includes('grower')) return 'grower';
+  if (type.includes('finisher') || type.includes('fattener') || type.includes('fatten')) return 'finisher';
+  if (type.includes('sow')) return 'sow';
+  if (type.includes('boar')) return 'boar';
+  return null;
+};
+
+/** Apply GIS classification selections once per record to avoid overlapping counts. */
+export function filterSwineForHeatmap(
+  swineList: SwineRecord[],
+  selectedClasses: SwineHeatmapClass[] | null,
+  readyToSellOnly: boolean,
+): SwineRecord[] {
+  const selected = new Set(selectedClasses ?? []);
+  return swineList.filter(sw => {
+    const status = String(sw.status || '').trim().toLowerCase().replace(/[ -]+/g, '_');
+    if (sw.isArchived || status === 'sold' || status === 'deceased') return false;
+    if (readyToSellOnly && !(sw.readyToSell || status === 'ready_to_sell')) return false;
+    if (selectedClasses !== null && !selected.has(normalizeSwineClass(sw.swineType) as SwineHeatmapClass)) return false;
+    return true;
+  });
+}
+
+/** Return the configured barangay polygon containing a Hinunangan coordinate. */
+export function findBarangayContainingPoint(lat: number, lng: number): string | undefined {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  for (const [name, points] of Object.entries(HINUNANGAN_BARANGAY_BOUNDARIES)) {
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const [yi, xi] = points[i];
+      const [yj, xj] = points[j];
+      const crosses = (yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+      if (crosses) inside = !inside;
+    }
+    if (inside) return name;
+  }
+  return undefined;
+}
+
 /**
  * Filter swine records strictly by focal person authorization if applicable
  */
@@ -68,7 +112,10 @@ export function filterSwineByAuthorization(
   role: string | undefined,
   assignedBarangay: string | undefined
 ): SwineRecord[] {
-  if (role === 'agent') return swineList.filter(s => s.readyToSell === true && !s.isArchived);
+  if (role === 'agent') return swineList.filter(s => {
+    const status = String(s.status || '').trim().toLowerCase().replace(/[ -]+/g, '_');
+    return (s.readyToSell === true || status === 'ready_to_sell') && !s.isArchived && status !== 'sold' && status !== 'deceased';
+  });
   if (role === 'focal') {
     const target = assignedBarangay?.trim().toLowerCase();
     if (!target) return [];
@@ -91,19 +138,21 @@ export function computeBarangayGisMetrics(
 
   const metrics = targetList.map(geo => {
     const liveBg = barangays.find(b => b.name.toLowerCase() === geo.name.toLowerCase());
-    const bgSwine = swineList.filter(
-      s => (s.barangay || '').trim().toLowerCase() === geo.name.toLowerCase() && !s.isArchived
-    );
+    const bgSwine = swineList.filter(s => {
+      const status = String(s.status || '').trim().toLowerCase().replace(/[ -]+/g, '_');
+      return (s.barangay || '').trim().toLowerCase() === geo.name.toLowerCase() &&
+        !s.isArchived && status !== 'sold' && status !== 'deceased';
+    });
 
     const farmersSet = new Set(
       bgSwine.map(s => (s.farmerName || s.farmerContact || '').trim().toLowerCase()).filter(Boolean)
     );
 
-    const boars = bgSwine.filter(s => s.swineType === 'boar').length;
-    const sows = bgSwine.filter(s => s.swineType === 'sow').length;
-    const piglets = bgSwine.filter(s => s.swineType === 'piglet').length;
-    const growers = bgSwine.filter(s => s.swineType === 'grower').length;
-    const fatteners = bgSwine.filter(s => s.swineType === 'finisher').length;
+    const boars = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'boar').length;
+    const sows = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'sow').length;
+    const piglets = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'piglet').length;
+    const growers = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'grower').length;
+    const fatteners = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'finisher').length;
     const readyForSale = bgSwine.filter(s => s.readyToSell || s.status === 'ready_to_sell').length;
 
     const withGps = bgSwine.filter(s => typeof s.latitude === 'number' && typeof s.longitude === 'number' && s.latitude > 0 && s.longitude > 0).length;
@@ -136,32 +185,15 @@ export function computeBarangayGisMetrics(
     };
   });
 
-  const populationGroups = metrics
-    .map(metric => metric.totalSwine)
-    .filter(count => count > 0)
-    .sort((a, b) => a - b);
-  const quantile = (fraction: number): number => {
-    if (populationGroups.length === 0) return 0;
-    const position = (populationGroups.length - 1) * fraction;
-    const lowerIndex = Math.floor(position);
-    const upperIndex = Math.ceil(position);
-    const range = populationGroups[upperIndex] - populationGroups[lowerIndex];
-    return populationGroups[lowerIndex] + range * (position - lowerIndex);
-  };
-  const [lowerThreshold, middleThreshold, upperThreshold] = [0.25, 0.5, 0.75].map(quantile);
-  const distinctPopulations = new Set(populationGroups).size;
-
   return metrics.map(metric => {
     if (metric.totalSwine === 0) return metric;
 
     let populationClass: PopulationClass;
-    if (distinctPopulations === 1) {
-      populationClass = 'moderate';
-    } else if (metric.totalSwine <= lowerThreshold) {
+    if (metric.totalSwine <= 10) {
       populationClass = 'very_low';
-    } else if (metric.totalSwine <= middleThreshold) {
+    } else if (metric.totalSwine <= 30) {
       populationClass = 'low';
-    } else if (metric.totalSwine <= upperThreshold) {
+    } else if (metric.totalSwine <= 60) {
       populationClass = 'moderate';
     } else {
       populationClass = 'high';
@@ -210,7 +242,7 @@ export function generateHeatmapPoints(
   if (minVal === Infinity) minVal = 0;
   if (maxVal === 0) maxVal = 1;
 
-  // 2. Build heatmap points from swine records with coordinates + centroid fallback
+  // 2. Plot actual farm coordinates; aggregate only records without GPS at barangay level.
   metrics.forEach(m => {
     let raw = 0;
     switch (mode) {
@@ -232,42 +264,34 @@ export function generateHeatmapPoints(
     }
 
     const populationClass = m.populationClass;
+    if (raw <= 0) return;
     const intensity = mode === 'swine_density'
       ? populationClassIntensity[populationClass]
       : Math.max(0.1, Math.min(1.0, raw / maxVal));
 
-    // Centroid point representing barangay aggregated density
-    points.push({
-      lat: m.latitude,
-      lng: m.longitude,
-      intensity,
-      rawCount: raw,
-      label: `${m.barangayName} (${raw})`,
-      barangay: m.barangayName,
-      populationClass,
+    const eligible = m.swineRecords.filter(s => {
+      if (mode === 'ready_to_sell' && !(s.readyToSell || s.status === 'ready_to_sell')) return false;
+      if (mode === 'breeding_boar' && normalizeSwineClass(s.swineType) !== 'boar') return false;
+      return true;
     });
+    const withGps = mode === 'farmer_density' || mode === 'registry_activity'
+      ? []
+      : eligible.filter(s => s.latitude && s.longitude && s.latitude > 0 && s.longitude > 0);
+    const withoutGpsCount = Math.max(0, raw - withGps.length);
 
-    if (mode === 'swine_density') return;
+    if (withoutGpsCount > 0 || (mode === 'farmer_density' && withGps.length === 0)) {
+      points.push({
+        lat: m.latitude, lng: m.longitude, intensity, rawCount: withoutGpsCount || raw,
+        label: `${m.barangayName} (${raw})`, barangay: m.barangayName, populationClass,
+      });
+    }
 
-    // Also include specific swine coordinates if available
-    m.swineRecords.forEach(s => {
-      if (s.latitude && s.longitude && s.latitude > 0 && s.longitude > 0) {
-        let swineWeight = 1;
-        if (mode === 'ready_to_sell' && !s.readyToSell && s.status !== 'ready_to_sell') return;
-        if (mode === 'breeding_boar' && s.swineType !== 'boar') return;
-        if (mode === 'ready_to_sell') swineWeight = 2;
-        if (mode === 'breeding_boar') swineWeight = 2.5;
-
-        points.push({
-          lat: s.latitude,
-          lng: s.longitude,
-          intensity: Math.min(1.0, (swineWeight / (maxVal || 1)) * 1.5),
-          rawCount: swineWeight,
-          label: `${s.pigIdTag || s.earTagNo} - ${s.farmerName}`,
-          barangay: s.barangay,
-          populationClass,
-        });
-      }
+    withGps.forEach(s => {
+      points.push({
+        lat: s.latitude!, lng: s.longitude!, intensity, rawCount: 1,
+        label: `${s.pigIdTag || s.earTagNo} - ${s.farmerName}`,
+        barangay: s.barangay, populationClass,
+      });
     });
   });
 

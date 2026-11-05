@@ -99,6 +99,21 @@ test('GIS 20 normal clicks never select registration coordinates',async({page})=
  expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
 });
 
+test('GIS manual pin appears, moves, and remains a separate explicit action',async({page})=>{
+ await mount(page,'GisMap');
+ await page.getByRole('button',{name:'Select Location for Registration',exact:false}).click();
+ await page.evaluate(()=>{
+  const win=window as any;const L=win.auditMap;
+  L.fire('click',{latlng:{lat:10.4018,lng:125.1845}});
+ });
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ await expect(page.locator('.custom-manual-pin')).toContainText('10.4018');
+ await page.evaluate(()=>{(window as any).auditMap.fire('click',{latlng:{lat:10.4019,lng:125.1846}})});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ await expect(page.locator('.custom-manual-pin')).toContainText('10.4019');
+ expect(await page.evaluate(()=>(window as any).auditPicks.length)).toBe(2);
+});
+
 test('GIS denied GPS permission preserves viewing mode',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
   getCurrentPosition:(_success:unknown,fail:(error:{code:number})=>void)=>fail({code:1}),

@@ -36,6 +36,7 @@ import {
   Compass,
   Layers,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import { SidebarTheme, UserAccount, UserRole } from '../../types';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
@@ -73,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { isOnline, isSimulatedOffline, toggleSimulateOffline, pendingQueueCount } = useOfflineStatus();
   const { language, setLanguage, t } = useLanguage();
 
+  const [pageQuery, setPageQuery] = useState('');
   const [theme, setTheme] = useState<SidebarTheme>(() => storageService.getSidebarTheme());
   const officialLogos = useOfficialLogos();
 
@@ -111,8 +113,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isSuperAdmin = currentRole === 'super_admin' || currentUser?.role === 'super_admin';
   const isAdmin = currentRole === 'admin' || currentUser?.role === 'admin';
 
+  const pageLinks = isAgent
+    ? [{ id: 'ready_to_sell', label: t('nav_ready_to_sell') }, { id: 'messages', label: t('nav_messages') }, { id: 'account', label: t('nav_my_account') }]
+    : [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'add_swine', label: 'Register swine' },
+        { id: 'records', label: 'Swine records' },
+        { id: 'gis', label: 'GIS map' },
+        { id: 'messages', label: 'Messages' },
+        { id: 'account', label: 'My account' },
+      ];
+  const matchingPages = pageLinks.filter(page => page.label.toLowerCase().includes(pageQuery.trim().toLowerCase()));
+
   return (
     <div
+      aria-label="Main navigation"
       className="sidebar-theme-root w-full h-full flex flex-col justify-between overflow-y-auto overflow-x-hidden select-none custom-sidebar-scroll transition-colors duration-200"
       style={getSidebarThemeStyles(theme)}
     >
@@ -185,13 +200,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
+        <div className="sidebar-page-finder">
+          <label className="flex items-center gap-2 rounded-xl border px-3" style={{ borderColor: 'var(--sidebar-divider)', backgroundColor: 'var(--sidebar-hover)' }}>
+            <Search className="w-4 h-4 shrink-0 opacity-70" aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="Find a page"
+              placeholder="Find a page…"
+              value={pageQuery}
+              onChange={event => setPageQuery(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Escape') setPageQuery('');
+                if (event.key === 'Enter' && pageQuery.trim() && matchingPages.length === 1) {
+                  onSelectTab(matchingPages[0].id);
+                  setPageQuery('');
+                }
+              }}
+              className="w-full min-w-0 bg-transparent py-3 text-sm outline-none placeholder:text-current placeholder:opacity-60"
+            />
+          </label>
+          {pageQuery.trim() && (
+            <div className="mt-2 space-y-1" aria-label="Matching pages">
+              {matchingPages.length ? matchingPages.map(page => (
+                <button key={page.id} type="button" className="sidebar-theme-item w-full text-left px-3 py-2" onClick={() => { onSelectTab(page.id); setPageQuery(''); }}>
+                  {page.label}
+                </button>
+              )) : <p className="px-3 py-2 text-xs opacity-80" role="status">No matching pages. Try records, map, or messages.</p>}
+            </div>
+          )}
+        </div>
+
         {/* User Profile Card */}
-        <div
+        <button
+          type="button"
+          aria-label={currentUser ? 'Open my account' : 'Open login'}
           onClick={() => {
             if (!currentUser) onOpenLogin();
-            else if (isAgent) onSelectTab('account');
+            else onSelectTab('account');
           }}
-          className="border rounded-2xl p-3 flex items-center gap-3 shadow-inner transition cursor-pointer hover:brightness-110 active:scale-[0.99]"
+          className="w-full text-left border rounded-2xl p-3 flex items-center gap-3 shadow-inner transition cursor-pointer hover:brightness-110 active:scale-[0.99]"
           style={{
             backgroundColor: 'var(--sidebar-hover)',
             borderColor: 'var(--sidebar-divider)',
@@ -212,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="font-bold text-xs leading-snug truncate"
               style={{ color: theme.activeTextColor || '#ffffff' }}
             >
-              {currentUser?.name || (isAgent ? t('role_agent') : 'Engr. Arnaldo M. Valdez')}
+              {currentUser?.name || (isAgent ? t('role_agent') : 'Municipal workspace')}
             </div>
             <div
               className="text-[11px] leading-snug truncate mt-0.5 opacity-85"
@@ -227,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : t('role_admin_full')}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* AGENT-SPECIFIC MINIMAL NAVIGATION */}
         {isAgent ? (
@@ -241,6 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('ready_to_sell')}
+              aria-current={activeTab === 'ready_to_sell' ? 'page' : undefined}
               className="sidebar-theme-item min-h-11 w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
               data-active={activeTab === 'ready_to_sell' || activeTab === 'dashboard'}
               style={{
@@ -263,6 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('messages')}
+              aria-current={activeTab === 'messages' ? 'page' : undefined}
               className="sidebar-theme-item min-h-11 w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer"
               data-active={activeTab === 'messages'}
               style={{
@@ -285,6 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('account')}
+              aria-current={activeTab === 'account' ? 'page' : undefined}
               className="sidebar-theme-item min-h-11 w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer"
               data-active={activeTab === 'account'}
               style={{
@@ -303,6 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('add_swine')}
+              aria-current={activeTab === 'add_swine' ? 'page' : undefined}
               className="w-full py-2.5 px-3.5 rounded-xl border text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition shadow-xs hover:brightness-110 active:scale-[0.99]"
               style={{
                 backgroundColor: 'var(--sidebar-hover)',
@@ -319,6 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('dashboard')}
+                aria-current={activeTab === 'dashboard' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'dashboard' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -338,6 +390,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('gis')}
+                aria-current={activeTab === 'gis' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'gis' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -357,6 +410,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('records')}
+                aria-current={activeTab === 'records' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'records' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -376,6 +430,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('certificate')}
+                aria-current={activeTab === 'certificate' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'certificate' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -395,6 +450,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('takeoff')}
+                aria-current={activeTab === 'takeoff' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'takeoff' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -424,6 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('biosecurity')}
+                aria-current={activeTab === 'biosecurity' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'biosecurity' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -444,6 +501,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectTab('asf_ordinance')}
+                  aria-current={activeTab === 'asf_ordinance' ? 'page' : undefined}
                   className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                   style={{
                     backgroundColor: activeTab === 'asf_ordinance' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -464,6 +522,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('messages')}
+                aria-current={activeTab === 'messages' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'messages' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -491,6 +550,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectTab('barangays')}
+                  aria-current={activeTab === 'barangays' ? 'page' : undefined}
                   className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                   style={{
                     backgroundColor: activeTab === 'barangays' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -511,6 +571,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTab('account')}
+                aria-current={activeTab === 'account' ? 'page' : undefined}
                 className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                 style={{
                   backgroundColor: activeTab === 'account' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -666,6 +727,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectTab('accounts')}
+                      aria-current={activeTab === 'accounts' ? 'page' : undefined}
                       className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                       style={{
                         backgroundColor: activeTab === 'accounts' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -699,6 +761,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('system_appearance')}
+                        aria-current={activeTab === 'system_appearance' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'system_appearance' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -718,6 +781,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('role_page_config')}
+                        aria-current={activeTab === 'role_page_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'role_page_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -737,6 +801,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('feature_config')}
+                        aria-current={activeTab === 'feature_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'feature_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -756,6 +821,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('component_config')}
+                        aria-current={activeTab === 'component_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'component_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -775,6 +841,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('chatbot_config')}
+                        aria-current={activeTab === 'chatbot_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'chatbot_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -794,6 +861,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('nav_config')}
+                        aria-current={activeTab === 'nav_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'nav_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -813,6 +881,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('notification_config')}
+                        aria-current={activeTab === 'notification_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'notification_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -832,6 +901,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('popup_config')}
+                        aria-current={activeTab === 'popup_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'popup_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -851,6 +921,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('typography_config')}
+                        aria-current={activeTab === 'typography_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'typography_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -870,6 +941,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('branding_config')}
+                        aria-current={activeTab === 'branding_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'branding_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -889,6 +961,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('layout_config')}
+                        aria-current={activeTab === 'layout_config' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'layout_config' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -908,6 +981,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('version_history')}
+                        aria-current={activeTab === 'version_history' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'version_history' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -927,6 +1001,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTab('audit_logs')}
+                        aria-current={activeTab === 'audit_logs' ? 'page' : undefined}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                         style={{
                           backgroundColor: activeTab === 'audit_logs' ? theme.activeMenuColor || '#2563eb' : 'transparent',

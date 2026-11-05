@@ -94,3 +94,15 @@ test('dashboard counters follow populated and empty API snapshots after refresh'
  state.records[0].readyToSell=true;await page.reload();await expect(counter()).toHaveText('1');
  state.records.length=0;await page.reload();await expect(counter()).toHaveText('0');
 });
+
+test('page finder opens records with keyboard and handles no results', async ({page}) => {
+ await fixture(page, 'admin');
+ await page.goto('/dashboard');
+ if ((page.viewportSize()?.width || 1280) < 1024) await page.getByRole('button', {name: 'Toggle navigation menu'}).click();
+ const finder = page.getByRole('searchbox', {name: 'Find a page'}).filter({visible: true});
+ await finder.fill('no-such-page');
+ await expect(page.getByRole('status').filter({hasText: 'No matching pages'})).toBeVisible();
+ await finder.fill('records');
+ await finder.press('Enter');
+ await expect(page).toHaveURL(/\/records$/);
+});

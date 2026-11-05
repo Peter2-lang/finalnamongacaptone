@@ -247,7 +247,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div
-      className={`relative ${isEmbeddedPreview ? 'w-full' : 'min-h-screen'} text-stone-900 selection:bg-emerald-500 selection:text-white`}
+      className={`landing-redesign relative ${isEmbeddedPreview ? 'w-full' : 'min-h-screen'} text-stone-900 selection:bg-emerald-500 selection:text-white`}
       style={{
         fontFamily: theme.bodyFont || 'system-ui',
         backgroundColor: theme.backgroundColor || '#ffffff',
@@ -305,9 +305,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         )}
 
         {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+        <section className="landing-hero max-w-7xl mx-auto px-4 sm:px-6 pt-6">
           <div
-            className="relative rounded-3xl overflow-hidden text-white p-8 sm:p-14 shadow-2xl border border-white/20"
+            className="landing-hero-panel relative rounded-3xl overflow-hidden text-white p-8 sm:p-14 shadow-2xl border border-white/20"
             style={{
               backgroundImage: cmsConfig.heroBackgroundUrl ? `url(${cmsConfig.heroBackgroundUrl})` : undefined,
               backgroundSize: 'cover',
@@ -324,7 +324,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               }}
             />
 
-            <div className="relative z-10 max-w-3xl space-y-6">
+            <div className="landing-hero-copy relative z-10 max-w-3xl space-y-6">
               {/* Badges & Official Seals */}
               <div className="flex flex-wrap items-center gap-3">
                 <span className="bg-emerald-800/90 border border-emerald-400/40 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase flex items-center gap-1.5 shadow-sm">
@@ -383,6 +383,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 {cmsConfig.heroSubtitle}
               </p>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <button type="button" onClick={onOpenLogin} className="hero-primary-action inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm">
+                  Open registry <ArrowRight className="w-4 h-4" />
+                </button>
+                <a href="#barangays" className="hero-secondary-action inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm">
+                  Explore our barangays <MapPin className="w-4 h-4" />
+                </a>
+              </div>
 
               {cmsConfig.heroDescription && (
                 <p

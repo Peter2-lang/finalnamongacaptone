@@ -97,6 +97,8 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const sectionTitle = activeTab.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+
   const getRoleBadge = () => {
     if (currentRole === 'super_admin' || currentUser?.role === 'super_admin') {
       return (
@@ -170,7 +172,9 @@ export const Header: React.FC<HeaderProps> = ({
           ) : null}
 
           {/* Brand Logo & Title (Immediately after menu button) */}
-          <div
+          <button
+            type="button"
+            aria-label="Go to public home page"
             onClick={() => onSelectRole('landing')}
             className="flex min-w-0 items-center gap-2.5 cursor-pointer group select-none"
           >
@@ -191,8 +195,15 @@ export const Header: React.FC<HeaderProps> = ({
                 {t('header_da_sub')}
               </p>
             </div>
-          </div>
+          </button>
         </div>
+
+        {currentRole !== 'landing' && (
+          <div className="workspace-breadcrumb hidden xl:flex items-center gap-2 text-xs text-stone-500 mr-auto pl-5 border-l border-stone-200" aria-label="Current section">
+            <span>Workspace</span><ChevronRight className="w-3 h-3" />
+            <span className="font-semibold text-emerald-900">{sectionTitle}</span>
+          </div>
+        )}
 
         {/* Center: Landing Page Navigation Links */}
         {currentRole === 'landing' && (
@@ -294,7 +305,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* Bottom Gold/Amber Accent Line as in official reference */}
-      <div className="h-1 bg-amber-500 w-full" />
+      <div className="header-accent h-px w-full" />
 
       {/* Sync Center Modal */}
       <SyncCenterModal

@@ -51,7 +51,15 @@ export const SIDEBAR_THEME_PRESETS: SidebarTheme[] = [
   },
 ];
 
-export const DEFAULT_SIDEBAR_THEME: SidebarTheme = SIDEBAR_THEME_PRESETS[0];
+export const DEFAULT_SIDEBAR_THEME: SidebarTheme = {
+  ...SIDEBAR_THEME_PRESETS[1],
+  backgroundColor: '#102d28',
+  activeMenuColor: '#25634f',
+  hoverColor: '#1b3e35',
+  menuTextColor: '#dce8df',
+  iconColor: '#a6c6b2',
+  sectionDividerColor: '#335047',
+};
 
 export const INITIAL_REGISTRY_FORM_SCHEMA: RegistryFormSchema = {
   version: 1,
