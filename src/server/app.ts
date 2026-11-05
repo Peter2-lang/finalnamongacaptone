@@ -1,3 +1,6 @@
+import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
+import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
+import { persistSwineImportBatch } from '../db/swine.ts';
 import { farmerIdentity } from '../utils/farmerIdentity.ts';
 import { authorizeMessagePayload } from './messageAuthorization.ts';
 import { normalizeBiosecurityAudits, scopeBiosecurityItems } from './biosecurityValidation.ts';
@@ -1633,83 +1636,89 @@ export function createApp() {
       return res.status(403).json({ success: false, error: 'Access Denied: Agent accounts cannot import records.' });
     }
 
-    const { records, fileName, duplicateHandling, newFieldsCreated } = req.body;
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.status(400).json({ success: false, error: 'No swine records provided for import.' });
-    }
-    if (records.some((record: any) => !record || typeof record !== 'object' || Array.isArray(record))) {
-      return res.status(400).json({ success: false, error: 'Import records must be JSON objects.' });
-    }
-    if (user.isFocal && !user.assignedBarangay) {
-      return res.status(403).json({ success: false, error: 'Your account must be assigned to a barangay before importing records.' });
-    }
-    if (user.isFocal && records.some((record: any) => record.barangay &&
-      record.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase())) {
-      return res.status(403).json({ success: false, error: 'Focal persons can only import records for their assigned barangay.' });
-    }
-    try { records.forEach(validateSwineMutation); }
+    const { records, fileName, duplicateHandling = 'skip', newFields, sectionId, batchId } = req.body;
+    if (!Array.isArray(records) || !records.length || records.length > IMPORT_LIMITS.batch) return res.status(400).json({success:false,error:`Send 1–${IMPORT_LIMITS.batch} records per batch.`});
+    if (!['skip','update','rename','error'].includes(duplicateHandling)) return res.status(400).json({success:false,error:'Invalid duplicate policy.'});
+    let fields;
+    try { fields = validateImportFieldDefinitions(newFields); }
     catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
-    const scopedRecords = user.isFocal
-      ? records.map((record: any) => ({
-          ...record,
-          barangay: user.assignedBarangay,
-          barangay_id: user.barangayId || record.barangay_id,
-        }))
-      : records;
-
+    if (fields.length && !user.isAdmin) return res.status(403).json({success:false,error:'Only administrators can create custom registry fields. Ask an administrator to publish these fields first.'});
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'Your account must be assigned to a barangay before importing records.'});
+    if (user.isFocal && records.some((record:any) => typeof record?.barangay !== 'string' || record.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase())) return res.status(403).json({success:false,error:'Focal persons can only import records for their assigned barangay.'});
+    if (typeof batchId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(batchId)) return res.status(400).json({success:false,error:'A stable import batch ID is required.'});
     try {
-      // Import data never changes the registry schema. Administrators review fields
-      // through the schema editor; unknown values remain in JSON custom fields.
-      const preparedRecords = [];
-      for (const record of scopedRecords) {
-        const existing = await getSwineRecordById(record.id || record.pigIdTag || record.earTagNo || '');
-        if (existing) {
-          if (user.isFocal && existing.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
-            return res.status(403).json({success:false,error:'Import contains an existing record outside your assigned barangay.'});
+      const requestHash = createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
+      const receiptKey = `swine_import:${createHash('sha256').update(`${user.userId}:${batchId}`).digest('hex')}`;
+      const previous = await getStoredSystemSetting<any>(receiptKey);
+      if (previous) {
+        if (previous.requestHash !== requestHash) return res.status(409).json({success:false,error:'Batch ID was already used with different data.'});
+        return res.json({success:true,count:previous.result.data.length,...previous.result,newFieldsCreated:previous.result.newFields,schema:await getFullRegistrySchemaFromDb()});
+      }
+      const schema = await getFullRegistrySchemaFromDb();
+      const definitions = [...schema.sections.flatMap(section => section.fields), ...fields];
+      const preparedRecords: any[] = [];
+      const sourceIndexes: number[] = [];
+      const failures: {index:number; reason:string; duplicate?:boolean}[] = [];
+      const skipped: number[] = [];
+      const seenTags = new Set<string>(), seenIds = new Set<string>(), seenRows = new Set<string>();
+      for (let index = 0; index < records.length; index++) {
+        const record = records[index];
+        try {
+          validateImportRecordShape(record);
+          validateSwineMutation(record);
+          for (const [key, value] of Object.entries(record.customFields || {})) {
+            const definition = definitions.find(field => field.fieldKey === key || field.id === key);
+            if (!definition) throw new Error(`Custom field ${key} has not been registered. Review mappings and confirm field creation.`);
+            const converted = coerceImportValue(value, definition.type);
+            record.customFields[key] = converted;
+            if (definition.type === 'dropdown' && converted != null && converted !== '' && definition.options?.length && !definition.options.includes(String(converted))) throw new Error(`Invalid option for ${definition.label}.`);
           }
-          if (duplicateHandling === 'skip') continue;
-          if (duplicateHandling === 'error') return res.status(409).json({success:false,error:'Import contains an existing record.'});
-          try { assertImmutableSwineIdentity(existing, {...record, id:existing.id}); }
-          catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
-          preparedRecords.push({...existing,...record,id:existing.id});
-        } else {
-          const tag = record.pigIdTag || record.earTagNo || await getNextAuthoritativePigIdTag();
-          if (!PIG_ID_TAG_REGEX.test(tag)) return res.status(400).json({success:false,error:'Invalid Pig ID Tag in import.'});
-          preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag});
-        }
+          const identityTags = [record.pigIdTag, record.earTagNo].filter(Boolean).map((tag:string) => tag.trim().toUpperCase());
+          const fingerprint = stableImportFingerprint({...record, id: undefined, registeredAt:undefined, updatedAt:undefined, isSynced:undefined});
+          if ((record.id && seenIds.has(record.id)) || identityTags.some((tag:string) => seenTags.has(tag)) || seenRows.has(fingerprint)) {
+            failures.push({index, reason:'Duplicate record within this batch.', duplicate:true}); continue;
+          }
+          identityTags.forEach((tag:string) => seenTags.add(tag));
+          if (record.id) seenIds.add(record.id);
+          seenRows.add(fingerprint);
+          const matches = (await Promise.all([record.id, ...identityTags].filter(Boolean).map(id => getSwineRecordById(id)))).filter(Boolean);
+          if (new Set(matches.map(match => match!.id)).size > 1) throw new Error('Record ID and ear tag refer to different existing swine.');
+          const existing = matches[0];
+          const candidateCustomFields = {...existing?.customFields,...record.customFields};
+          for (const definition of definitions.filter(field => field.isCustom && field.required && field.visible !== false)) {
+            const value = candidateCustomFields[definition.fieldKey || definition.id] ?? candidateCustomFields[definition.id];
+            if (value === undefined || value === null || value === '') throw new Error(`${definition.label} is required.`);
+          }
+          if (existing) {
+            if (user.isFocal && existing.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) throw new Error('Existing record is outside your assigned barangay.');
+            if (duplicateHandling === 'skip') { skipped.push(index); continue; }
+            if (duplicateHandling === 'error') { failures.push({index, reason:'Record already exists.', duplicate:true}); continue; }
+            if (duplicateHandling === 'rename') {
+              const tag = await getNextAuthoritativePigIdTag();
+              preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag,computedPigId:tag});
+            } else {
+              assertImmutableSwineIdentity(existing, {...record, id: existing.id});
+              preparedRecords.push({...existing,...record,id:existing.id,customFields:{...existing.customFields,...record.customFields}});
+            }
+          } else {
+            const tag = record.pigIdTag || record.earTagNo || await getNextAuthoritativePigIdTag();
+            if (!PIG_ID_TAG_REGEX.test(tag)) throw new Error('Invalid Pig ID Tag in import.');
+            if (record.earTagNo && record.pigIdTag && record.earTagNo !== record.pigIdTag) throw new Error('Pig ID and ear tag must identify the same swine.');
+            preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag});
+          }
+          sourceIndexes.push(index);
+        } catch (error) { failures.push({index,reason:(error as Error).message}); }
       }
-      const savedRecords = await batchUpsertSwineRecords(preparedRecords);
-
-      // Record audit history if system settings table is available
+      const persisted = await persistSwineImportBatch(preparedRecords, fields, schema.sections.find(section => section.id === sectionId)?.id || schema.sections[0]?.id || 'sec_swine_info', receiptKey, requestHash, {sourceIndexes,failures,skipped},schema);
       try {
-        const histKey = 'swine_import_audit_history';
-        const existingHist = (await getSystemSetting(histKey)) || [];
-        const newHistEntry = {
-          batchId: `BATCH-${Date.now()}`,
-          fileName: fileName || 'Import.xlsx',
-          importedBy: user.username || 'System Admin',
-          importedAt: new Date().toISOString(),
-          recordCount: savedRecords.length,
-          newFields: newFieldsCreated || [],
-          duplicatePolicy: duplicateHandling || 'update',
-        };
-        await setSystemSetting(histKey, [newHistEntry, ...(Array.isArray(existingHist) ? existingHist.slice(0, 30) : [])]);
-      } catch (histErr) {
-        console.warn('Import audit history recording notice:', histErr);
-      }
-
-      return res.status(200).json({
-        success: true,
-        count: savedRecords.length,
-        data: savedRecords,
-        message: `Successfully imported ${savedRecords.length} swine records.`,
-      });
-    } catch (err: any) {
-      console.error('Error in batch import swine API:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Database import failed. Please check the backend connection.',
-      });
+        const history = await getSystemSetting<any[]>('swine_import_audit_history') || [];
+        const entry = {batchId,fileName:fileName || 'Import',importedBy:user.username,importedAt:new Date().toISOString(),recordCount:persisted.data.length,newFields:persisted.newFields,duplicatePolicy:duplicateHandling};
+        await setSystemSetting('swine_import_audit_history',[entry,...(Array.isArray(history) ? history.filter(item => item.batchId !== batchId).slice(0,30) : [])]);
+      } catch (error) { console.warn('Import audit history could not be updated:',error); }
+      return res.json({success:true,count:persisted.data.length,data:persisted.data,failures:persisted.failures,skipped:persisted.skipped,newFieldsCreated:persisted.newFields,schema:await getFullRegistrySchemaFromDb()});
+    } catch (error) {
+      console.error('Swine import failed:', error);
+      return res.status(500).json({success:false,error: (error as Error).message || 'Database import failed. No success has been confirmed; retry this batch.'});
     }
   };
 

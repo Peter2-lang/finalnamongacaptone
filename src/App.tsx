@@ -992,9 +992,10 @@ export default function App() {
                   currentRole={currentRole}
                   targetSwineId={gisTargetSwineId}
                   onViewSwineRecord={handleViewSwineRecord}
-                  onPickLocation={(lat, lng, closestBarangay) => {
-                    if (!closestBarangay) return;
-                    setPendingGisCoordinates({ latitude: lat, longitude: lng, barangay: closestBarangay });
+                  onPickLocation={(lat, lng, containingBarangay) => {
+                    if (!containingBarangay) return;
+                    // Keep standalone GIS in place; Registration uses these exact coordinates when opened explicitly.
+                    setPendingGisCoordinates({ latitude: lat, longitude: lng, barangay: containingBarangay });
                   }}
                 />
               </div>

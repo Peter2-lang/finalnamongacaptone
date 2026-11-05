@@ -53,3 +53,14 @@ test('inactive profiles and unknown roles cannot enter protected endpoints',asyn
  role='admin';active=false;assert.equal((await request('/api/auth/profile')).status,403);active=true;
  role='unexpected-role';assert.equal((await request('/api/auth/profile')).status,403);
 });
+
+test('import preserves role restrictions and rejects excessive or unsafe batches before persistence',async()=>{
+ role='focal';
+ const record={farmerName:'Fixture Farmer',barangay:'Ambacon'};
+ assert.equal((await request('/api/swine-records/import','POST',{records:[record],batchId:'fixture-import',newFields:[{fieldKey:'color',label:'Color',type:'text'}]})).status,403);
+ assert.equal((await request('/api/swine-records/import','POST',{records:[{...record,barangay:'Bugho'}],batchId:'fixture-import'})).status,403);
+ role='admin';
+ assert.equal((await request('/api/swine-records/import','POST',{records:Array(101).fill(record),batchId:'fixture-import'})).status,400);
+ assert.equal((await request('/api/swine-records/import','POST',{records:[record]})).status,400);
+ assert.equal((await request('/api/swine-records/import','POST',{records:[record],batchId:'fixture-import',newFields:[{fieldKey:'constructor',label:'Unsafe',type:'text'}]})).status,400);
+});

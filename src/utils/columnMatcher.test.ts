@@ -30,10 +30,11 @@ test('duplicate rename delegates the replacement ID to the authoritative server 
   assert.match(result.warnings[0]?.message || '', /official tag will be allocated/i);
 });
 
-test('partial or invalid import coordinates are warned and not assigned a fabricated map point', () => {
+test('partial or invalid import coordinates are rejected and not assigned a fabricated map point', () => {
   const result = validateImportRow(1, { Farmer: 'Test Farmer', Barangay: 'Ambacon', Latitude: '10.4' }, baseMappings, barangays, new Set(), new Set(), 'update');
 
+  assert.equal(result.isValid, false);
   assert.equal(result.mappedRecord.latitude, 0);
   assert.equal(result.mappedRecord.longitude, 0);
-  assert.match(result.warnings.find(warning => warning.field === 'coordinates')?.message || '', /incomplete or invalid/i);
+  assert.match(result.errors.find(error => error.field === 'coordinates')?.message || '', /both valid latitude and longitude/i);
 });

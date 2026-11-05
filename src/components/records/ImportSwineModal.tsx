@@ -1,3 +1,5 @@
+import { IMPORT_LIMITS, normalizeImportDataset, stableImportFingerprint } from '../../utils/swineImportData';
+import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Upload,
@@ -45,19 +47,17 @@ import {
   UserAccount,
 } from '../../types';
 import { storageService } from '../../services/storageService';
-import { offlineSyncEngine } from '../../services/offlineSyncEngine';
 import { languageService } from '../../services/languageService';
 import {
   analyzeImportColumns,
   CORE_SWINE_FIELDS,
-  detectDataTypeFromValues,
   generateDynamicImportWorkbook,
   generateSafeFieldKey,
   generateTranslatedLabels,
   normalizeHeader,
   validateImportRow,
 } from '../../utils/columnMatcher';
-import { getFieldKey, toFieldKey } from '../../utils/registryFieldUtils';
+import { getFieldKey } from '../../utils/registryFieldUtils';
 import { isValidPigIdTag } from '../../utils/swineRegistryLogic';
 
 interface ImportSwineModalProps {
@@ -105,7 +105,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
   // Validation States
   const [validationResults, setValidationResults] = useState<ImportRowValidationResult[]>([]);
   const [validationFilter, setValidationFilter] = useState<'all' | 'valid' | 'errors' | 'warnings'>('all');
-  const [duplicateHandling, setDuplicateHandling] = useState<'update' | 'skip' | 'rename'>('update');
+  const [duplicateHandling, setDuplicateHandling] = useState<'update' | 'skip' | 'rename'>('skip');
   const [searchFilter, setSearchFilter] = useState<string>('');
 
   // Execution & Progress State
@@ -126,6 +126,11 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
   // Custom Target Section for New Fields
   const [targetSectionId, setTargetSectionId] = useState<string>('sec_swine_info');
 
+  const [importFailures, setImportFailures] = useState<{row: number; reason: string}[]>([]);
+  const [resultStatus, setResultStatus] = useState('');
+  const importBatchIdRef = useRef('');
+  const importRequestsRef = useRef<any[] | null>(null);
+  const canCreateFields = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importSubmissionInProgressRef = useRef(false);
 
@@ -196,23 +201,17 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
     setFile(selectedFile);
     setIsReadingFile(true);
     setFileReadError(null);
+    setImportFailures([]);
+    setResultStatus('');
+    importBatchIdRef.current = crypto.randomUUID();
+    importRequestsRef.current = null;
 
     try {
+      if (!/\.(json|csv|xlsx|xls)$/i.test(selectedFile.name)) throw new Error('Supported formats (up to 10 MB / 10,000 rows): .json, .csv, .xlsx, .xls.');
+      if (selectedFile.size > IMPORT_LIMITS.bytes) throw new Error('File exceeds the supported 10 MB limit.');
       let jsonData: Record<string, any>[];
       if (selectedFile.name.toLowerCase().endsWith('.json')) {
-        const parsed = JSON.parse(await selectedFile.text());
-        const inputRows = Array.isArray(parsed) ? parsed : parsed?.records ?? parsed?.data;
-        if (!Array.isArray(inputRows)) {
-          throw new Error('JSON must contain an array of records or a records/data array property.');
-        }
-        jsonData = inputRows
-          .filter(row => row && typeof row === 'object' && !Array.isArray(row))
-          .map(row => {
-            const { customFields, ...coreFields } = row;
-            return customFields && typeof customFields === 'object' && !Array.isArray(customFields)
-              ? { ...coreFields, ...customFields }
-              : coreFields;
-          });
+        jsonData = normalizeImportDataset(JSON.parse((await selectedFile.text()).replace(/^\uFEFF/, ''))).rows;
       } else {
         const data = await selectedFile.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: false, cellText: false });
@@ -224,34 +223,28 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
 
         const worksheet = workbook.Sheets[firstSheetName];
         jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
-          raw: false,
+          raw: true,
           defval: '',
           dateNF: 'yyyy-mm-dd',
+          blankrows: false,
         });
       }
 
-      if (!jsonData || jsonData.length === 0) {
-        throw new Error('Spreadsheet appears to be empty or has no data rows below the header.');
-      }
-
-      // Extract headers from worksheet range or object keys
-      const headers = Array.from(new Set(jsonData.flatMap(row => Object.keys(row))));
-      if (headers.length === 0) {
-        throw new Error('Could not identify a valid header row in the file.');
-      }
-
+      const dataset = normalizeImportDataset(jsonData);
+      jsonData = dataset.rows;
+      const headers = dataset.headers;
       setRawHeaders(headers);
       setRawRows(jsonData);
 
       // Perform Intelligent Column Analysis
       const analyzedMappings = analyzeImportColumns(headers, jsonData, formSchema);
-      setMappings(analyzedMappings);
+      setMappings(analyzedMappings.map(mapping => !canCreateFields && mapping.isNewField ? {...mapping, createField: false} : mapping));
 
       // Transition to mapping step
       setCurrentStep('mapping');
     } catch (err: any) {
       console.error('File reading failed:', err);
-      setFileReadError(err.message || 'Failed to read file. Please ensure it is a valid .xlsx, .xls, or .csv spreadsheet.');
+      setFileReadError(err.message || 'Failed to read file. Please ensure it is a valid .json, .xlsx, .xls, or .csv file.');
     } finally {
       setIsReadingFile(false);
     }
@@ -336,40 +329,30 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
   };
 
   // Trigger Full Row Validation
-  const handleProceedToValidation = () => {
-    const seenBatchTags = new Set<string>();
-    const results: ImportRowValidationResult[] = rawRows.map((row, idx) => {
-      return validateImportRow(
-        idx + 1,
-        row,
-        mappings,
-        barangays,
-        existingEarTags,
-        seenBatchTags,
-        duplicateHandling
-      );
+  const validateRows = () => {
+    const seenTags = new Set<string>(), seenRows = new Set<string>();
+    return rawRows.map((row, index) => {
+      const result = validateImportRow(index + 1, row, mappings, barangays.length ? barangays : HINUNANGAN_BARANGAYS, existingEarTags, seenTags, duplicateHandling);
+      const fingerprint = stableImportFingerprint({...result.mappedRecord,id:undefined,registeredAt:undefined});
+      if (seenRows.has(fingerprint)) {
+        result.isValid = false; result.isDuplicate = true;
+        result.errors.push({row:index + 1, message:'Duplicate record within this file. Row rejected.', severity:'error'});
+      }
+      seenRows.add(fingerprint);
+      return result;
     });
-
-    setValidationResults(results);
+  };
+  const handleProceedToValidation = () => {
+    importRequestsRef.current = null;
+    importBatchIdRef.current = crypto.randomUUID();
+    setValidationResults(validateRows());
     setCurrentStep('validation');
   };
-
-  // Re-run validation when duplicate handling strategy changes
   useEffect(() => {
-    if (currentStep === 'validation' && rawRows.length > 0) {
-      const seenBatchTags = new Set<string>();
-      const results: ImportRowValidationResult[] = rawRows.map((row, idx) => {
-        return validateImportRow(
-          idx + 1,
-          row,
-          mappings,
-          barangays,
-          existingEarTags,
-          seenBatchTags,
-          duplicateHandling
-        );
-      });
-      setValidationResults(results);
+    if (currentStep === 'validation') {
+      importRequestsRef.current = null;
+      importBatchIdRef.current = crypto.randomUUID();
+      setValidationResults(validateRows());
     }
   }, [duplicateHandling]);
 
@@ -451,239 +434,113 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Execute Database Import & Schema Synchronization
+  // The backend confirms each bounded batch and atomically adds authorized fields.
   const handleExecuteImport = async () => {
     if (importSubmissionInProgressRef.current) return;
-    importSubmissionInProgressRef.current = true;
-    setIsImporting(true);
-    setCurrentStep('importing');
-    setImportProgress(10);
-    setImportStatusMsg('Preparing dynamic field definitions...');
-
-    try {
-      // 1. Create New Dynamic Fields in Schema if requested
-      const newFieldMappings = mappings.filter(m => m.isNewField && m.createField);
-      let updatedSchema = { ...formSchema };
-
-      if (newFieldMappings.length > 0) {
-        setImportStatusMsg(`Registering ${newFieldMappings.length} new custom fields into schema...`);
-
-        // Find or create target section
-        let targetSec = updatedSchema.sections.find(s => s.id === targetSectionId);
-        if (!targetSec) {
-          targetSec = updatedSchema.sections[0] || {
-            id: 'sec_custom_imported',
-            title: 'Imported Attributes & Farm Records',
-            fields: [],
-            visible: true,
-          };
-          if (!updatedSchema.sections.some(s => s.id === targetSec?.id)) {
-            updatedSchema.sections.push(targetSec);
-          }
-        }
-
-        const addedFieldKeys: string[] = [];
-
-        newFieldMappings.forEach(nfm => {
-          const newField: RegistryFormField = {
-            id: `fld_${nfm.targetFieldKey}`,
-            fieldKey: nfm.targetFieldKey,
-            label: nfm.labelEn || nfm.targetFieldLabel,
-            labelEn: nfm.labelEn || nfm.targetFieldLabel,
-            labelCeb: nfm.labelCeb,
-            labelFil: nfm.labelFil,
-            type: nfm.detectedDataType,
-            required: nfm.isRequired,
-            visible: true,
-            isCustom: true,
-            options: nfm.detectedOptions,
-            helpText: `Custom field imported from ${file?.name || 'spreadsheet'}`,
-            searchable: nfm.searchable !== false,
-            filterable: nfm.filterable !== false,
-            sortable: nfm.sortable !== false,
-            exportable: nfm.exportable !== false,
-            printable: nfm.printable !== false,
-          };
-
-          // Check if field already exists in section
-          const existingIdx = targetSec!.fields.findIndex(
-            f => getFieldKey(f) === nfm.targetFieldKey || f.id === newField.id
-          );
-          if (existingIdx >= 0) {
-            targetSec!.fields[existingIdx] = { ...targetSec!.fields[existingIdx], ...newField };
-          } else {
-            targetSec!.fields.push(newField);
-          }
-          addedFieldKeys.push(nfm.targetFieldKey);
-        });
-
-        // Save schema to local storage & backend
-        await storageService.saveRegistryFormSchema(updatedSchema);
-      }
-
-      setImportProgress(35);
-      setImportStatusMsg('Processing and validating swine records...');
-
-      // 2. Filter Valid Records for Import
-      const recordsToImport: SwineRecord[] = [];
-      let updatedCount = 0;
-      let createdCount = 0;
-      let skippedCount = 0;
-
-      const existingRecordsMap = new Map<string, SwineRecord>();
-      existingRecords.forEach(r => {
-        const tag = (r.pigIdTag || r.earTagNo || '').trim().toUpperCase();
-        if (tag) existingRecordsMap.set(tag, r);
-      });
-
-      validationResults.forEach(res => {
-        if (!res.isValid) {
-          skippedCount++;
-          return;
-        }
-
-        const tag = (res.mappedRecord.pigIdTag || '').trim().toUpperCase();
-        const existing = existingRecordsMap.get(tag);
-
-        if (existing) {
-          if (duplicateHandling === 'skip') {
-            skippedCount++;
-            return;
-          } else if (duplicateHandling === 'update') {
-            // Merge custom fields & updated attributes
-            const mergedRecord: SwineRecord = {
-              ...existing,
-              ...(res.mappedRecord as SwineRecord),
-              id: existing.id,
-              customFields: {
-                ...(existing.customFields || {}),
-                ...(res.mappedRecord.customFields || {}),
-              },
-              updatedAt: new Date().toISOString(),
-            };
-            recordsToImport.push(mergedRecord);
-            updatedCount++;
-          } else {
-            // Renamed
-            recordsToImport.push(res.mappedRecord as SwineRecord);
-            createdCount++;
-          }
-        } else {
-          recordsToImport.push(res.mappedRecord as SwineRecord);
-          createdCount++;
-        }
-      });
-
-      setImportProgress(65);
-      setImportStatusMsg(`Saving ${recordsToImport.length} records...`);
-
-      // 3. Persist to PostgreSQL online, or queue each row for explicit offline sync.
-      const offline = storageService.isEffectiveOffline();
-      let savedRecords = recordsToImport;
-      let importStatus: SwineImportHistoryRecord['status'] = 'completed';
-
-      if (offline) {
-        const existingIds = new Set(existingRecords.map(record => record.id));
-        for (const record of recordsToImport) {
-          if (existingIds.has(record.id)) {
-            await offlineSyncEngine.queueSwineUpdate(record);
-          } else {
-            await offlineSyncEngine.queueSwineCreate(record);
-          }
-        }
-        importStatus = 'pending_sync';
-        setImportStatusMsg(`${recordsToImport.length} records queued locally and pending sync.`);
-      } else {
-        const res = await fetch('/api/swine-records/import', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(storageService.getSessionToken()
-              ? { Authorization: `Bearer ${storageService.getSessionToken()}` }
-              : {}),
-          },
-          body: JSON.stringify({
-            records: recordsToImport,
-            fileName: file?.name || 'Import.xlsx',
-            fileType: file?.name.toLowerCase().endsWith('.json') ? 'json' : file?.name.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx',
-            fileSize: file?.size || 0,
-            duplicateHandling,
-            newFieldsCreated: newFieldMappings.map(m => m.targetFieldKey),
-          }),
-        });
-
-        const result = await res.json().catch(() => null);
-        if (!res.ok || !result?.success || !Array.isArray(result.data)) {
-          throw new Error(result?.error || `Cloud import failed (HTTP ${res.status}).`);
-        }
-
-        savedRecords = result.data;
-        if (savedRecords.length !== recordsToImport.length) {
-          throw new Error(`Cloud import returned ${savedRecords.length} of ${recordsToImport.length} saved records.`);
-        }
-
-        const swineMap = new Map(storageService.getSwineRecords().map(record => [record.id, record]));
-        savedRecords.forEach((record: SwineRecord) => swineMap.set(record.id, { ...record, isSynced: true }));
-        storageService.saveSwineRecords(Array.from(swineMap.values()));
-      }
-
-      // 4. Create Swine Import History Record
-      const batchId = `BATCH-HIN-${Date.now()}`;
-      const historyRecord: SwineImportHistoryRecord = {
-        id: `imp-hist-${Date.now()}`,
-        batchId,
-        fileName: file?.name || 'Swine_Import.xlsx',
-        fileType: file?.name.toLowerCase().endsWith('.json') ? 'json' : file?.name.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx',
-        fileSize: file?.size || 0,
-        importedBy: currentUser?.name || 'System Administrator',
-        importedByRole: currentUser?.role || 'admin',
-        importedAt: new Date().toISOString(),
-        totalRows: rawRows.length,
-        successfulCount: savedRecords.length,
-        failedCount: skippedCount,
-        updatedCount,
-        createdCount,
-        skippedCount,
-        newFieldsCreated: newFieldMappings.map(m => m.targetFieldKey),
-        status: importStatus === 'pending_sync' ? 'pending_sync' : skippedCount === 0 ? 'completed' : 'partial',
-        duplicateHandling,
-        recordIds: recordsToImport.map(r => r.id),
-        createdFieldKeys: newFieldMappings.map(m => m.targetFieldKey),
-      };
-
-      try {
-        const existingHist = storageService.getLegalImportHistory ? [] : [];
-        // Save to audit / import history storage
-        const histKey = 'da_hinunangan_swine_import_history_v1';
-        const rawHist = localStorage.getItem(histKey);
-        const parsedHist: SwineImportHistoryRecord[] = rawHist ? JSON.parse(rawHist) : [];
-        parsedHist.unshift(historyRecord);
-        localStorage.setItem(histKey, JSON.stringify(parsedHist.slice(0, 50)));
-      } catch {
-        // ignore
-      }
-
-      setImportProgress(100);
-      setImportSummary({
-        total: rawRows.length,
-        created: createdCount,
-        updated: updatedCount,
-        skipped: skippedCount,
-        newFieldsCount: newFieldMappings.length,
-      });
-      setImportStatusMsg(importStatus === 'pending_sync' ? 'Import queued and pending sync.' : 'Import saved to the cloud successfully.');
-      setCurrentStep('completed');
-
-      // Trigger Parent Success Callback
-      onSuccess(savedRecords.length);
-    } catch (err: any) {
-      console.error('Import execution failed:', err);
-      setFileReadError(err.message || 'An unexpected error occurred during database import.');
-      setCurrentStep('validation');
-    } finally {
-      importSubmissionInProgressRef.current = false;
-      setIsImporting(false);
+    if (storageService.isEffectiveOffline()) {
+      setFileReadError('Connect to the registry database to confirm an import. Offline registration and queued record editing remain available.');
+      return;
     }
+    importSubmissionInProgressRef.current = true;
+    setIsImporting(true); setCurrentStep('importing'); setFileReadError(null);
+    setImportProgress(0); setImportStatusMsg('Preparing validated records…');
+    let savedCount = 0, created = 0, updated = 0, skipped = validationResults.filter(row => !row.isValid).length;
+    const createdFields = new Set<string>();
+    const failures: {row:number; reason:string}[] = validationResults.filter(row => !row.isValid).map(row => ({row:row.rowNumber,reason:row.errors.map(error => error.message).join(' ')}));
+    try {
+      const fieldMappings = mappings.filter(mapping => mapping.isNewField && mapping.createField && mapping.matchStatus !== 'ignored');
+      if (fieldMappings.length && !canCreateFields) throw new Error('Only administrators can create new custom fields.');
+      const fields: RegistryFormField[] = fieldMappings.map(mapping => ({
+        id: `fld_import_${mapping.targetFieldKey}`, fieldKey: mapping.targetFieldKey,
+        label: mapping.labelEn || mapping.targetFieldLabel,
+        type: mapping.detectedDataType, required:mapping.isRequired, visible:true, isCustom:true,
+        ...(mapping.detectedOptions ? {options:mapping.detectedOptions} : {}),
+        searchable:mapping.searchable !== false, filterable:mapping.filterable !== false, sortable:mapping.sortable !== false, exportable:mapping.exportable !== false, printable:mapping.printable !== false,
+      }));
+      if (!importRequestsRef.current) {
+        const validRows = validationResults.filter(row => row.isValid);
+        importRequestsRef.current = [];
+        for (let offset = 0; offset < validRows.length;) {
+          const rows: ImportRowValidationResult[] = [];
+          let bytes = 0;
+          while (offset < validRows.length && rows.length < IMPORT_LIMITS.batch) {
+            const next = validRows[offset];
+            const rowBytes = new Blob([JSON.stringify(next.mappedRecord)]).size;
+            if (rowBytes > 2 * 1024 * 1024) throw new Error(`Row ${next.rowNumber} exceeds the 2 MB per-record import limit.`);
+            if (rows.length && bytes + rowBytes > 2 * 1024 * 1024) break;
+            rows.push(next); bytes += rowBytes; offset++;
+          }
+          const records = rows.map(row => {
+            const existing = existingRecords.find(record => (record.pigIdTag || record.earTagNo || '').toUpperCase() === row.mappedRecord.pigIdTag?.toUpperCase() || record.id === row.mappedRecord.id);
+            if (!existing || duplicateHandling !== 'update') return row.mappedRecord;
+            const patch: Record<string,any> = {id:existing.id,pigIdTag:existing.pigIdTag,earTagNo:existing.earTagNo,farmerName:existing.farmerName,barangay:existing.barangay,customFields:row.mappedRecord.customFields};
+            const properties: Record<string,string[]> = {
+              farmer_name:['farmerName'],farmer_contact:['farmerContact'],farmer_id:['farmerId'],barangay:['barangay','barangay_id'],
+              farm_name:['farmName'],birth_date:['birthDate','ageDays','ageMonths'],age_months:['ageMonths','ageDays'],
+              actual_weight_kg:['actualWeightKg','weightKg'],swine_type:['swineType'],farm_scale:['farmScale'],asf_zone:['asfZone'],
+              ready_to_sell:['readyToSell'],price_estimate:['estimatedPricePhp'],latitude:['latitude'],longitude:['longitude'],
+              pen_capacity:['penCapacity'],rsbsa_id:['rsbsaId'],breed:['breed'],gender:['gender'],notes:['notes'],status:['status'],
+            };
+            mappings.filter(mapping => mapping.matchStatus === 'matched_core' && row.rawData[mapping.fileHeader] !== undefined && row.rawData[mapping.fileHeader] !== null && row.rawData[mapping.fileHeader] !== '').forEach(mapping => {
+              for (const property of properties[mapping.targetFieldKey] || []) patch[property] = (row.mappedRecord as any)[property];
+            });
+            return patch;
+          });
+          importRequestsRef.current.push({records,newFields:fields,sectionId:targetSectionId,duplicateHandling,fileName:file?.name || 'Import',batchId:`${importBatchIdRef.current}_${importRequestsRef.current.length}`,rowNumbers:rows.map(row => row.rowNumber)});
+        }
+      }
+      const requests = importRequestsRef.current;
+      for (let index = 0; index < requests.length; index++) {
+        const {rowNumbers, ...payload} = requests[index];
+        setImportStatusMsg(`Saving batch ${index + 1} of ${requests.length} (${payload.records.length} records)…`);
+        const response = await fetch('/api/swine-records/import', {
+          method:'POST', headers:{'Content-Type':'application/json',...(storageService.getSessionToken() ? {Authorization:`Bearer ${storageService.getSessionToken()}`} : {})},
+          body:JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success || !Array.isArray(result.data)) throw new Error(result?.error || `Import batch ${index + 1} failed (HTTP ${response.status}). Retry uses the same batch ID to prevent duplicate inserts.`);
+        const cache = new Map(storageService.getSwineRecords().map(record => [record.id,record]));
+        result.data.forEach((record:SwineRecord) => {
+          cache.set(record.id,{...record,isSynced:true});
+          if (existingRecords.some(existing => existing.id === record.id)) updated++; else created++;
+        });
+        savedCount += result.data.length;
+        storageService.saveSwineRecords([...cache.values()]);
+        if (result.schema?.sections) {
+          storageService.cacheRegistryFormSchema(result.schema);
+          setFormSchema(result.schema);
+        }
+        (result.newFieldsCreated || []).forEach((key:string) => createdFields.add(key));
+        for (const failure of result.failures || []) failures.push({row:rowNumbers[failure.index],reason:failure.reason});
+        skipped += (result.failures?.length || 0) + (result.skipped?.length || 0);
+        for (const skipIndex of result.skipped || []) failures.push({row:rowNumbers[skipIndex],reason:'Existing record skipped by duplicate policy.'});
+        setImportProgress(Math.round(((index + 1) / requests.length) * 100));
+      }
+      setImportFailures(failures);
+      setImportSummary({total:rawRows.length,created,updated,skipped,newFieldsCount:createdFields.size});
+      setResultStatus(savedCount ? `${rawRows.length} records detected. ${savedCount} confirmed saved. ${skipped} rejected or skipped.` : 'No records were saved. Review the error report.');
+      setCurrentStep('completed');
+      const history: SwineImportHistoryRecord = {
+        id:importBatchIdRef.current,batchId:importBatchIdRef.current,fileName:file?.name || 'Import',
+        fileType:file?.name.endsWith('.json') ? 'json' : file?.name.endsWith('.csv') ? 'csv' : 'xlsx',fileSize:file?.size || 0,
+        importedBy:currentUser?.name || 'Administrator',importedByRole:currentUser?.role || 'admin',importedAt:new Date().toISOString(),
+        totalRows:rawRows.length,successfulCount:savedCount,failedCount:failures.length,updatedCount:updated,createdCount:created,skippedCount:skipped,
+        newFieldsCreated:[...createdFields],createdFieldKeys:[...createdFields],recordIds:[],status:failures.length ? 'partial' : 'completed',duplicateHandling,
+      };
+      try { const key='da_hinunangan_swine_import_history_v1'; const previous=JSON.parse(localStorage.getItem(key) || '[]'); localStorage.setItem(key,JSON.stringify([history,...(Array.isArray(previous)?previous:[]).filter((item:any)=>item.id!==history.id)].slice(0,50))); } catch { /* Audit cache is optional; persistence was confirmed by backend. */ }
+    } catch (error) {
+      setFileReadError(`${(error as Error).message}${savedCount ? ` ${savedCount} records from earlier batches were saved. Retry safely to finish the import.` : ''}`);
+      setImportFailures(failures); setCurrentStep('validation');
+    } finally {
+      if (savedCount) onSuccess(savedCount);
+      importSubmissionInProgressRef.current = false; setIsImporting(false);
+    }
+  };
+
+  const downloadImportFailures = () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(importFailures.map(item => ({Row:item.row,Reason:item.reason,...rawRows[item.row - 1]}))), 'Rejected Rows');
+    XLSX.writeFile(workbook, 'swine-import-errors.xlsx');
   };
 
   if (!isOpen) return null;
@@ -713,6 +570,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
           </div>
 
           <button
+            disabled={isImporting || isReadingFile}
             onClick={onClose}
             className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
             title="Close"
@@ -837,6 +695,8 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
             </div>
           )}
 
+          {!canCreateFields && <p className="text-xs text-amber-800">New field creation requires an administrator. Existing fields can be mapped and imported; unconfirmed new fields are excluded.</p>}
+          {mappings.some(mapping => mapping.typeWarning) && <div role="status" className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">{mappings.filter(mapping => mapping.typeWarning).map(mapping => <p key={mapping.fileHeader}>{mapping.fileHeader}: {mapping.typeWarning}</p>)}</div>}
           {/* STEP 1: UPLOAD SPREADSHEET */}
           {currentStep === 'upload' && (
             <div className="space-y-6">
@@ -849,7 +709,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 <input
                   type="file"
                   ref={fileInputRef}
-                  onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                  onChange={event => { const selected=event.target.files?.[0]; event.target.value=''; if (selected) void handleFileUpload(selected); }}
                   accept={
                     initialFileType === 'csv'
                       ? '.csv'
@@ -874,7 +734,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                       ? 'Supports Comma-Separated Values (.csv).'
                       : initialFileType === 'xlsx'
                       ? 'Supports Microsoft Excel (.xlsx, .xls).'
-                      : 'Supports Microsoft Excel (.xlsx, .xls) and Comma-Separated Values (.csv).'}
+                      : 'Supports JSON (.json), Excel (.xlsx, .xls), and CSV (.csv). Limit: 10 MB / 10,000 rows.'}
                   </p>
                 </div>
 
@@ -952,7 +812,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                         Missing Required System Fields ({missingRequiredFields.length}):
                       </p>
                       <p className="text-[11px] text-rose-800">
-                        {missingRequiredFields.map(f => f.label).join(', ')}. Please map a column to these fields or default values will be applied.
+                        {missingRequiredFields.map(f => f.label).join(', ')}. Please map a column to these fields before importing; rows with missing required values will be rejected.
                       </p>
                     </div>
                   )}
@@ -1101,8 +961,8 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                               type="button"
                               onClick={() =>
                                 handleUpdateMapping(idx, {
-                                  matchStatus: isIgnored ? 'new_field' : 'ignored',
-                                  createField: !isIgnored ? false : true,
+                                  matchStatus: isIgnored ? mapping.isNewField ? 'new_field' : CORE_SWINE_FIELDS.some(field => field.key === mapping.targetFieldKey) ? 'matched_core' : 'matched_custom' : 'ignored',
+                                  createField: isIgnored && mapping.isNewField && canCreateFields,
                                 })
                               }
                               className={`p-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
@@ -1168,6 +1028,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                                   <option value="date">Date Picker (YYYY-MM-DD)</option>
                                   <option value="dropdown">Dropdown (Single Choice)</option>
                                   <option value="yes_no">Yes / No Toggle (Boolean)</option>
+                                  <option value="checkbox">Checkbox (Boolean)</option>
                                   <option value="textarea">Textarea (Long Paragraph)</option>
                                   <option value="phone">Phone Number (PH +63)</option>
                                 </select>
@@ -1345,7 +1206,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 </div>
 
                 <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase">Warnings (Auto-fixed)</p>
+                  <p className="text-[10px] font-bold text-amber-700 uppercase">Warnings (Review)</p>
                   <p className="text-xl font-black text-amber-900 mt-1">{validationStats.warnings}</p>
                 </div>
 
@@ -1655,12 +1516,16 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-stone-900">Spreadsheet Successfully Imported!</h3>
+                <h3 className="text-xl font-bold text-stone-900">Import Results</h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  Swine records and dynamic custom fields have been committed to the Hinunangan central database and local offline cache.
+                  {resultStatus}
                 </p>
               </div>
 
+              {importFailures.length > 0 && <div className="text-left rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900">
+                <button type="button" onClick={downloadImportFailures} className="font-bold underline mb-2">Download rejected rows and reasons</button>
+                <ul className="space-y-1">{importFailures.slice(0,20).map((failure,index) => <li key={index}>Row {failure.row}: {failure.reason}</li>)}</ul>
+              </div>}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
                 <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
                   <p className="text-[10px] font-bold text-emerald-800 uppercase">New Records Created</p>
@@ -1734,7 +1599,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-2 shadow-md transition cursor-pointer disabled:opacity-50"
               >
                 <Database className="w-4 h-4" />
-                <span>Commit {validationStats.valid + validationStats.warnings} Records to Database</span>
+                <span>{validationStats.newFieldsCount ? 'Create Custom Fields & Import' : `Commit ${validationStats.valid + validationStats.warnings} Records to Database`}</span>
               </button>
             )}
 

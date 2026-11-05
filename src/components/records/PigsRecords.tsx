@@ -353,6 +353,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   const [activePrintColumns, setActivePrintColumns] = useState<ActiveFieldItem[]>([]);
   const [printRecordScope, setPrintRecordScope] = useState<'all' | 'selected'>('all');
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
+  const [moreActionsPosition, setMoreActionsPosition] = useState<React.CSSProperties>({});
+  const [customColumnFilters, setCustomColumnFilters] = useState<Record<string,string>>({});
   const [importSuccessMsg, setImportSuccessMsg] = useState<string>('');
 
   const triggerScopedPrint = (target: 'swine-record' | 'registry-report') => {
@@ -400,6 +402,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [
+    customColumnFilters,
     searchTerm,
     searchScope,
     selectedBarangay,
@@ -630,9 +633,14 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         }
       }
 
+      if (activeFields.some(item => {
+        const query = customColumnFilters[item.field.id]?.trim().toLowerCase();
+        return query && !formatFieldValue(getFieldValue(s,item.field),item.field).toLowerCase().includes(query);
+      })) return false;
       return true;
     });
   }, [
+    customColumnFilters,
     enhancedSwineList,
     selectedBarangay,
     currentRole,
@@ -797,6 +805,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     registeredFrom !== '',
     registeredTo !== '',
     showArchived,
+    ...Object.values(customColumnFilters).map(value => Boolean(value.trim())),
   ].filter(Boolean).length;
 
   useEffect(() => {
@@ -1343,11 +1352,20 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </button>
           )}
 
-          <details className="relative" ref={moreActionsRef}>
+          <details className="relative" ref={moreActionsRef} onToggle={event => {
+            if (!event.currentTarget.open) return;
+            const bounds = event.currentTarget.querySelector('summary')!.getBoundingClientRect();
+            const workspace = event.currentTarget.closest('main')?.getBoundingClientRect();
+            const leftEdge = (workspace?.left || 0) + 12;
+            const rightEdge = Math.min(window.innerWidth, workspace?.right || window.innerWidth) - 12;
+            const width = Math.min(384,rightEdge - leftEdge);
+            const top = Math.min(bounds.bottom + 8,window.innerHeight - 160);
+            setMoreActionsPosition({position:'fixed',left:Math.max(leftEdge,Math.min(bounds.right - width,rightEdge - width)),top,width,maxHeight:Math.max(120,window.innerHeight - top - 12)});
+          }}>
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden">
               More actions <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
             </summary>
-            <div className="absolute right-0 z-40 mt-2 max-h-[min(70vh,36rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
+            <div style={moreActionsPosition} className="absolute right-0 z-40 max-h-[min(70vh,36rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
               <div className="space-y-1 border-b border-stone-100 pb-2">
                 <p className="px-2 text-[10px] font-bold uppercase tracking-wide text-stone-500">Records</p>
                 <button
@@ -1396,7 +1414,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   {([
                     ['csv', 'Import CSV', FileSpreadsheet],
                     ['xlsx', 'Import Excel Spreadsheet', FileSpreadsheet],
-                    ['all', 'Import Records File', Upload],
+                    ['all', 'Import JSON / Records File', Upload],
                   ] as const).map(([fileType, label, Icon]) => (
                     <button
                       key={fileType}
@@ -1773,6 +1791,13 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-600">{activeFilterCount} active</span>
           </summary>
           <div className="mt-3 space-y-3">
+            {customDynamicColumns.some(item => item.field.filterable !== false) && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {customDynamicColumns.filter(item => item.field.filterable !== false).map(item => <label key={item.field.id} className="text-[11px] font-semibold text-stone-600">
+                {item.field.label}
+                <input type="search" aria-label={`Filter ${item.field.label}`} placeholder={`Filter ${item.field.label}…`} value={customColumnFilters[item.field.id] || ''} onChange={event => setCustomColumnFilters(previous => ({...previous,[item.field.id]:event.target.value}))} className="mt-1 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs" />
+              </label>)}
+            </div>}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
 
           {/* Swine Type Filter */}
@@ -1956,6 +1981,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   setRegisteredFrom('');
                   setRegisteredTo('');
                   setShowArchived(false);
+                  setCustomColumnFilters({});
                 }}
                 className="min-h-11 text-emerald-700 hover:underline font-bold cursor-pointer"
               >

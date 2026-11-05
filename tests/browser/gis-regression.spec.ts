@@ -49,7 +49,7 @@ test('CSV import parses headers, detects custom columns and previews valid and i
  await expect(page.getByText('Cage Number',{exact:true}).first()).toBeVisible();
  await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
  await expect(page.getByText('Total Rows',{exact:true})).toBeVisible();
- await expect(page.getByText('Warnings (Auto-fixed)',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByText('Valid Rows',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
  await expect(page.getByText('Fatal Errors',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
  await expect(page.getByText(/Farmer Name is required/i).first()).toBeVisible();
 });
@@ -87,7 +87,7 @@ test('swine import sends a commit only once when the commit action is double-cli
   button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
  });
- await expect(page.getByRole('heading',{name:'Spreadsheet Successfully Imported!',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Import Results',exact:true})).toBeVisible();
  expect(importRequests).toBe(1);
  expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([1]);
 });
@@ -251,4 +251,68 @@ test('mobile touch dragging and pinch zoom operate on Leaflet',async({page,conte
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await expect.poll(()=>page.evaluate(()=>(window as any).auditMap.getZoom())).toBeGreaterThan(zoom);
  expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+
+test('manual selection preserves exact coordinates and camera through parent feedback and double taps',async({page})=>{
+ await mount(page,'GisMap',{isLocationPicker:true,initialCenter:[10.4018,125.1845]});
+ const legend=page.getByRole('button',{name:'Close map legend'});if(await legend.isVisible())await legend.click();
+ await page.evaluate(()=>{
+  const win=window as any;
+  win.auditCamera={lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};
+  win.auditRender({isLocationPicker:true,initialCenter:[10.4018,125.1845],onPickLocation:(lat:number,lng:number,barangay:string)=>{
+   win.auditPicks.push([lat,lng,barangay]);
+   win.auditRender({isLocationPicker:true,initialCenter:[lat,lng],selectedBarangay:barangay});
+  }});
+ });
+ const map=page.locator('.leaflet-container');
+ const bounds=(await map.boundingBox())!;
+ const point={x:Math.min(170,bounds.width-25),y:330};
+ await page.evaluate(()=>document.addEventListener('click',event=>{const win=window as any;win.auditExpectedPoint=win.auditMap.mouseEventToLatLng(event);},{capture:true,once:true}));
+ if(page.viewportSize()!.width<600)await map.tap({position:point});else await map.click({position:point});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ const expected=await page.evaluate(()=>(window as any).auditExpectedPoint);
+ const first=await page.evaluate(()=>(window as any).auditPicks[0]);
+ expect(first[0]).toBeCloseTo(expected.lat,10);expect(first[1]).toBeCloseTo(expected.lng,10);
+ await expect.poll(()=>page.evaluate(()=>{const win=window as any;return {lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};})).toEqual(await page.evaluate(()=>(window as any).auditCamera));
+ await map.dblclick({position:{x:point.x+25,y:point.y+30}});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ expect(await page.evaluate(()=>{const win=window as any;return {lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};})).toEqual(await page.evaluate(()=>(window as any).auditCamera));
+ expect(await page.evaluate(()=>(window as any).auditMap.doubleClickZoom.enabled())).toBe(false);
+ await page.evaluate(()=>(window as any).auditRender({isLocationPicker:false,isManualPinMode:false}));
+ await page.getByRole('button',{name:'Pin Mode Active',exact:false}).click();
+ expect(await page.evaluate(()=>(window as any).auditMap.doubleClickZoom.enabled())).toBe(true);
+});
+
+test('JSON import detects late fields, confirms definitions and waits for persistence',async({page})=>{
+ await mount(page,'ImportSwineModal',{currentUser:{id:'fixture-admin',role:'admin',name:'Fixture Admin'}});
+ let submissions:any[]=[];
+ await page.route('**/api/swine-records/import',async route=>{
+  const body=route.request().postDataJSON();submissions.push(body);
+  const schema={version:1,sections:[{id:'imported',title:'Imported',visible:true,fields:body.newFields}]};
+  await route.fulfill({json:{success:true,data:body.records.map((record:any,index:number)=>({...record,id:`saved-${index}`,pigIdTag:`HIN-2026-00${index+20}`})),schema,newFieldsCreated:body.newFields.map((field:any)=>field.fieldKey),failures:[],skipped:[]}});
+ });
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'records.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({records:[{farmer_name:'Fixture One',barangay:'Ambacon',weight:65,color:'White',vaccinated:true},{farmer_name:'Fixture Two',barangay:'Ambacon',weight:70,color:'Black',vaccinated:false,feeding_type:'Mixed Feeds'}]}))});
+ await expect(page.getByText('feeding_type',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await page.getByRole('button',{name:'Create Custom Fields & Import'}).click();
+ await expect(page.getByRole('heading',{name:'Import Results'})).toBeVisible();
+ expect(submissions).toHaveLength(1);expect(submissions[0].records[0].customFields.vaccinated).toBe(true);
+ expect(submissions[0].newFields.some((field:any)=>field.fieldKey==='feeding_type')).toBe(true);
+ const cache=await page.evaluate(()=>Object.entries(localStorage).filter(([key])=>key.includes('swine')||key.includes('registry_form')));
+ expect(JSON.stringify(cache)).toContain('Mixed Feeds');expect(JSON.stringify(cache)).toContain('feeding_type');
+});
+
+test('invalid JSON and backend rejection never show a successful import',async({page})=>{
+ await mount(page,'ImportSwineModal');await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{bad')});
+ await expect(page.getByText(/JSON|Unexpected token|Expected property/i).filter({visible:true}).first()).toBeVisible();
+ await page.locator('input[type="file"]').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify([{farmer_name:'Fixture',barangay:'Ambacon'}]))});
+ await page.route('**/api/swine-records/import',route=>route.fulfill({status:500,json:{success:false,error:'Isolated persistence rejection'}}));
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await page.getByRole('button',{name:/Commit 1 Records/}).click();
+ await expect(page.getByText(/Isolated persistence rejection/)).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Import Results'})).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([]);
 });

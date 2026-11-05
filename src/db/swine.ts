@@ -1,8 +1,9 @@
+import { INITIAL_REGISTRY_FORM_SCHEMA } from '../data/initialFormSchema.ts';
 import {validateSwineMutation} from '../server/swineMutationValidation.ts';
 import { getDatabaseDiagnostic } from './diagnostics.ts';
 import { randomUUID } from 'node:crypto';
 import { db, pool } from './index.ts';
-import { barangays, farmers, swineRecords } from './schema.ts';
+import { barangays, farmers, swineRecords, registrySchema, systemSettings } from './schema.ts';
 import { eq, inArray, and, ilike, or, desc, sql } from 'drizzle-orm';
 import { SwineRecord } from '../types.ts';
 
@@ -1334,4 +1335,61 @@ export async function deleteSwineRecordsByIds(
       error
     );
   }
+}
+
+/** Import-only persistence: additive fields and bounded record batches share a
+ * transaction. Receipts make retrying an uncertain HTTP response idempotent. */
+export async function persistSwineImportBatch(
+  records: any[],
+  fields: import('../types').RegistryFormField[],
+  sectionId: string,
+  receiptKey: string,
+  requestHash: string,
+  metadata: {sourceIndexes: number[]; failures: {index:number; reason:string}[]; skipped:number[]},
+  baseSchema: import('../types').RegistryFormSchema = INITIAL_REGISTRY_FORM_SCHEMA,
+) {
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${receiptKey}))`);
+    const [receipt] = await tx.select().from(systemSettings).where(eq(systemSettings.key, receiptKey)).limit(1);
+    if (receipt) {
+      const prior = receipt.value as any;
+      if (prior.requestHash !== requestHash) throw new Error('This import batch was already submitted with different data. Start a new import.');
+      return prior.result as {data: SwineRecord[]; failures: {index:number; reason:string}[]; skipped:number[]; newFields: string[]};
+    }
+    const newFields: string[] = [];
+    if (fields.length) {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('registry_form_schema'))`);
+      const existing = await tx.select().from(registrySchema);
+      const [schemaSetting] = await tx.select().from(systemSettings).where(eq(systemSettings.key,'registry_form_schema')).limit(1);
+      const stored = schemaSetting?.value as import('../types').RegistryFormSchema | undefined;
+      const published = structuredClone(stored?.sections?.length ? stored : baseSchema);
+      const targetSection = published.sections.find(section => section.id === sectionId) || published.sections[0];
+      if (!targetSection) throw new Error('No registry section is available for imported fields.');
+      for (const field of fields) {
+        const found = existing.find(item => item.fieldKey === field.fieldKey || item.id === field.id);
+        if (found) {
+          if (found.fieldType !== field.type) throw new Error(`Field ${field.label} already exists with a different type. Reload the schema and review mappings.`);
+          continue;
+        }
+        await tx.insert(registrySchema).values({id: field.id, fieldKey: field.fieldKey!, label: field.label, fieldType: field.type, required: Boolean(field.required), visible: true, options: field.options || null, sectionId, fieldOrder: existing.length + newFields.length + 1, helpText: 'Confirmed custom field from records import'});
+        newFields.push(field.fieldKey!);
+        if (!published.sections.some(section => section.fields.some(item => item.fieldKey === field.fieldKey))) targetSection.fields.push({...field});
+      }
+      published.lastUpdated = new Date().toISOString();
+      published.isPublished = true;
+      await tx.insert(systemSettings).values({key:'registry_form_schema',value:published,updatedAt:new Date()}).onConflictDoUpdate({target:systemSettings.key,set:{value:published,updatedAt:new Date()}});
+    }
+    const data: SwineRecord[] = [];
+    const failures: {index:number; reason:string}[] = [];
+    for (let index = 0; index < records.length; index++) {
+      try { data.push(await upsertSwineRecord(records[index], tx)); }
+      catch (error) {
+        const diagnostic = getDatabaseErrorInfo(error);
+        failures.push({index, reason: diagnostic.code === '23505' ? 'Swine ID or ear tag already exists.' : diagnostic.code === '23503' ? 'Farmer or barangay reference is invalid.' : diagnostic.message});
+      }
+    }
+    const result = {data, failures: [...metadata.failures, ...failures.map(failure => ({...failure,index:metadata.sourceIndexes[failure.index]}))], skipped: metadata.skipped, newFields};
+    await tx.insert(systemSettings).values({key: receiptKey, value: {requestHash, result}, updatedAt: new Date()});
+    return result;
+  });
 }

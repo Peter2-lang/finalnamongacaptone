@@ -1769,6 +1769,12 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     return savedSchema;
   },
 
+  cacheRegistryFormSchema(schema: RegistryFormSchema): void {
+    setItem(STORAGE_KEYS.REGISTRY_FORM_SCHEMA, schema);
+    setItem(STORAGE_KEYS.REGISTRY_FORM_SCHEMA_DRAFT, schema);
+    window.dispatchEvent(new CustomEvent('da_registry_schema_change', {detail:schema}));
+  },
+
   async refreshRegistryFormSchemaFromCloud(): Promise<RegistryFormSchema> {
     const response = await fetch('/api/registry-schema', {
       headers: getSessionAuthorizationHeader(),

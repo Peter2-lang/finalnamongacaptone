@@ -837,6 +837,7 @@ export interface OfflineQueueItem {
 export type ImportMatchStatus = 'matched_core' | 'matched_custom' | 'new_field' | 'ignored' | 'manual_mapped';
 
 export interface ImportColumnMapping {
+  typeWarning?: string;
   fileHeader: string;
   normalizedHeader: string;
   targetFieldKey: string;

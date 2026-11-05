@@ -182,6 +182,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   const swinePinsLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const farmerPinsLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const heatmapLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const droppedPinMarkerRef = useRef<L.Marker | null>(null);
   const droppedPinLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Manual Pin Mode state
@@ -391,7 +392,12 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
   useEffect(() => {
     const container = mapInstanceRef.current?.getContainer();
+    const map = mapInstanceRef.current;
     if (container) container.style.cursor = isManualPinMode || isLocationPicker ? 'crosshair' : '';
+    if (map) {
+      if (isManualPinMode || isLocationPicker) { map.stop(); map.doubleClickZoom.disable(); }
+      else map.doubleClickZoom.enable();
+    }
   }, [isManualPinMode, isLocationPicker]);
 
   useEffect(() => {
@@ -456,13 +462,13 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       setCurrentZoom(map.getZoom());
     });
 
-    map.on('click', (e: L.LeafletMouseEvent) => {
+    const placeManualPin = (e: { latlng: L.LatLng | {lat: number; lng: number} }) => {
       // Viewing clicks must never invoke the registration callback.
       if (!isManualPinModeRef.current && !isLocationPickerRef.current) return;
       const { lat, lng } = e.latlng;
       const containingBarangay = findBarangayContainingPoint(lat, lng);
-      const roundedLat = Number(lat.toFixed(6));
-      const roundedLng = Number(lng.toFixed(6));
+      const roundedLat = lat;
+      const roundedLng = lng;
 
       if (isManualPinModeRef.current || isLocationPickerRef.current) {
         setDroppedPin({ lat: roundedLat, lng: roundedLng, barangay: containingBarangay || 'Outside configured barangay boundaries' });
@@ -472,15 +478,29 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       if (onPickLocationRef.current) {
         onPickLocationRef.current(roundedLat, roundedLng, containingBarangay);
       }
-    });
+    };
+
+    map.on('click', placeManualPin);
+    // Capture clicks before polygons, labels, heat circles, and markers can
+    // open auto-panning popups or run their viewing camera handlers.
+    const capturePinClick = (event: MouseEvent) => {
+      if (!isManualPinModeRef.current && !isLocationPickerRef.current) return;
+      if ((event.target as Element).closest('.leaflet-control, .leaflet-popup')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      placeManualPin({ latlng: map.mouseEventToLatLng(event) });
+    };
+    container.addEventListener('click', capturePinClick, true);
+    if (isManualPinModeRef.current || isLocationPickerRef.current) map.doubleClickZoom.disable();
 
     const timer = setTimeout(() => {
-      map.invalidateSize();
+      map.invalidateSize({pan: false});
     }, 200);
 
     return () => {
       clearTimeout(timer);
       container.removeEventListener('mousedown', focusWithoutScrolling, true);
+      container.removeEventListener('click', capturePinClick, true);
       map.remove();
       mapInstanceRef.current = null;
     };
@@ -498,6 +518,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
   // Handle clicking a barangay polygon
   const handleBarangayClick = useCallback((name: string) => {
+    if (isManualPinModeRef.current || isLocationPickerRef.current) return;
     if (authorizedBarangayName && name.toLowerCase() !== authorizedBarangayName.toLowerCase()) {
       setAccessWarning(`Access restricted. You are assigned to: ${authorizedBarangayName}`);
       setTimeout(() => setAccessWarning(null), 4000);
@@ -647,14 +668,16 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   // Render Dropped Manual Pin Marker
   useEffect(() => {
     if (!droppedPinLayerRef.current) return;
-    droppedPinLayerRef.current.clearLayers();
-
-    if (!droppedPin) return;
+    if (!droppedPin) {
+      droppedPinLayerRef.current.clearLayers();
+      droppedPinMarkerRef.current = null;
+      return;
+    }
 
     const pinIcon = L.divIcon({
       className: 'custom-manual-pin',
       html: `
-        <div style="position: relative; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; z-index: 1000;">
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: 1000;">
           <div style="background-color: #047857; color: white; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.5); font-size: 18px;">
             📍
           </div>
@@ -667,7 +690,10 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       iconAnchor: [19, 52],
     });
 
-    const marker = L.marker([droppedPin.lat, droppedPin.lng], { icon: pinIcon });
+    const marker = droppedPinMarkerRef.current || L.marker([droppedPin.lat, droppedPin.lng], { icon: pinIcon });
+    marker.setLatLng([droppedPin.lat, droppedPin.lng]);
+    marker.setIcon(pinIcon);
+    droppedPinMarkerRef.current = marker;
     marker.bindPopup(`
       <div style="font-family: system-ui, sans-serif; min-width: 180px; color: #18181b;">
         <strong style="color: #047857; font-size: 13px;">📍 Manual GPS Pin Set</strong>
@@ -677,8 +703,8 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           <div>Longitude: <strong>${droppedPin.lng}</strong></div>
         </div>
       </div>
-    `);
-    marker.addTo(droppedPinLayerRef.current);
+    `, {autoPan: false});
+    if (!droppedPinLayerRef.current.hasLayer(marker)) marker.addTo(droppedPinLayerRef.current);
   }, [droppedPin]);
 
   // 4. Render Swine Markers with "View Swine Record" Button
@@ -806,7 +832,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
   // 6. Target Swine Focus when targetSwineId is passed
   useEffect(() => {
-    if (!targetSwineId || !mapInstanceRef.current) return;
+    if (!targetSwineId || !mapInstanceRef.current || isManualPinModeRef.current || isLocationPickerRef.current) return;
     const target = swineList.find(s => s.id === targetSwineId || s.pigIdTag === targetSwineId);
     if (!target) return;
 
@@ -827,7 +853,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
   // 7. Reactive Synchronize and focus when selectedBarangay prop changes (e.g. Admin selects barangay in SwineForm)
   useEffect(() => {
-    if (!selectedBarangay || selectedBarangay === 'all') return;
+    if (!selectedBarangay || selectedBarangay === 'all' || isManualPinModeRef.current || isLocationPickerRef.current) return;
     setSelectedBarangayFilter(selectedBarangay);
 
     const metric = allBarangayMetrics.find(
@@ -858,7 +884,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           barangay: findBarangayContainingPoint(initialCenter[0], initialCenter[1]) || 'Outside configured barangay boundaries',
         });
       }
-      if (mapInstanceRef.current) {
+      if (mapInstanceRef.current && !isManualPinModeRef.current && !isLocationPickerRef.current) {
         mapInstanceRef.current.flyTo([initialCenter[0], initialCenter[1]], 15, { duration: 0.8 });
       }
     }

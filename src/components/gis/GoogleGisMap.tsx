@@ -1,6 +1,6 @@
 import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   APIProvider,
   Map as GoogleMap,
@@ -69,20 +69,26 @@ import { HeatmapClassificationFilters } from './HeatmapClassificationFilters';
 function MapCameraController({
   targetCenter,
   targetZoom,
+  manualPinActive,
 }: {
   targetCenter: { lat: number; lng: number } | null;
   targetZoom: number | null;
+  manualPinActive: boolean;
 }) {
   const map = useMap();
+  const consumedCamera = useRef<{center: typeof targetCenter; zoom: typeof targetZoom} | null>(null);
   useEffect(() => {
     if (!map) return;
+    if (consumedCamera.current?.center === targetCenter && consumedCamera.current?.zoom === targetZoom) return;
+    consumedCamera.current = {center:targetCenter,zoom:targetZoom};
+    if (manualPinActive) return;
     if (targetCenter) {
       map.panTo(targetCenter);
       if (targetZoom) {
         map.setZoom(targetZoom);
       }
     }
-  }, [map, targetCenter, targetZoom]);
+  }, [map, targetCenter, targetZoom, manualPinActive]);
   return null;
 }
 
@@ -333,7 +339,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Target swine focus on load/update
   useEffect(() => {
-    if (!targetSwineId) return;
+    if (!targetSwineId || isManualPinMode || isLocationPicker) return;
     const target = swineList.find(s => s.id === targetSwineId || s.pigIdTag === targetSwineId);
     if (!target) return;
 
@@ -358,7 +364,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Reactive Synchronize and focus when selectedBarangay prop changes (e.g. Admin selects barangay in SwineForm)
   useEffect(() => {
-    if (!selectedBarangay || selectedBarangay === 'all') return;
+    if (!selectedBarangay || selectedBarangay === 'all' || isLocationPicker || isManualPinMode) return;
     setSelectedBarangayFilter(selectedBarangay);
 
     const metric = allBarangayMetrics.find(
@@ -383,8 +389,10 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   useEffect(() => {
     if (initialCenter && initialCenter[0] && initialCenter[1]) {
       if (isLocationPicker) setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
-      setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
-      setTargetZoom(15);
+      if (!isLocationPicker && !isManualPinMode) {
+        setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
+        setTargetZoom(15);
+      }
     }
   }, [initialCenter?.[0], initialCenter?.[1], isLocationPicker]);
 
@@ -429,6 +437,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Handle clicking a barangay polygon
   const handleBarangayClick = (name: string) => {
+    if (isManualPinMode || isLocationPicker) return;
     if (authorizedBarangayName && name.toLowerCase() !== authorizedBarangayName.toLowerCase()) {
       setAccessWarning(`Access restricted. You are assigned to: ${authorizedBarangayName}`);
       setTimeout(() => setAccessWarning(null), 4000);
@@ -792,6 +801,10 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       )}
 
       {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{settingsError}</p>}
+      {pickedPoint && <div role="status" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-[90%] rounded-xl border border-emerald-700 bg-white px-3 py-2 text-xs text-emerald-950 shadow-lg">
+        <strong>Selected GPS location</strong><br />
+        {pickedPoint.lat.toFixed(6)}, {pickedPoint.lng.toFixed(6)} · {findBarangayContainingPoint(pickedPoint.lat,pickedPoint.lng) || 'Outside configured barangay boundaries'}
+      </div>}
       {/* Main Google Maps Viewport */}
       <APIProvider apiKey={apiSettings.googleMapsKey} onError={() => { if (apiSettings.quotaDefenseEnabled) onSwitchToLeaflet?.(); }}>
         <GoogleMap
@@ -809,12 +822,12 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               setPickedPoint({ lat, lng });
               const containingBarangay = findBarangayContainingPoint(lat, lng);
               setAccessWarning(containingBarangay ? null : 'Selected point is outside configured barangay boundaries. Choose a location inside an official barangay.');
-              onPickLocation(Number(lat.toFixed(6)), Number(lng.toFixed(6)), containingBarangay);
+              onPickLocation(lat, lng, containingBarangay);
             }
           }}
-          options={{ draggableCursor: isManualPinMode || isLocationPicker ? 'crosshair' : undefined }}
+          options={{ draggableCursor: isManualPinMode || isLocationPicker ? 'crosshair' : undefined, disableDoubleClickZoom: isManualPinMode || isLocationPicker }}
         >
-          <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} />
+          <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} manualPinActive={isManualPinMode || isLocationPicker} />
           <GoogleMapNavigationControls />
           {pickedPoint && <AdvancedMarker position={pickedPoint} zIndex={5000}>
             <div aria-label="Selected GPS location" style={{ transform: 'translate(-50%, -100%)', fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.5))' }}>📍</div>
@@ -861,7 +874,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     strokeWeight={isSelected ? 4 : isHovered ? 3 : 1.5}
                     fillColor={isSelected ? '#10b981' : fillColor}
                     fillOpacity={isSelected ? 0.42 : isHovered ? 0.35 : boundaryOpacity}
-                    clickable={true}
+                    clickable={!isManualPinMode && !isLocationPicker}
                     zIndex={isSelected ? 100 : 1}
                     onClick={() => handleBarangayClick(b.name)}
                     onMouseOver={() => setHoveredBarangay(b.name)}
@@ -899,6 +912,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 const isReady = swine.readyToSell || swine.status === 'ready_to_sell';
                 return (
                   <AdvancedMarker
+                    clickable={!isManualPinMode && !isLocationPicker}
                     key={swine.id}
                     position={{ lat: swine.latitude, lng: swine.longitude }}
                     onClick={() => {
@@ -944,6 +958,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {showFarmerPins &&
               farmerMarkers.map((farmer, idx) => (
                 <AdvancedMarker
+                    clickable={!isManualPinMode && !isLocationPicker}
                   key={`farmer-${idx}`}
                   position={{ lat: farmer.lat, lng: farmer.lng }}
                   onClick={() => {
@@ -968,6 +983,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {/* 5. Swine Marker Detail InfoWindow with "View Swine Record" button */}
             {selectedSwineRecord && selectedSwineRecord.latitude > 0 && selectedSwineRecord.longitude > 0 && (
               <InfoWindow
+                disableAutoPan={isManualPinMode || isLocationPicker}
                 position={{ lat: selectedSwineRecord.latitude, lng: selectedSwineRecord.longitude }}
                 onCloseClick={() => setSelectedSwineRecord(null)}
               >
@@ -1032,6 +1048,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {/* 6. Farmer Marker Detail InfoWindow */}
             {selectedFarmerData && (
               <InfoWindow
+                disableAutoPan={isManualPinMode || isLocationPicker}
                 position={{ lat: selectedFarmerData.lat, lng: selectedFarmerData.lng }}
                 onCloseClick={() => setSelectedFarmerData(null)}
               >

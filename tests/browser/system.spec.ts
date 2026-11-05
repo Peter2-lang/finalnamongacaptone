@@ -106,3 +106,56 @@ test('page finder opens records with keyboard and handles no results', async ({p
  await finder.press('Enter');
  await expect(page).toHaveURL(/\/records$/);
 });
+
+test('imported custom columns refresh analytics, persist, filter, edit and export',async({page},info)=>{
+ test.skip(info.project.name==='mobile','The import wizard and GIS touch flows have separate mobile coverage.');
+ const state:{records:any[]}={records:[]};await fixture(page,'admin',state);
+ let schema:any={version:1,sections:[{id:'sec_imported',title:'Imported attributes',visible:true,fields:[]}]};
+ let edits=0;
+ await page.route('**/api/registry-schema',route=>route.fulfill({json:{success:true,schema,data:schema}}));
+ await page.route('**/api/swine-records/import',async route=>{
+  const body=route.request().postDataJSON();schema.sections[0].fields=body.newFields;
+  state.records=body.records.map((record:any)=>({...record,id:'00000000-0000-4000-8000-000000000099',pigIdTag:'HIN-2026-0099',earTagNo:'HIN-2026-0099',isSynced:true}));
+  await route.fulfill({json:{success:true,data:state.records,schema,newFieldsCreated:body.newFields.map((field:any)=>field.fieldKey),failures:[],skipped:[]}});
+ });
+ await page.route(/\/api\/swine(?:-records)?\/00000000-0000-4000-8000-000000000099$/,async route=>{
+  if(route.request().method()==='PUT'){
+   state.records[0]={...state.records[0],...route.request().postDataJSON()};edits++;
+  }
+  await route.fulfill({json:{success:true,data:state.records[0]}});
+ });
+ await page.goto('/records');
+ await page.getByText('More actions',{exact:false}).first().click();
+ await page.getByRole('button',{name:'Import JSON / Records File'}).click();
+ await page.locator('input[type="file"]').setInputFiles({name:'custom.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify([{farmer_name:'Isolated Import Farmer',barangay:'Ambacon',swine_type:'Grower',weight:65,age_months:5,latitude:10.4018,longitude:125.1845,feeding_type:'Mixed Feeds',ready_to_sell:true}]))});
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await page.getByRole('button',{name:'Create Custom Fields & Import'}).click();
+ await expect(page.getByRole('heading',{name:'Import Results'})).toBeVisible();
+ await page.getByRole('button',{name:'Done & View Records'}).click();
+ await expect(page.getByText('Mixed Feeds',{exact:true}).filter({visible:true}).first()).toBeVisible();
+ await page.getByText('Advanced filters',{exact:false}).first().click();
+ await page.getByRole('searchbox',{name:'Filter Feeding Type'}).fill('missing');
+ await expect(page.getByText('Mixed Feeds',{exact:true}).filter({visible:true})).toHaveCount(0);
+ await page.getByRole('searchbox',{name:'Filter Feeding Type'}).fill('Mixed');
+ await expect(page.getByText('Mixed Feeds',{exact:true}).filter({visible:true}).first()).toBeVisible();
+ await page.reload();
+ await expect(page.getByText('Mixed Feeds',{exact:true}).filter({visible:true}).first()).toBeVisible();
+ await page.getByRole('combobox',{name:'Actions for HIN-2026-0099',exact:true}).filter({visible:true}).first().selectOption('view');
+ await expect(page.getByRole('button',{name:'Edit Record',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Edit Record',exact:true}).click();
+ await page.locator('input[value="Mixed Feeds"]').fill('Commercial Feeds');
+ await page.getByRole('button',{name:'Update Swine Record',exact:true}).click();
+ await expect.poll(()=>edits).toBe(1);
+ expect(state.records[0].customFields.feeding_type).toBe('Commercial Feeds');
+ await page.goto('/records');
+ await page.getByText('More actions',{exact:false}).first().click();
+ const downloadPromise=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export Excel (.CSV)',exact:true}).click();
+ const download=await downloadPromise;const filePath=(await download.path())!;
+ const fs=await import('node:fs');const exported=fs.readFileSync(filePath,'utf8');
+ expect(exported).toContain('Feeding Type');expect(exported).toContain('Commercial Feeds');
+ await page.getByRole('button',{name:'Dashboard',exact:true}).filter({visible:true}).first().click();
+ await expect(page.getByText('Registered Swine',{exact:true}).locator('../..').locator('.text-3xl')).toHaveText('1');
+ await page.goto('/gis');
+ await expect(page.locator('.swine-map-marker')).toHaveCount(1);
+});
