@@ -194,6 +194,10 @@ async function extractPdf(file: File, progress?: (value: number) => void): Promi
   hasImages: boolean;
 }> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    const workerAsset = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
+    pdfjs.GlobalWorkerOptions.workerSrc = workerAsset.default;
+  }
   const pdfDocument = await pdfjs.getDocument({
     data: new Uint8Array(await file.arrayBuffer()),
     isEvalSupported: false,
