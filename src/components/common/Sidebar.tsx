@@ -117,11 +117,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const pageLinks = isAgent
     ? [{ id: 'ready_to_sell', label: t('nav_ready_to_sell') }, { id: 'messages', label: t('nav_messages') }, { id: 'account', label: t('nav_my_account') }]
     : [
-        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'dashboard', get label(){return translateInterfaceText("Dashboard");} },
         { id: 'add_swine', label: 'Register swine' },
         { id: 'records', label: 'Swine records' },
         { id: 'gis', label: 'GIS map' },
-        { id: 'messages', label: 'Messages' },
+        { id: 'messages', get label(){return translateInterfaceText("Messages");} },
         { id: 'account', label: 'My account' },
       ];
   const matchingPages = pageLinks.filter(page => page.label.toLowerCase().includes(pageQuery.trim().toLowerCase()));
@@ -195,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg opacity-80 hover:opacity-100 hover:bg-white/10 transition cursor-pointer text-slate-300 shrink-0"
             title={t('nav_close_sidebar')}
-            aria-label="Close sidebar drawer"
+            aria-label={translateInterfaceText("Close sidebar drawer")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -206,8 +206,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Search className="w-4 h-4 shrink-0 opacity-70" aria-hidden="true" />
             <input
               type="search"
-              aria-label="Find a page"
-              placeholder="Find a page…"
+              aria-label={translateInterfaceText("Find a page")}
+              placeholder={translateInterfaceText("Find a page…")}
               value={pageQuery}
               onChange={event => setPageQuery(event.target.value)}
               onKeyDown={event => {
@@ -221,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           </label>
           {pageQuery.trim() && (
-            <div className="mt-2 space-y-1" aria-label="Matching pages">
+            <div className="mt-2 space-y-1" aria-label={translateInterfaceText("Matching pages")}>
               {matchingPages.length ? matchingPages.map(page => (
                 <button key={page.id} type="button" className="sidebar-theme-item w-full text-left px-3 py-2" onClick={() => { onSelectTab(page.id); setPageQuery(''); }}>
                   {page.label}
@@ -260,14 +260,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="font-bold text-xs leading-snug truncate"
               style={{ color: theme.activeTextColor || '#ffffff' }}
             >
-              {currentUser?.name || (isAgent ? t('role_agent') : 'Municipal workspace')}
+              {currentUser?.name || (isAgent ? t('role_agent') : translateInterfaceText("Municipal workspace"))}
             </div>
             <div
               className="text-[11px] leading-snug truncate mt-0.5 opacity-85"
               style={{ color: theme.menuTextColor || '#cbd5e1' }}
             >
               {currentUser
-                ? currentUser.role === 'admin'
+                ? currentUser.role === 'super_admin'
+                  ? t('role_super_admin', 'Super Admin')
+                  : currentUser.role === 'admin'
                   ? t('role_admin_full')
                   : currentUser.role === 'focal'
                   ? `${t('role_focal')} - Brgy. ${currentUser.assignedBarangay || 'Field'}`

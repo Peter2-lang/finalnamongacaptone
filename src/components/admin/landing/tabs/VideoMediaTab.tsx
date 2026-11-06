@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   Video,
@@ -326,7 +327,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
               className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{showAddForm ? 'Close Form' : 'Add Video'}</span>
+              <span>{showAddForm ? translateInterfaceText("Close Form") : 'Add Video'}</span>
             </button>
           </div>
         </div>
@@ -515,7 +516,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                 <button
                   type="button"
                   onClick={() => handleToggleVisible(video.id)}
-                  title={video.visible ? 'Hide from landing page' : 'Show on landing page'}
+                  title={video.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                   className={`absolute top-2 right-2 p-1.5 rounded-lg text-white backdrop-blur-xs transition cursor-pointer ${
                     video.visible ? 'bg-black/60 hover:bg-black/80 text-emerald-300' : 'bg-stone-700/80 hover:bg-stone-800 text-stone-400'
                   }`}
@@ -535,7 +536,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                         type="button"
                         disabled={idx === 0}
                         onClick={() => handleMove(idx, 'up')}
-                        title="Move Up"
+                        title={translateInterfaceText("Move Up")}
                         className="p-1 rounded-md border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer"
                       >
                         <ArrowUp className="w-3 h-3" />
@@ -544,7 +545,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                         type="button"
                         disabled={idx === videos.length - 1}
                         onClick={() => handleMove(idx, 'down')}
-                        title="Move Down"
+                        title={translateInterfaceText("Move Down")}
                         className="p-1 rounded-md border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer"
                       >
                         <ArrowDown className="w-3 h-3" />
@@ -592,7 +593,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                       video.visible ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'
                     }`}
                   >
-                    {video.visible ? 'Active' : 'Hidden'}
+                    {video.visible ? translateInterfaceText("Active") : translateInterfaceText("Hidden")}
                   </button>
                 </div>
               </div>
@@ -806,7 +807,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                   {uploadSuccessMsg && (
                     <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
                       <Check className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span className="font-bold">{uploadSuccessMsg}</span>
+                      <span className="font-bold">{<LocalizedFeedback value={uploadSuccessMsg} />}</span>
                     </div>
                   )}
                 </div>

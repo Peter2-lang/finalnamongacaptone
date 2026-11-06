@@ -175,7 +175,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   value={config.aboutTitleColor || '#064e3b'}
                   onChange={e => onChange({ aboutTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -197,7 +197,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   value={config.aboutDescriptionColor || '#44403c'}
                   onChange={e => onChange({ aboutDescriptionColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Description Font Color"
+                  title={translateInterfaceText("Description Font Color")}
                 />
               </div>
             </div>
@@ -293,7 +293,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                         <div className="aspect-4/3 overflow-hidden bg-stone-100 relative">
                           <img
                             src={item.url}
-                            alt={item.fileName || 'Media'}
+                            alt={item.fileName || translateInterfaceText("Media")}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
@@ -354,7 +354,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   <button
                     type="button"
                     onClick={() => handleToggleVisible(card.id)}
-                    title={card.visible ? 'Hide from landing page' : 'Show on landing page'}
+                    title={card.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                     className={`p-1.5 rounded-lg border text-xs cursor-pointer transition ${
                       card.visible
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
@@ -367,7 +367,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                     type="button"
                     disabled={idx === 0}
                     onClick={() => handleMove(idx, 'up')}
-                    title="Move Card Up"
+                    title={translateInterfaceText("Move Card Up")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -376,7 +376,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                     type="button"
                     disabled={idx === aboutCards.length - 1}
                     onClick={() => handleMove(idx, 'down')}
-                    title="Move Card Down"
+                    title={translateInterfaceText("Move Card Down")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -384,7 +384,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   <button
                     type="button"
                     onClick={() => handleDelete(card.id)}
-                    title="Delete Card"
+                    title={translateInterfaceText("Delete Card")}
                     className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

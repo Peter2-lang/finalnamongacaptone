@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import React, { useId, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, Database, Settings } from 'lucide-react';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
@@ -106,7 +107,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
             </p>
             {visibleError && (
               <p className="mt-1 break-words text-[11px] font-medium text-rose-800">
-                Sync issue: {visibleError}
+                Sync issue: {<LocalizedFeedback value={visibleError} />}
               </p>
             )}
             {syncSuccess && (

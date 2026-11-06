@@ -348,8 +348,7 @@ export const LegalDocumentsTab: React.FC<LegalDocumentsTabProps> = ({ config, on
                       {doc.title}
                     </p>
                     {doc.knownAs && (
-                      <p className="text-[11px] text-stone-500 italic line-clamp-1">
-                        Known as: &ldquo;{doc.knownAs}&rdquo;
+                      <p className="text-[11px] text-stone-500 italic line-clamp-1"><InterfaceText source="Known as: “" />{doc.knownAs}&rdquo;
                       </p>
                     )}
                   </div>

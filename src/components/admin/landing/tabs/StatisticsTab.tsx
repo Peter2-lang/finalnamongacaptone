@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { BarChart3, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { LandingCmsConfig, StatItem } from '../../../../types/landingCms';
@@ -79,7 +79,7 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ config, onChange }
                   value={config.statsTitleColor || '#064e3b'}
                   onChange={e => onChange({ statsTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -100,7 +100,7 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ config, onChange }
                   value={config.statsSubtitleColor || '#78716c'}
                   onChange={e => onChange({ statsSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>

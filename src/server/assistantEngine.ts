@@ -26,11 +26,13 @@ export function manilaPeriod(period: string, now = new Date()) {
 const ready = (record:SwineRecord) => record.readyToSell === true && !['sold','deceased'].includes(record.status);
 export async function queryAssistantRegistry(scope:AssistantScope, args:Record<string,unknown>, load = getAllSwineRecords, now = new Date()) {
   if (!['admin','super_admin','focal','agent'].includes(scope.role)) throw new Error('Sign in to access private registry statistics.');
-  if (scope.role === 'focal' && !scope.assignedBarangay) throw new Error('A barangay assignment is required.');
+  const assigned = scope.assignedBarangay?.trim();
+  if (scope.role === 'focal' && !assigned) throw new Error('A barangay assignment is required.');
   const requested = typeof args.barangay === 'string' ? args.barangay.trim() : '';
-  if (scope.role === 'focal' && requested && requested.toLowerCase() !== scope.assignedBarangay!.toLowerCase()) throw new Error('Only your assigned barangay is authorized.');
-  const barangay = scope.role === 'focal' ? scope.assignedBarangay : requested || undefined;
+  if (scope.role === 'focal' && requested && requested.toLowerCase() !== assigned!.toLowerCase()) throw new Error('Only your assigned barangay is authorized.');
+  const barangay = scope.role === 'focal' ? assigned : requested || undefined;
   if (scope.role === 'agent' && ['farmers','biosecurity'].includes(String(args.metric))) throw new Error('This statistic is outside the agent catalog.');
+  if (args.metric !== undefined && !['summary','farmers','biosecurity'].includes(String(args.metric))) throw new Error('Unsupported registry metric.');
   const period = args.period ?? 'all';
   if (!['all','today','week','month'].includes(String(period))) throw new Error('Unsupported reporting period.');
   if (args.metric === 'farmers') {
@@ -58,7 +60,7 @@ export async function queryAssistantRegistry(scope:AssistantScope, args:Record<s
     });
   }
   if (args.readyOnly === true) records = records.filter(ready);
-  const group = (key:(record:SwineRecord)=>string) => records.reduce<Record<string,number>>((counts,record) => {const value=key(record)||'Unspecified';counts[value]=(counts[value]||0)+1;return counts;},{});
+  const group = (key:(record:SwineRecord)=>string) => records.reduce<Record<string,number>>((counts,record) => {const value=key(record)||'Unspecified';counts[value]=(counts[value]||0)+1;return counts;},Object.create(null));
   const base = {scope:barangay || (scope.role === 'agent' ? 'Authorized ready-to-sell catalog' : 'Hinunangan'),period,timezone:'Asia/Manila',totalSwine:records.length,readyToSell:records.filter(ready).length,byBarangay:group(record=>record.barangay),classifications:group(record=>record.swineType),registrationTrends:group(record=>{
     const stamp=new Date(record.registeredAt);return Number.isFinite(stamp.getTime()) ? new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(stamp) : 'Unknown';
   })};

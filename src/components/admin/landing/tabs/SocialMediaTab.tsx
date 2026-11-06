@@ -174,7 +174,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <h3 className="font-bold text-stone-900 text-sm">Official Social Media Profiles & Feeds</h3>
           <span className="text-[11px] text-stone-400">
-            {socials.filter(s => s.enabled).length} of {socials.length}<InterfaceText source="Enabled" /></span>
+            {socials.filter(s => s.enabled).length}{" "}<InterfaceText source="of" />{" "}{socials.length}<InterfaceText source="Enabled" /></span>
         </div>
 
         <div className="space-y-3">
@@ -207,7 +207,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                   className="w-4 h-4 rounded-sm text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
                 />
                 <span className="text-[11px] font-bold text-stone-700">
-                  {account.enabled ? 'Active' : 'Off'}
+                  {account.enabled ? translateInterfaceText("Active") : 'Off'}
                 </span>
               </label>
             </div>
@@ -245,7 +245,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       <Pencil className="w-3.5 h-3.5 text-emerald-700" />
                       Edit Social Post &amp; Action Button
                     </span>
-                    <span className="text-[10px] text-emerald-700 font-mono">ID: {post.id}</span>
+                    <span className="text-[10px] text-emerald-700 font-mono"><InterfaceText source="ID:" />{" "}{post.id}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -261,9 +261,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                     </div>
 
                     <div>
-                      <label className="block font-bold text-stone-700 mb-1">
-                        Action Button Text (Editable)
-                      </label>
+                      <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Action Button Text (Editable)" /></label>
                       <div className="relative">
                         <input
                           type="text"
@@ -302,9 +300,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                               : 'bg-blue-50 text-[#1877F2] border-blue-200 hover:bg-blue-100'
                           }`}
                         >
-                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                          Facebook is Blue
-                        </button>
+                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="Facebook is Blue" /></button>
 
                         <button
                           type="button"
@@ -322,9 +318,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                               : 'bg-red-50 text-[#FF0000] border-red-200 hover:bg-red-100'
                           }`}
                         >
-                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                          YouTube is Red
-                        </button>
+                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="YouTube is Red" /></button>
 
                         <button
                           type="button"
@@ -342,9 +336,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                               : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                           }`}
                         >
-                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                          Else (Custom / Green)
-                        </button>
+                          <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="Else (Custom / Green)" /></button>
                       </div>
                     </div>
                   </div>
@@ -398,7 +390,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                   <div className="flex items-center justify-between pt-2 border-t border-emerald-200">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded">
-                        Button Preview: &ldquo;{editForm.buttonText || 'View on Facebook'}&rdquo;
+                        Button Preview: &ldquo;{editForm.buttonText || translateInterfaceText("View on Facebook")}&rdquo;
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -433,15 +425,15 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                     <span className="text-[10px] text-stone-400 font-mono">({post.date})</span>
                     {post.buttonColor === 'red' || post.buttonPlatform === 'youtube' ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
-                        YouTube (Red): &ldquo;{post.buttonText || 'Watch on YouTube'}&rdquo;
+                        YouTube (Red): &ldquo;{post.buttonText || translateInterfaceText("Watch on YouTube")}&rdquo;
                       </span>
                     ) : post.buttonColor === 'blue' || post.buttonPlatform === 'facebook' ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                        Facebook (Blue): &ldquo;{post.buttonText || 'View on Facebook'}&rdquo;
+                        Facebook (Blue): &ldquo;{post.buttonText || translateInterfaceText("View on Facebook")}&rdquo;
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Else (Green): &ldquo;{post.buttonText || 'Official Link'}&rdquo;
+                        Else (Green): &ldquo;{post.buttonText || translateInterfaceText("Official Link")}&rdquo;
                       </span>
                     )}
                   </div>
@@ -460,7 +452,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       type="button"
                       onClick={() => handleTogglePostVisible(post.id)}
                       className="p-1.5 rounded-md hover:bg-stone-200 text-stone-600 cursor-pointer transition"
-                      title={post.visible ? 'Hide from landing page' : 'Show on landing page'}
+                      title={post.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                       aria-label="Toggle visibility"
                     >
                       {post.visible ? <Eye className="w-3.5 h-3.5 text-emerald-700" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -469,8 +461,8 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       type="button"
                       onClick={() => handleDeletePost(post.id)}
                       className="p-1.5 rounded-md hover:bg-red-100 text-red-600 cursor-pointer transition"
-                      title="Delete post"
-                      aria-label="Delete post"
+                      title={translateInterfaceText("Delete post")}
+                      aria-label={translateInterfaceText("Delete post")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -481,10 +473,10 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
 
                 <div className="flex items-center justify-between pt-2 text-[10px] text-stone-400 border-t border-stone-200/60">
                   <div className="flex items-center gap-2">
-                    <span>By: {post.author}</span>
+                    <span><InterfaceText source="By:" />{" "}{post.author}</span>
                     <span className="text-stone-300">&bull;</span>
                     <span className="text-stone-500 font-medium">
-                      {post.noticeLabel || 'Official Municipal Notice'}
+                      {post.noticeLabel || translateInterfaceText("Official Municipal Notice")}
                     </span>
                   </div>
                   <a
@@ -499,7 +491,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                         : 'bg-emerald-700 text-white hover:bg-emerald-800'
                     }`}
                   >
-                    <span>{post.buttonText || (post.buttonColor === 'red' ? 'Watch on YouTube' : 'View on Facebook')}</span>
+                    <span>{post.buttonText || (post.buttonColor === 'red' ? translateInterfaceText("Watch on YouTube") : translateInterfaceText("View on Facebook"))}</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -531,14 +523,12 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
             </div>
 
             <div>
-              <label className="block font-semibold text-stone-700 mb-1">
-                Action Button Text (Editable)
-              </label>
+              <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Action Button Text (Editable)" /></label>
               <input
                 type="text"
                 value={newPostButtonText}
                 onChange={e => setNewPostButtonText(e.target.value)}
-                placeholder="View on Facebook"
+                placeholder={translateInterfaceText("View on Facebook")}
                 className={`w-full px-3 py-1.5 rounded-xl border bg-white font-bold transition ${
                   newPostButtonColor === 'red' || newPostButtonPlatform === 'youtube'
                     ? 'border-red-300 text-red-700 focus:ring-2 focus:ring-red-500'
@@ -566,9 +556,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       : 'bg-blue-50 text-[#1877F2] border-blue-200 hover:bg-blue-100'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                  Facebook is Blue
-                </button>
+                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="Facebook is Blue" /></button>
 
                 <button
                   type="button"
@@ -585,9 +573,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       : 'bg-red-50 text-[#FF0000] border-red-200 hover:bg-red-100'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                  YouTube is Red
-                </button>
+                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="YouTube is Red" /></button>
 
                 <button
                   type="button"
@@ -604,9 +590,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                       : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                  Else (Custom / Green)
-                </button>
+                  <span className="w-2 h-2 rounded-full bg-white inline-block"></span><InterfaceText source="Else (Custom / Green)" /></button>
               </div>
             </div>
           </div>
@@ -640,7 +624,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                 type="text"
                 value={newPostNoticeLabel}
                 onChange={e => setNewPostNoticeLabel(e.target.value)}
-                placeholder="Official Municipal Notice"
+                placeholder={translateInterfaceText("Official Municipal Notice")}
                 className="w-full px-3 py-1.5 rounded-xl border border-stone-300 bg-white"
               />
             </div>
@@ -659,7 +643,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] text-stone-500">
-              Button will display as: <strong className="text-blue-700">&ldquo;{newPostButtonText || 'View on Facebook'}&rdquo;</strong>
+              Button will display as: <strong className="text-blue-700">&ldquo;{newPostButtonText || translateInterfaceText("View on Facebook")}&rdquo;</strong>
             </span>
             <button
               type="submit"

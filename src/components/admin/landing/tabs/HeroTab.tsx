@@ -162,7 +162,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               value={config.heroTitle}
               onChange={e => onChange({ heroTitle: e.target.value })}
               className="w-full px-3 py-2 rounded-xl border border-stone-300 font-bold text-stone-900 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
-              placeholder="e.g. DA HINUNANGAN SWINE REGISTRY"
+              placeholder={translateInterfaceText("e.g. DA HINUNANGAN SWINE REGISTRY")}
             />
           </div>
 
@@ -177,7 +177,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                   value={config.heroSubtitleColor || '#ecfdf5'}
                   onChange={e => onChange({ heroSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>
@@ -201,7 +201,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                   value={config.heroDescriptionColor || '#d1fae5'}
                   onChange={e => onChange({ heroDescriptionColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Description Font Color"
+                  title={translateInterfaceText("Description Font Color")}
                 />
               </div>
             </div>
@@ -236,7 +236,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               />
             </div>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Target Link / Action</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Target Link / Action" /></label>
               <input
                 type="text"
                 value={config.primaryButtonLink}
@@ -258,7 +258,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               />
             </div>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Target Link / Action</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Target Link / Action" /></label>
               <input
                 type="text"
                 value={config.secondaryButtonLink}

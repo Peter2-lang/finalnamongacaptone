@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   Send,
@@ -132,7 +133,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 space-y-6">
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-700">{<LocalizedFeedback value={error} />}</p>}
       {/* Header Banner */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -304,7 +305,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <div className="flex items-center gap-2 text-[10px] text-stone-400">
                         <span>From: {msg.senderName}</span>
                         <span>•</span>
-                        <span>To: Brgy. {(msg.recipientBarangay || msg.targetBarangay) === 'all' ? 'All Barangays' : (msg.recipientBarangay || msg.targetBarangay)}</span>
+                        <span>To: Brgy. {(msg.recipientBarangay || msg.targetBarangay) === 'all' ? translateInterfaceText("All Barangays") : (msg.recipientBarangay || msg.targetBarangay)}</span>
                       </div>
                     </div>
 
@@ -342,8 +343,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     Sender: <strong>{selectedMessage.senderName}</strong> • Target:{' '}
                     <strong>
                       {(selectedMessage.recipientBarangay || selectedMessage.targetBarangay) === 'all'
-                        ? 'All 40 Barangays'
-                        : `Brgy. ${selectedMessage.recipientBarangay || selectedMessage.targetBarangay}`}
+                        ? translateInterfaceText("All 40 Barangays")
+                        : translateInterfaceText("Brgy. {arg0}", {arg0: selectedMessage.recipientBarangay || selectedMessage.targetBarangay})}
                     </strong>
                   </p>
                 </div>

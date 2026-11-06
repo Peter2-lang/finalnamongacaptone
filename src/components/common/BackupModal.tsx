@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Database, Download, Upload, RefreshCw, X, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -90,14 +91,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
           {successMessage && (
             <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span>{successMessage}</span>
+              <span>{<LocalizedFeedback value={successMessage} />}</span>
             </div>
           )}
 
           {errorMessage && (
             <div className="p-3 bg-red-50 text-red-800 border border-red-200 rounded-xl flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-red-600" />
-              <span>{errorMessage}</span>
+              <span>{<LocalizedFeedback value={errorMessage} />}</span>
             </div>
           )}
 
@@ -122,8 +123,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
               <p className="text-stone-500 text-[11px]">Upload a previously saved database file.</p>
             </div>
             <label className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition">
-              <Upload className="w-3.5 h-3.5" /> Restore
-              <input type="file" accept=".json,application/json" onChange={handleImportJson} className="hidden" />
+              <Upload className="w-3.5 h-3.5" /><InterfaceText source="Restore" /><input type="file" accept=".json,application/json" onChange={handleImportJson} className="hidden" />
             </label>
           </div>
 

@@ -1,3 +1,4 @@
+import { translateInterfaceText, InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   ShieldCheck,
@@ -192,7 +193,7 @@ export const LegalComplianceCalculator: React.FC<LegalComplianceCalculatorProps>
                 <span className="flex items-center gap-1">
                   <Droplets className="w-3.5 h-3.5 text-blue-600" /> Distance to Groundwater / River:
                 </span>
-                <span className="font-mono font-bold text-emerald-800">{groundwaterDist} meters</span>
+                <span className="font-mono font-bold text-emerald-800">{groundwaterDist}{" "}<InterfaceText source="meters" /></span>
               </div>
               <input
                 type="range"
@@ -210,7 +211,7 @@ export const LegalComplianceCalculator: React.FC<LegalComplianceCalculatorProps>
                 <span className="flex items-center gap-1">
                   <Building className="w-3.5 h-3.5 text-stone-600" /> Distance to Built-Up Community:
                 </span>
-                <span className="font-mono font-bold text-emerald-800">{builtUpDist} meters</span>
+                <span className="font-mono font-bold text-emerald-800">{builtUpDist}{" "}<InterfaceText source="meters" /></span>
               </div>
               <input
                 type="range"
@@ -222,7 +223,7 @@ export const LegalComplianceCalculator: React.FC<LegalComplianceCalculatorProps>
                 className="w-full accent-emerald-600 cursor-pointer"
               />
               <span className="text-[10px] text-stone-400">
-                Statutory minimum: {requiredBuiltUp} meters ({farmType === 'backyard' ? 'Backyard with septic' : 'Commercial'})
+                Statutory minimum: {requiredBuiltUp} meters ({farmType === 'backyard' ? 'Backyard with septic' : translateInterfaceText("Commercial")})
               </span>
             </div>
 
@@ -231,7 +232,7 @@ export const LegalComplianceCalculator: React.FC<LegalComplianceCalculatorProps>
                 <span className="flex items-center gap-1">
                   <Trees className="w-3.5 h-3.5 text-amber-600" /> Distance to Tourist Destinations / Beaches:
                 </span>
-                <span className="font-mono font-bold text-emerald-800">{touristDist} meters</span>
+                <span className="font-mono font-bold text-emerald-800">{touristDist}{" "}<InterfaceText source="meters" /></span>
               </div>
               <input
                 type="range"
@@ -324,7 +325,7 @@ export const LegalComplianceCalculator: React.FC<LegalComplianceCalculatorProps>
                       : 'Preliminary Assessment: NON-COMPLIANT'}
                   </h4>
                   <p className="text-xs opacity-90 mt-0.5">
-                    {passedCount} of {checklist.length} statutory benchmarks met
+                    {passedCount}{" "}<InterfaceText source="of" />{" "}{checklist.length} statutory benchmarks met
                   </p>
                 </div>
               </div>

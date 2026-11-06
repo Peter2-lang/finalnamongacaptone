@@ -88,7 +88,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
               <h2 className="text-sm font-bold flex items-center gap-2">
                 <span>Original Document & Source Inspector</span>
                 <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] font-mono text-emerald-300">
-                  {document.type} No. {document.officialNumber}
+                  {document.type}{" "}<InterfaceText source="No." />{" "}{document.officialNumber}
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400 truncate max-w-xl">
@@ -163,8 +163,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-xs font-semibold text-slate-700">
-              Page {currentPage} of {totalPages}
+            <span className="text-xs font-semibold text-slate-700"><InterfaceText source="Page" />{currentPage}{" "}<InterfaceText source="of" />{" "}{totalPages}
             </span>
             <button
               disabled={currentPage >= totalPages}
@@ -227,9 +226,9 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                       className="w-full max-w-xl rounded-lg bg-white p-6 shadow-md border border-slate-200 font-serif text-xs leading-relaxed transition-transform"
                     >
                       <div className="text-center font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200 uppercase"><InterfaceText source="Republic of the Philippines" /><br /><InterfaceText source="Province of Southern Leyte" /><br />
-                        {document.jurisdiction || 'Municipality of Hinunangan'}<br />
+                        {document.jurisdiction || translateInterfaceText("Municipality of Hinunangan")}<br />
                         <span className="text-emerald-800 text-sm mt-1 block">
-                          {document.type} No. {document.officialNumber}
+                          {document.type}{" "}<InterfaceText source="No." />{" "}{document.officialNumber}
                         </span>
                       </div>
                       <p className="font-bold text-slate-800 mb-3 text-center">{document.title}</p>

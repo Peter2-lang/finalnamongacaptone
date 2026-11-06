@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   FileEdit,
@@ -824,7 +824,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                                   {field.label}
                                 </span>
                                 {field.required && (
-                                  <span className="text-red-500 font-bold text-xs" title="Required Field">
+                                  <span className="text-red-500 font-bold text-xs" title={translateInterfaceText("Required Field")}>
                                     *
                                   </span>
                                 )}
@@ -845,7 +845,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                                     field.visible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                                   }`}
                                 >
-                                  {field.visible ? 'Visible: ON' : 'Hidden'}
+                                  {field.visible ? 'Visible: ON' : translateInterfaceText("Hidden")}
                                 </span>
                                 <span>•</span>
                                 <span
@@ -863,13 +863,13 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                                       <span><InterfaceText source="Auto-Generated" /></span>
                                       <span className="font-mono text-[9px] text-purple-600 bg-purple-100/80 px-1 rounded">
                                         {field.autoGenType === 'ear_tag'
-                                          ? 'Ear Tag'
+                                          ? translateInterfaceText("Ear Tag")
                                           : field.autoGenType === 'timestamp'
                                           ? 'Date/Time'
                                           : field.autoGenType === 'uuid'
                                           ? 'Hash Token'
                                           : field.autoGenType === 'custom_pattern'
-                                          ? 'Custom'
+                                          ? translateInterfaceText("Custom")
                                           : 'Tracking ID'}
                                       </span>
                                     </>
@@ -884,7 +884,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                                       )}
                                     </>
                                   ) : (
-                                    <span>✏️ Editable</span>
+                                    <span><InterfaceText source="✏️ Editable" /></span>
                                   )}
                                 </span>
                               </div>
@@ -899,7 +899,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                               onClick={() => handleMoveField(activeSection.id, index, 'up')}
                               disabled={index === 0}
                               className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 disabled:opacity-20 cursor-pointer"
-                              title="Move Up"
+                              title={translateInterfaceText("Move Up")}
                             >
                               <MoveUp className="w-3.5 h-3.5" />
                             </button>
@@ -908,7 +908,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                               onClick={() => handleMoveField(activeSection.id, index, 'down')}
                               disabled={index === activeSection.fields.length - 1}
                               className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 disabled:opacity-20 cursor-pointer"
-                              title="Move Down"
+                              title={translateInterfaceText("Move Down")}
                             >
                               <MoveDown className="w-3.5 h-3.5" />
                             </button>
@@ -950,7 +950,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                               type="button"
                               onClick={() => requestDeleteField(activeSection.id, field.id, field.label)}
                               className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
-                              title="Delete Field"
+                              title={translateInterfaceText("Delete Field")}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1179,7 +1179,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                                   ? String(field.fixedValue ?? field.defaultValue ?? '')
                                   : undefined
                               }
-                              placeholder={field.placeholder || `Enter ${field.label}...`}
+                              placeholder={field.placeholder || translateInterfaceText("Enter {arg0}...", {arg0: field.label})}
                               className={`w-full text-xs p-2 rounded-xl border disabled:bg-stone-50 ${
                                 field.isAutoGenerated
                                   ? 'bg-purple-50/70 border-purple-300 text-purple-950 font-mono font-bold pl-7 pr-12 shadow-2xs'
@@ -1264,9 +1264,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
 
               {/* Field Type */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-stone-800">
-                  Field Type
-                </label>
+                <label className="block text-xs font-bold text-stone-800"><InterfaceText source="Field Type" /></label>
                 <select
                   value={fieldType}
                   onChange={(e) => setFieldType(e.target.value as RegistryFieldType)}
@@ -1288,9 +1286,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                     <div>
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <span>Country: Philippines (+63)</span>
-                        <span className="bg-emerald-200 text-emerald-900 font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
+                        <span className="bg-emerald-200 text-emerald-900 font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded"><InterfaceText source="Default" /></span>
                       </div>
                       <div className="text-[11px] text-emerald-800">
                         Input automatically displays <strong>+63</strong> and normalizes numbers to <strong>+63 9XX XXX XXXX</strong>.
@@ -1402,7 +1398,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                         <span><InterfaceText source="Fixed Text" /></span>
                       </>
                     ) : (
-                      <span>✏️ Editable</span>
+                      <span><InterfaceText source="✏️ Editable" /></span>
                     )}
                   </span>
                 </div>
@@ -1675,7 +1671,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                       fieldRequired ? 'bg-red-600 text-white' : 'bg-stone-200 text-stone-700'
                     }`}
                   >
-                    {fieldRequired ? 'ON' : 'OFF'}
+                    {fieldRequired ? translateInterfaceText("ON") : translateInterfaceText("OFF")}
                   </button>
                 </div>
 
@@ -1691,7 +1687,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                       fieldVisible ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700'
                     }`}
                   >
-                    {fieldVisible ? 'ON' : 'OFF'}
+                    {fieldVisible ? translateInterfaceText("ON") : translateInterfaceText("OFF")}
                   </button>
                 </div>
               </div>
@@ -1713,7 +1709,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                   title="Delete this field from registry form"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Field</span>
+                  <span><InterfaceText source="Delete Field" /></span>
                 </button>
               ) : (
                 <div />
@@ -1884,7 +1880,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
                         </div>
                         <input
                           disabled
-                          placeholder={field.placeholder || `Enter ${field.label}...`}
+                          placeholder={field.placeholder || translateInterfaceText("Enter {arg0}...", {arg0: field.label})}
                           className="w-full text-xs p-2 rounded-xl bg-white border border-stone-300 text-stone-600 disabled:bg-stone-100/50"
                         />
                       </div>

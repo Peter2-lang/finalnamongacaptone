@@ -15,3 +15,15 @@ for (const tab of ['landing_settings','admin_photo_media','photo_media','admin_l
 for (const tab of Object.values(routeTabs)) routeTabs[`/${tab}`] ||= tab;
 export const normalizePath = (path:string) => path.toLowerCase().replace(/\/+$/,'') || '/';
 export const tabForPath = (path:string) => routeTabs[normalizePath(path)] || 'dashboard';
+
+const staffTabs = new Set(['dashboard','add_swine','records','gis','certificate','takeoff','biosecurity','marketing_alerts','messages','account']);
+const adminTabs = new Set([...staffTabs,'asf_ordinance','barangays','accounts','form_customizer','form_manager']);
+const agentTabs = new Set(['dashboard','ready_to_sell','takeoff','gis','messages','account']);
+/** Mirrors existing page guards; direct URLs must not silently render another module. */
+export function canAccessTab(role:string,tab:string):boolean {
+  if (role === 'super_admin') return Object.values(routeTabs).includes(tab);
+  if (role === 'admin') return adminTabs.has(tab);
+  if (role === 'focal') return staffTabs.has(tab);
+  if (role === 'agent') return agentTabs.has(tab);
+  return false;
+}

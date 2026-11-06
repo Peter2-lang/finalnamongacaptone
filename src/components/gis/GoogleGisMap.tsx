@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
@@ -470,7 +471,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       {accessWarning && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-rose-600/95 text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md border border-rose-300 animate-bounce text-sm font-semibold">
           <AlertTriangle className="w-5 h-5 text-amber-200 flex-shrink-0" />
-          <span>{accessWarning}</span>
+          <span>{<LocalizedFeedback value={accessWarning} />}</span>
           <button
             onClick={() => setAccessWarning(null)}
             className="ml-2 hover:opacity-80 p-0.5 rounded cursor-pointer"
@@ -507,7 +508,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
         {onPickLocation && currentRole !== 'agent' && currentRole !== 'landing' && (
           <button type="button" onClick={() => setIsManualPinMode(value => !value)} aria-pressed={isManualPinMode}
             className={`px-3 py-1.5 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold ${isManualPinMode ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-stone-900/90 text-stone-200 border-stone-700 hover:bg-stone-800'}`}>
-            <MapPin className="w-3.5 h-3.5" />{isManualPinMode ? 'Pin Mode Active' : 'Select Location for Registration'}
+            <MapPin className="w-3.5 h-3.5" />{isManualPinMode ? translateInterfaceText("Pin Mode Active") : translateInterfaceText("Select Location for Registration")}
           </button>
         )}
         {/* Search Bar */}
@@ -516,7 +517,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             <Search className="w-3.5 h-3.5 text-stone-400 mr-1.5" />
             <input
               type="text"
-              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : 'Search barangay or swine...'}
+              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : translateInterfaceText("Search barangay or swine...")}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="bg-transparent text-white placeholder-stone-400 outline-none w-36 md:w-56 text-xs"
@@ -655,7 +656,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
               <option value="all">All Swine Types (Boar, Sow, Piglet, etc.)</option>
-              <option value="boar">Breeding Boars</option>
+              <option value="boar">{translateInterfaceText("Breeding Boars")}</option>
               <option value="sow">Breeding Sows</option>
               <option value="piglet">Piglets</option>
               <option value="grower">Growers</option>
@@ -793,7 +794,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
         </div>
       )}
 
-      {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{settingsError}</p>}
+      {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{<LocalizedFeedback value={settingsError} />}</p>}
       {pickedPoint && <div role="status" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-[90%] rounded-xl border border-emerald-700 bg-white px-3 py-2 text-xs text-emerald-950 shadow-lg">
         <strong><InterfaceText source="Selected GPS location" /></strong><br />
         {pickedPoint.lat.toFixed(6)}, {pickedPoint.lng.toFixed(6)} · {findBarangayContainingPoint(pickedPoint.lat,pickedPoint.lng) || 'Outside configured barangay boundaries'}
@@ -992,7 +993,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                           : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {selectedSwineRecord.readyToSell ? 'Ready for Sale' : selectedSwineRecord.status}
+                      {selectedSwineRecord.readyToSell ? translateInterfaceText("Ready for Sale") : selectedSwineRecord.status}
                     </span>
                   </div>
 
@@ -1002,7 +1003,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                       <strong className="text-stone-900">{selectedSwineRecord.farmerName}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Barangay:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Barangay:" /></span>{' '}
                       <strong>{selectedSwineRecord.barangay}</strong>
                     </div>
                     <div>
@@ -1057,7 +1058,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                       <span className="text-stone-500">Contact:</span> <strong>{selectedFarmerData.contact}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Barangay:</span> <strong>{selectedFarmerData.barangay}</strong>
+                      <span className="text-stone-500"><InterfaceText source="Barangay:" /></span> <strong>{selectedFarmerData.barangay}</strong>
                     </div>
                     <div>
                       <span className="text-stone-500">Total Registered Swine:</span>{' '}
@@ -1080,7 +1081,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 <Building className="w-4 h-4" /> Brgy. {selectedBarangayData.barangayName}
               </h4>
               <span className="text-[10px] text-stone-400">
-                Focal Officer: {selectedBarangayData.focalPersonName || 'Municipal Office'}
+                Focal Officer: {selectedBarangayData.focalPersonName || translateInterfaceText("Municipal Office")}
               </span>
             </div>
             <button type="button" aria-label="Close barangay information" onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
@@ -1135,8 +1136,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}
               >
-                {selectedBarangayData.asfZone} ZONE
-              </span>
+                {selectedBarangayData.asfZone}<InterfaceText source="ZONE" /></span>
             </div>
           </div>
 

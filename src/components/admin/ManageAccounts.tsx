@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Users, Plus, Edit, Trash2, Save, X, Key, Shield, UserCheck, Search, Eye, EyeOff } from 'lucide-react';
 import { Barangay, UserAccount, UserRole } from '../../types';
@@ -192,7 +193,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
       {/* Header */}
-      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>}
+      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -220,13 +221,13 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
               <X className="w-4 h-4" />
             </button>
           </div>
-          {resetError && <p role="alert" className="text-xs text-red-700">{resetError}</p>}
+          {resetError && <p role="alert" className="text-xs text-red-700">{<LocalizedFeedback value={resetError} />}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="reset-new-password" className="block font-semibold text-stone-700"><InterfaceText source="New Password" /></label>
               <div className="relative mt-1">
                 <input id="reset-new-password" type={showNewPassword ? 'text' : 'password'} required autoComplete="new-password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
-                <button type="button" onClick={() => setShowNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showNewPassword ? 'Hide password' : 'Show password'} title={showNewPassword ? 'Hide password' : 'Show password'}>
+                <button type="button" onClick={() => setShowNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showNewPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")} title={showNewPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")}>
                   {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -235,15 +236,15 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
               <label htmlFor="reset-confirm-password" className="block font-semibold text-stone-700"><InterfaceText source="Confirm New Password" /></label>
               <div className="relative mt-1">
                 <input id="reset-confirm-password" type={showConfirmNewPassword ? 'text' : 'password'} required autoComplete="new-password" value={confirmResetPassword} onChange={e => setConfirmResetPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
-                <button type="button" onClick={() => setShowConfirmNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'} title={showConfirmNewPassword ? 'Hide password' : 'Show password'}>
+                <button type="button" onClick={() => setShowConfirmNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showConfirmNewPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")} title={showConfirmNewPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")}>
                   {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
           </div>
-          <p className="text-[11px] text-stone-500">At least 12 characters, including uppercase, lowercase, a number, and a symbol.</p>
+          <p className="text-[11px] text-stone-500"><InterfaceText source="At least 12 characters, including uppercase, lowercase, a number, and a symbol." /></p>
           <div className="flex justify-end">
-            <button type="submit" disabled={isResetting} className="px-4 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-bold">{isResetting ? 'Resetting…' : 'Reset Password'}</button>
+            <button type="submit" disabled={isResetting} className="px-4 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-bold">{isResetting ? 'Resetting…' : translateInterfaceText("Reset Password")}</button>
           </div>
         </form>
       )}
@@ -314,7 +315,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                   <label htmlFor="initial-password" className="block font-semibold text-stone-700">Initial Password *</label>
                   <div className="relative mt-1">
                     <input id="initial-password" type={showInitialPassword ? 'text' : 'password'} required autoComplete="new-password" value={initialPassword} onChange={e => setInitialPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
-                    <button type="button" onClick={() => setShowInitialPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showInitialPassword ? 'Hide password' : 'Show password'} title={showInitialPassword ? 'Hide password' : 'Show password'}>
+                    <button type="button" onClick={() => setShowInitialPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showInitialPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")} title={showInitialPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")}>
                       {showInitialPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -323,12 +324,12 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                   <label htmlFor="confirm-password" className="block font-semibold text-stone-700">Confirm Password *</label>
                   <div className="relative mt-1">
                     <input id="confirm-password" type={showConfirmPassword ? 'text' : 'password'} required autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
-                    <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} title={showConfirmPassword ? 'Hide password' : 'Show password'}>
+                    <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showConfirmPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")} title={showConfirmPassword ? translateInterfaceText("Hide password") : translateInterfaceText("Show password")}>
                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
-                <p className="sm:col-span-3 -mt-2 text-[11px] text-stone-500">At least 12 characters, including uppercase, lowercase, a number, and a symbol.</p>
+                <p className="sm:col-span-3 -mt-2 text-[11px] text-stone-500"><InterfaceText source="At least 12 characters, including uppercase, lowercase, a number, and a symbol." /></p>
               </>
             )}
 
@@ -434,7 +435,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
         </div>
 
         {loadError && (
-          <div className="px-4 py-3 text-sm text-red-700 bg-red-50 border-b border-red-200">{loadError}</div>
+          <div className="px-4 py-3 text-sm text-red-700 bg-red-50 border-b border-red-200">{<LocalizedFeedback value={loadError} />}</div>
         )}
 
         {isLoading && !loadError && (
@@ -463,7 +464,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                   <tr key={u.id} className="hover:bg-stone-50">
                     <td className="py-3 px-4">
                       <div className="font-bold text-stone-900">{u.name}</div>
-                      <div className="text-[10px] text-stone-400">{u.contactNo || 'No contact'}</div>
+                      <div className="text-[10px] text-stone-400">{u.contactNo || translateInterfaceText("No contact")}</div>
                     </td>
                     <td className="py-3 px-4">
                       <span
@@ -485,7 +486,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                       </span>
                     </td>
                     <td className="py-3 px-4 font-medium text-stone-800">
-                      {u.role === 'focal' ? `Brgy. ${u.assignedBarangay}` : 'Municipal-Wide'}
+                      {u.role === 'focal' ? translateInterfaceText("Brgy. {arg0}", {arg0: u.assignedBarangay}) : 'Municipal-Wide'}
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-mono text-stone-800">{u.username}</div>
@@ -497,7 +498,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                           u.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-200 text-stone-600'
                         }`}
                       >
-                        {u.status === 'pending' ? 'NO PROFILE' : u.active ? 'ACTIVE' : 'DISABLED'}
+                        {u.status === 'pending' ? 'NO PROFILE' : u.active ? translateInterfaceText("ACTIVE") : 'DISABLED'}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
@@ -515,7 +516,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                             type="button"
                             onClick={() => { setResetTarget(u); setResetPassword(''); setConfirmResetPassword(''); setShowNewPassword(false); setShowConfirmNewPassword(false); setResetError(''); }}
                             className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-100 transition cursor-pointer"
-                            title="Reset Password"
+                            title={translateInterfaceText("Reset Password")}
                             aria-label={`Reset password for ${u.name}`}
                           >
                             <Key className="w-3.5 h-3.5" />

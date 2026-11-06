@@ -1,5 +1,3 @@
-const CHUNK_RELOAD_ATTEMPT_KEY = 'app:chunk-load-reload-attempted';
-
 export function isDynamicImportFailure(error: unknown): boolean {
   const message = error instanceof Error
     ? `${error.name}: ${error.message}`
@@ -16,15 +14,8 @@ export function registerDynamicImportRecovery(): void {
     const failure = preloadEvent.payload || preloadEvent.detail || event;
     console.error('Dynamic module preload failed; checking for a stale deployed asset.', failure);
 
-    try {
-      if (sessionStorage.getItem(CHUNK_RELOAD_ATTEMPT_KEY) === '1') return;
-      sessionStorage.setItem(CHUNK_RELOAD_ATTEMPT_KEY, '1');
-    } catch (storageError) {
-      console.error('Automatic recovery was skipped because session storage is unavailable.', storageError);
-      return;
-    }
+    // Leave the rejection visible to React's error boundary. Recovery must be
+    // an explicit user action, never an automatic reload that erases context.
 
-    event.preventDefault();
-    window.location.reload();
   });
 }

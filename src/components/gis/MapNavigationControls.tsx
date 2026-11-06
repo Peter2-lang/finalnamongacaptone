@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import React, {useState} from 'react';
 import {ZoomIn, ZoomOut, RotateCcw, Navigation} from 'lucide-react';
 
@@ -27,6 +28,6 @@ export function MapNavigationControls({onZoomIn,onZoomOut,onReset,onLocate}: Pro
       {label:'Reset View',Icon:RotateCcw,action:onReset},
       {label:'Locate Me',Icon:Navigation,action:locate},
     ].map(({label,Icon,action})=><button key={label} type="button" title={label} aria-label={label} onClick={action} className="p-2 rounded-xl border border-stone-700 bg-stone-900/90 text-stone-200 hover:bg-stone-800 shadow-md cursor-pointer"><Icon className="w-4 h-4" /></button>)}
-    {locationError && <p role="alert" className="absolute right-10 top-0 w-56 rounded-xl bg-stone-900 p-3 text-xs text-white">{locationError}</p>}
+    {locationError && <p role="alert" className="absolute right-10 top-0 w-56 rounded-xl bg-stone-900 p-3 text-xs text-white">{<LocalizedFeedback value={locationError} />}</p>}
   </div>;
 }

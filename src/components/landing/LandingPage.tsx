@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
@@ -484,9 +484,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                      Registered Raisers
-                    </span>
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Raisers" /></span>
                     <span
                       className="text-3xl sm:text-4xl font-black mt-1 block"
                       style={{ color: theme.headingColor || '#064e3b' }}
@@ -1029,7 +1027,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   color: theme.headingColor || '#064e3b',
                 }}
               >
-                {legalLandingConfig.sectionTitle || 'Legal Decrees & Ordinances'}
+                {legalLandingConfig.sectionTitle || translateInterfaceText("Legal Decrees & Ordinances")}
               </h2>
               <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
                 {legalLandingConfig.sectionSubtitle ||
@@ -1120,7 +1118,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         {legalLandingConfig.showCategory !== false && (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
                             {doc.category === 'ordinance' || doc.type === 'municipal_ordinance'
-                              ? 'Municipal Ordinance'
+                              ? translateInterfaceText("Municipal Ordinance")
                               : doc.category === 'resolution'
                               ? 'SB Resolution'
                               : (doc.category || doc.type).replace('_', ' ')}
@@ -1148,7 +1146,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       {doc.author && (
                         <div className="text-[11px] text-stone-500 pt-1 border-t border-stone-100 flex items-center justify-between">
-                          <span>Author: {doc.author}</span>
+                          <span><InterfaceText source="Author:" />{" "}{doc.author}</span>
                           <span className="font-bold text-emerald-700">{doc.status.toUpperCase()}</span>
                         </div>
                       )}
@@ -1371,7 +1369,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       <div className="pt-3 border-t border-stone-100 mt-4 flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-[10px] font-medium text-stone-400 truncate">
-                          {post.noticeLabel || 'Official Municipal Notice'}
+                          {post.noticeLabel || translateInterfaceText("Official Municipal Notice")}
                         </span>
                         <a
                           href={post.postUrl}
@@ -1382,10 +1380,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           <span>
                             {post.buttonText ||
                               (isYouTube
-                                ? 'Watch on YouTube'
+                                ? translateInterfaceText("Watch on YouTube")
                                 : isFacebook
-                                ? 'View on Facebook'
-                                : 'Official Link')}
+                                ? translateInterfaceText("View on Facebook")
+                                : translateInterfaceText("Official Link"))}
                           </span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
@@ -1578,9 +1576,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     }`}
                   >
                     {selectedBarangayDetail.riskLevel === 'green'
-                      ? 'Green Zone (Free)'
+                      ? translateInterfaceText("Green Zone (Free)")
                       : selectedBarangayDetail.riskLevel === 'yellow'
-                      ? 'Yellow Zone (Buffer)'
+                      ? translateInterfaceText("Yellow Zone (Buffer)")
                       : 'Red Zone (Surveillance)'}
                   </span>
                 </div>
@@ -1690,8 +1688,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-emerald-400 text-emerald-950">
                     {selectedOrdinance.type.replace('_', ' ')}
                   </span>
-                  <span className="text-[11px] text-emerald-300 font-semibold">
-                    Enacted: {selectedOrdinance.dateEnacted}
+                  <span className="text-[11px] text-emerald-300 font-semibold"><InterfaceText source="Enacted:" />{selectedOrdinance.dateEnacted}
                   </span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-black text-white leading-snug">

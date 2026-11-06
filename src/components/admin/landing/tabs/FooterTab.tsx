@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
@@ -250,7 +251,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
               className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{showAddLogoForm ? 'Close Form' : 'Add Logo'}</span>
+              <span>{showAddLogoForm ? translateInterfaceText("Close Form") : 'Add Logo'}</span>
             </button>
           </div>
         </div>
@@ -315,7 +316,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
 
               {uploadSuccessMsg && (
                 <p className="text-[11px] text-emerald-800 font-bold mt-1 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" /> {uploadSuccessMsg}
+                  <Check className="w-3.5 h-3.5" /> {<LocalizedFeedback value={uploadSuccessMsg} />}
                 </p>
               )}
             </div>
@@ -490,9 +491,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                               {logo.name}
                             </span>
                             {isPrimary && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 shrink-0">
-                                Primary
-                              </span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 shrink-0"><InterfaceText source="Primary" /></span>
                             )}
                           </div>
                           <span className="text-[10px] text-stone-400 truncate block font-mono">
@@ -508,11 +507,11 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                       <button
                         type="button"
                         onClick={() => handleStartEditLogoName(logo)}
-                        title="Edit Name"
+                        title={translateInterfaceText("Edit Name")}
                         className="p-1.5 rounded-lg hover:bg-stone-200 text-stone-700 hover:text-emerald-700 cursor-pointer flex items-center gap-1"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-semibold hidden md:inline">Edit Name</span>
+                        <span className="text-[10px] font-semibold hidden md:inline"><InterfaceText source="Edit Name" /></span>
                       </button>
                     )}
                     {!isPrimary && (

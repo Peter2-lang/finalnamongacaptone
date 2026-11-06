@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
@@ -148,7 +149,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
-      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{<LocalizedFeedback value={cloudError} />}</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-amber-900 via-stone-900 to-emerald-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-amber-800/60 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -324,7 +325,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                           : 'bg-stone-200 text-stone-600'
                       }`}
                     >
-                      {alert.isActive ? 'Active' : 'Closed'}
+                      {alert.isActive ? translateInterfaceText("Active") : 'Closed'}
                     </span>
                   </div>
 
@@ -623,7 +624,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                           </span>
                           <span className="text-[10px] text-stone-500">Brgy. {swine.barangay}</span>
                         </div>
-                        <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{swine.farmerName}</strong> ({swine.farmerContact || 'No contact'})
+                        <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{swine.farmerName}</strong> ({swine.farmerContact || translateInterfaceText("No contact")})
                         </p>
                       </div>
 

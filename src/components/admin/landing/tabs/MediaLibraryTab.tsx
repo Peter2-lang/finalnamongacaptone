@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   FolderOpen,
@@ -217,7 +217,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 text-[11px] text-stone-500 self-end sm:self-auto">
-            <span><InterfaceText source="Showing" /><strong>{filteredItems.length}</strong> of {mediaItems.length} assets
+            <span><InterfaceText source="Showing" /><strong>{filteredItems.length}</strong>{" "}<InterfaceText source="of" />{" "}{mediaItems.length} assets
             </span>
           </div>
         </div>
@@ -307,7 +307,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 <button
                   type="button"
                   onClick={() => handleCopyLink(item)}
-                  title="Copy URL"
+                  title={translateInterfaceText("Copy URL")}
                   className="p-1.5 rounded-lg hover:bg-stone-200 text-stone-600 cursor-pointer"
                 >
                   {copiedId === item.id ? (

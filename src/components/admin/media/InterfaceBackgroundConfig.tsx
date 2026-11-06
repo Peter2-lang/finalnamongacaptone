@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../../i18n/interfaceText';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
@@ -354,7 +355,7 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
-                <span>📁 Import from Device</span>
+                <span><InterfaceText source="📁 Import from Device" /></span>
               </button>
 
               <button
@@ -363,7 +364,7 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 className="flex-1 py-2.5 px-4 rounded-xl bg-stone-800 hover:bg-stone-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
                 <LinkIcon className="w-4 h-4 text-emerald-400" />
-                <span>🔗 Use Image URL</span>
+                <span><InterfaceText source="🔗 Use Image URL" /></span>
               </button>
 
               {imageUrl && (
@@ -590,14 +591,14 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 placeholder="https://images.unsplash.com/..."
                 className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
               />
-              {urlError && <p className="text-[11px] text-red-600 font-medium">{urlError}</p>}
+              {urlError && <p className="text-[11px] text-red-600 font-medium">{<LocalizedFeedback value={urlError} />}</p>}
             </div>
 
             {urlInput.trim() && (
               <div className="h-28 rounded-xl border border-stone-200 bg-stone-50 overflow-hidden flex items-center justify-center">
                 <img
                   src={urlInput}
-                  alt="Preview"
+                  alt={translateInterfaceText("Preview")}
                   className="max-h-full max-w-full object-contain"
                   onError={() => setUrlError('Unable to load image from this URL')}
                 />

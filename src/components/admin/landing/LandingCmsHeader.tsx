@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../../i18n/interfaceText';
 import React from 'react';
 import {
   Globe,
@@ -145,7 +145,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
             <div className="bg-slate-100/90 p-1 rounded-xl flex items-center border border-slate-200 shadow-inner">
               <button
                 onClick={() => onChangeDeviceMode('desktop')}
-                title="Desktop View (100%)"
+                title={translateInterfaceText("Desktop View (100%)")}
                 className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                   deviceMode === 'desktop' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
@@ -154,7 +154,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
               </button>
               <button
                 onClick={() => onChangeDeviceMode('tablet')}
-                title="Tablet View (768px)"
+                title={translateInterfaceText("Tablet View (768px)")}
                 className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                   deviceMode === 'tablet' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
@@ -163,7 +163,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
               </button>
               <button
                 onClick={() => onChangeDeviceMode('mobile')}
-                title="Mobile View (375px)"
+                title={translateInterfaceText("Mobile View (375px)")}
                 className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                   deviceMode === 'mobile' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
@@ -227,7 +227,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
             <span className={`w-2 h-2 rounded-full ${config.status === 'published' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
           </div>
           <div className="font-black text-slate-900 text-sm">
-            {config.status === 'published' ? 'Published' : 'Draft Mode'}
+            {config.status === 'published' ? translateInterfaceText("Published") : 'Draft Mode'}
           </div>
           <span className="text-[11px] text-slate-500 mt-0.5 block">Live in production</span>
         </div>

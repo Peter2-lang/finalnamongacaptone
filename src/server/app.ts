@@ -1,3 +1,4 @@
+import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
 import { answerAssistant, type Generate } from './assistantEngine.ts';
 import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
 import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
@@ -3303,10 +3304,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       const result = await answerAssistant(req.body,publicMode ? {role:'guest'} : user, {generate:options.assistantGenerate});
       return res.json(result);
     } catch (error) {
-      console.warn('[ASSISTANT] request unavailable', {kind:error instanceof Error ? error.name : 'unknown'});
-      const language = req.body?.language;
-      const message = language === 'ceb' ? 'Dili magamit ang AI karon. Sulayi pag-usab. Para sa pinakabag-ong datos, ablihi ang gitugot nga pahina sa rekord.' : language === 'fil' ? 'Hindi magamit ang AI sa ngayon. Subukang muli. Tingnan ang awtorisadong pahina ng mga tala para sa pinakabagong datos.' : 'The AI assistant is temporarily unavailable. Please try again, or open your authorized records page for current data.';
-      return res.status(503).json({success:false,error:message});
+      const code=assistantErrorCode(error);
+      console.warn('[ASSISTANT] request unavailable',{code});
+      return res.status(503).json({success:false,error:assistantErrorMessage(code,req.body?.language,!publicMode&&user.isAdmin),code});
     }
   };
   app.post('/api/public/assistant/chat',handleAssistant);

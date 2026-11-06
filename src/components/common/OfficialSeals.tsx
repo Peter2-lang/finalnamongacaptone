@@ -1,3 +1,4 @@
+import { translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import { landingCmsService } from '../../services/landingCmsService';
 
@@ -621,7 +622,7 @@ export const SealProvince: React.FC<{ className?: string; style?: React.CSSPrope
     return (
       <img
         src={activeUrl}
-        alt="Province of Southern Leyte Seal"
+        alt={translateInterfaceText("Province of Southern Leyte Seal")}
         style={style}
         className={`${className} shrink-0 select-none object-contain rounded-full`}
         referrerPolicy="no-referrer"

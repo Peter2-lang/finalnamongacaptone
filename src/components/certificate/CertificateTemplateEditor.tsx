@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
@@ -806,7 +807,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>{isUploadingAsset ? 'Uploading image…' : isSaving ? 'Saving…' : 'Save Template'}</span>
+            <span>{isUploadingAsset ? 'Uploading image…' : isSaving ? translateInterfaceText("Saving…") : 'Save Template'}</span>
           </button>
 
           <button
@@ -939,7 +940,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
         )}
         {!isLoadingTemplates && templateLoadError && (
           <div role="alert" className="flex flex-wrap items-center gap-3 pt-1 text-xs text-rose-200">
-            <span>Saved templates could not be loaded: {templateLoadError}</span>
+            <span>Saved templates could not be loaded: {<LocalizedFeedback value={templateLoadError} />}</span>
             <button
               type="button"
               onClick={() => void loadTemplates()}
@@ -1259,13 +1260,13 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             {logo.type === 'barangay'
                               ? `Barangay Seal (${logo.barangayName || template.barangay})`
                               : logo.type === 'municipality'
-                              ? 'Municipality of Hinunangan Seal'
+                              ? translateInterfaceText("Municipality of Hinunangan Seal")
                               : logo.type === 'da'
-                              ? 'Department of Agriculture (DA) Seal'
+                              ? translateInterfaceText("Department of Agriculture (DA) Seal")
                               : logo.type === 'bagong_pilipinas'
                               ? 'Bagong Pilipinas Official Logo'
                               : logo.type === 'province'
-                              ? 'Province of Southern Leyte Seal'
+                              ? translateInterfaceText("Province of Southern Leyte Seal")
                               : 'Custom Uploaded Logo'}
                           </span>
                         </div>
@@ -1276,7 +1277,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             onClick={() => handleMoveLogo(index, 'up')}
                             disabled={index === 0}
                             className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                            title="Move Up"
+                            title={translateInterfaceText("Move Up")}
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -1285,7 +1286,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             onClick={() => handleMoveLogo(index, 'down')}
                             disabled={index === (template.logos?.length || 0) - 1}
                             className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                            title="Move Down"
+                            title={translateInterfaceText("Move Down")}
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
@@ -1499,7 +1500,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           #{index + 1}
                         </span>
                         <span className="text-xs font-black text-slate-900 uppercase">
-                          {sig.position || 'Signatory'}
+                          {sig.position || translateInterfaceText("Signatory")}
                         </span>
                       </div>
 
@@ -1509,7 +1510,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           onClick={() => handleMoveSignatory(index, 'up')}
                           disabled={index === 0}
                           className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                          title="Move Up"
+                          title={translateInterfaceText("Move Up")}
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
@@ -1518,7 +1519,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           onClick={() => handleMoveSignatory(index, 'down')}
                           disabled={index === (template.signatories?.length || 0) - 1}
                           className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                          title="Move Down"
+                          title={translateInterfaceText("Move Down")}
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
@@ -1748,10 +1749,10 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         }
                         className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="municipality">Municipality of Hinunangan Seal</option>
+                        <option value="municipality">{translateInterfaceText("Municipality of Hinunangan Seal")}</option>
                         <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
-                        <option value="da">Department of Agriculture (DA) Seal</option>
-                        <option value="province">Province of Southern Leyte Seal</option>
+                        <option value="da">{translateInterfaceText("Department of Agriculture (DA) Seal")}</option>
+                        <option value="province">{translateInterfaceText("Province of Southern Leyte Seal")}</option>
                         <option value="custom">Custom Uploaded Watermark</option>
                       </select>
                     </div>
@@ -1970,9 +1971,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl font-semibold text-slate-900"
                 >
                   <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
-                  <option value="municipality">Municipality of Hinunangan Seal</option>
-                  <option value="province">Province of Southern Leyte Seal</option>
-                  <option value="da">Department of Agriculture (DA) Seal</option>
+                  <option value="municipality">{translateInterfaceText("Municipality of Hinunangan Seal")}</option>
+                  <option value="province">{translateInterfaceText("Province of Southern Leyte Seal")}</option>
+                  <option value="da">{translateInterfaceText("Department of Agriculture (DA) Seal")}</option>
                   <option value="bagong_pilipinas">Bagong Pilipinas Official Logo</option>
                   <option value="custom">Custom Uploaded File</option>
                 </select>
@@ -2099,16 +2100,14 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         setImportError(null);
                       }}
                       className="rounded-lg border border-slate-600 px-2 py-1 font-bold text-slate-200 hover:bg-slate-800"
-                    >
-                      Replace File
-                    </button>
+                    ><InterfaceText source="Replace File" /></button>
                   </div>
                 </div>
               )}
 
               {importError && (
                 <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
-                  {importError}
+                  {<LocalizedFeedback value={importError} />}
                 </div>
               )}
 
@@ -2178,7 +2177,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                   {importedTemplate.warnings.length > 0 && (
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
                       {importedTemplate.warnings.map(warning => (
-                        <p key={warning} className="mb-1 last:mb-0">• {warning}</p>
+                        <p key={warning} className="mb-1 last:mb-0">• {<LocalizedFeedback value={warning} />}</p>
                       ))}
                     </div>
                   )}

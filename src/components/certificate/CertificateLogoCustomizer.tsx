@@ -336,7 +336,7 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                   ) : localSettings.leftLogoUrl ? (
                     <img
                       src={localSettings.leftLogoUrl}
-                      alt="Left Seal"
+                      alt={translateInterfaceText("Left Seal")}
                       className="w-7 h-7 object-contain rounded-full"
                     />
                   ) : (
@@ -472,7 +472,7 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                   ) : localSettings.rightLogoUrl ? (
                     <img
                       src={localSettings.rightLogoUrl}
-                      alt="Right Seal"
+                      alt={translateInterfaceText("Right Seal")}
                       className="w-7 h-7 object-contain rounded-full"
                     />
                   ) : (
@@ -758,7 +758,7 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
               }}
               className="px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold cursor-pointer text-xs shadow-sm transition"
             >
-              {saving ? 'Saving…' : 'Apply & Close'}
+              {saving ? translateInterfaceText("Saving…") : 'Apply & Close'}
             </button>
           </div>
         </div>

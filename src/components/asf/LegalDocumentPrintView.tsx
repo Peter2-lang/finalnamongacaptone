@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { ASFRegulatoryDocument } from '../../types';
 import { Printer, ArrowLeft, Building, Scale, ShieldCheck } from 'lucide-react';
@@ -36,7 +37,7 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
 
         <div className="flex items-center gap-3">
           {printError ? (
-            <span role="alert" className="text-xs font-medium text-red-700">{printError}</span>
+            <span role="alert" className="text-xs font-medium text-red-700">{<LocalizedFeedback value={printError} />}</span>
           ) : (
             <span className="text-xs text-stone-500 font-medium hidden sm:inline">
               Official document ready to print
@@ -207,7 +208,7 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
             <p className="text-stone-500 mb-8">Official Record System:</p>
             <p className="font-bold text-emerald-900 uppercase text-sm">OMAS Hinunangan</p>
             <p className="text-stone-600">Swine & Livestock Registry System</p>
-            <p className="text-stone-400 text-[10px] mt-1">Status: {doc.status?.toUpperCase() || 'ACTIVE'}</p>
+            <p className="text-stone-400 text-[10px] mt-1"><InterfaceText source="Status:" />{" "}{doc.status?.toUpperCase() || translateInterfaceText("ACTIVE")}</p>
           </div>
         </div>
       </div>

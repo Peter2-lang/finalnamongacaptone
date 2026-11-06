@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Phone, Mail, MapPin, Clock, ShieldAlert, Image as ImageIcon } from 'lucide-react';
 import { LandingCmsConfig } from '../../../../types/landingCms';
@@ -30,7 +30,7 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
                   value={config.contactTitleColor || '#064e3b'}
                   onChange={e => onChange({ contactTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -51,7 +51,7 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
                   value={config.contactSubtitleColor || '#78716c'}
                   onChange={e => onChange({ contactSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>

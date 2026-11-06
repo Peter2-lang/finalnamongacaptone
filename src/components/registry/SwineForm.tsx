@@ -1,6 +1,7 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { useLanguage } from '../../context/LanguageContext';
 import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Upload,
@@ -774,7 +775,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   : 'bg-emerald-100 text-emerald-800 border-emerald-300'
               }`}
             >
-              {currentASFZone} Zone {currentASFZone === 'RED' ? '(Infected)' : currentASFZone === 'PINK' ? '(Buffer)' : currentASFZone === 'YELLOW' ? '(Surveillance)' : '(Free)'}
+              {currentASFZone}{" "}<InterfaceText source="Zone" />{" "}{currentASFZone === 'RED' ? '(Infected)' : currentASFZone === 'PINK' ? '(Buffer)' : currentASFZone === 'YELLOW' ? '(Surveillance)' : '(Free)'}
             </span>
           </div>
           <select
@@ -1185,7 +1186,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             {birthDateError && (
               <p className="text-[11px] font-bold text-red-600 mt-1 flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                {birthDateError}
+                {<LocalizedFeedback value={birthDateError} />}
               </p>
             )}
           </div>
@@ -1234,7 +1235,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                 </label>
               </div>
               <p className="text-[11px] text-stone-500">JPEG, PNG, WebP, or GIF; maximum 8 MB. The image is uploaded to Supabase Storage.</p>
-              {photoUploadError && <p className="text-[11px] text-red-700 mt-1">{photoUploadError}</p>}
+              {photoUploadError && <p className="text-[11px] text-red-700 mt-1">{<LocalizedFeedback value={photoUploadError} />}</p>}
             </div>
             <div>
               <div className="w-full h-36 rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 flex items-center justify-center overflow-hidden relative shadow-inner">
@@ -1490,8 +1491,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
                     {currentDoc.title}
                   </span>
-                  <span className="text-[10px] text-stone-500">
-                    Enacted: <strong>{currentDoc.enacted}</strong>
+                  <span className="text-[10px] text-stone-500"><InterfaceText source="Enacted:" /><strong>{currentDoc.enacted}</strong>
                   </span>
                 </div>
                 <h4 className="font-black text-xs text-stone-900 mt-1">{currentDoc.knownAs}</h4>
@@ -1746,8 +1746,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   )}
                 </div>
-                <div className="text-[11px] font-bold text-stone-500 mb-2">
-                  Min required: <strong className="text-stone-900">&gt;25m</strong>
+                <div className="text-[11px] font-bold text-stone-500 mb-2"><InterfaceText source="Min required:" /><strong className="text-stone-900">&gt;25m</strong>
                 </div>
                 <input
                   type="number"
@@ -1778,8 +1777,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   )}
                 </div>
-                <div className="text-[11px] font-bold text-stone-500 mb-2">
-                  Min required: <strong className="text-stone-900">&gt;200m</strong>
+                <div className="text-[11px] font-bold text-stone-500 mb-2"><InterfaceText source="Min required:" /><strong className="text-stone-900">&gt;200m</strong>
                 </div>
                 <input
                   type="number"
@@ -1810,8 +1808,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   )}
                 </div>
-                <div className="text-[11px] font-bold text-stone-500 mb-2">
-                  Min required: <strong className="text-stone-900">&gt;50m</strong>
+                <div className="text-[11px] font-bold text-stone-500 mb-2"><InterfaceText source="Min required:" /><strong className="text-stone-900">&gt;50m</strong>
                 </div>
                 <input
                   type="number"
@@ -2021,7 +2018,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               <span className="text-[11px] text-stone-400">No document attached</span>
             )}
           </div>
-          {attachmentError && <p className="text-[10px] text-red-700 mt-1">{attachmentError}</p>}
+          {attachmentError && <p className="text-[10px] text-red-700 mt-1">{<LocalizedFeedback value={attachmentError} />}</p>}
           {field.helpText && <p className="text-[10px] text-stone-500 mt-1">{field.helpText}</p>}
         </div>
       );
@@ -2094,7 +2091,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               <span className="text-[11px] text-stone-400">No image attached</span>
             )}
           </div>
-          {attachmentError && <p className="text-[10px] text-red-700 mt-1">{attachmentError}</p>}
+          {attachmentError && <p className="text-[10px] text-red-700 mt-1">{<LocalizedFeedback value={attachmentError} />}</p>}
           {field.helpText && <p className="text-[10px] text-stone-500 mt-1">{field.helpText}</p>}
         </div>
       );
@@ -2457,7 +2454,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
     const ageResult = birthDate ? calculateSwineAge(birthDate) : null;
     if (ageResult && !ageResult.isValid) {
       setBirthDateError(ageResult.errorMessage || 'Date of birth cannot be in the future.');
-      alert(ageResult.errorMessage || 'Date of birth cannot be in the future.');
+      alert(ageResult.errorMessage || translateInterfaceText("Date of birth cannot be in the future."));
       stopSubmission();
       return;
     }
@@ -2741,7 +2738,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
           <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
           <div className="flex-1">
             <h4 className="font-bold text-sm text-red-900">Database Synchronization Error</h4>
-            <p className="text-xs text-red-700 mt-1 leading-relaxed">{submitError}</p>
+            <p className="text-xs text-red-700 mt-1 leading-relaxed">{<LocalizedFeedback value={submitError} />}</p>
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
@@ -2982,7 +2979,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                           biosecurityPercentage >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
                         }`}>
-                          {biosecurityPercentage >= 70 ? 'Compliant' : 'Needs Upgrade'}
+                          {biosecurityPercentage >= 70 ? translateInterfaceText("Compliant") : 'Needs Upgrade'}
                         </span>
                       </div>
                     </div>
@@ -3031,7 +3028,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                         {error && (
                           <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold text-red-700" role="alert">
                             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            <span>{error}</span>
+                            <span>{<LocalizedFeedback value={error} />}</span>
                           </p>
                         )}
                       </div>
@@ -3065,9 +3062,9 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             )}
             <span>
               {isSubmitting
-                ? 'Saving...'
+                ? translateInterfaceText("Saving...")
                 : initialData
-                ? 'Update Swine Record'
+                ? translateInterfaceText("Update Swine Record")
                 : 'Save Swine to Registry'}
             </span>
           </button>

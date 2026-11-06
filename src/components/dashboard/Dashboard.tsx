@@ -1058,11 +1058,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-stone-50 text-stone-700 font-semibold border-b border-stone-200 uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="py-3 px-4">Ear Tag</th>
+                <th className="py-3 px-4"><InterfaceText source="Ear Tag" /></th>
                 <th className="py-3 px-4"><InterfaceText source="Farmer / Raiser" /></th>
                 <th className="py-3 px-4"><InterfaceText source="Barangay" /></th>
                 <th className="py-3 px-4"><InterfaceText source="Breed" /></th>
-                <th className="py-3 px-4">Live Weight</th>
+                <th className="py-3 px-4"><InterfaceText source="Live Weight" /></th>
                 <th className="py-3 px-4">Estimated Price</th>
                 <th className="py-3 px-4">Target Sell Date</th>
                 <th className="py-3 px-4 text-center">Action</th>

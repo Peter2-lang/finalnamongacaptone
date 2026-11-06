@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
@@ -1358,7 +1359,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               )}
               {!isLoadingTemplates && templateLoadError && (
                 <div role="alert" className="flex flex-wrap items-center gap-3 text-xs text-rose-700 sm:col-span-2 xl:col-span-4">
-                  <span>Template list could not be loaded: {templateLoadError}</span>
+                  <span>Template list could not be loaded: {<LocalizedFeedback value={templateLoadError} />}</span>
                   <button type="button" onClick={() => void loadTemplates()} className="min-h-10 rounded-lg border border-rose-300 px-3 font-bold hover:bg-rose-50"><InterfaceText source="Retry" /></button>
                 </div>
               )}
@@ -1425,7 +1426,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-50"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Download PDF</span>
+                  <span><InterfaceText source="Download PDF" /></span>
                 </button>
               </div>
             </div>
@@ -1767,7 +1768,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   Statutory audit and master record of authorized swine movement and biosecurity clearances
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-500 pt-2">
-                  <span><strong>Scope:</strong> {reportBarangayFilter === 'all' ? 'All Municipal Barangays (40 Barangays)' : `Barangay ${reportBarangayFilter}`}</span>
+                  <span><strong>Scope:</strong> {reportBarangayFilter === 'all' ? 'All Municipal Barangays (40 Barangays)' : translateInterfaceText("Barangay {arg0}", {arg0: reportBarangayFilter})}</span>
                   <span>•</span>
                   <span><strong>Period:</strong> {reportDateFrom} to {reportDateTo}</span>
                   <span>•</span>
@@ -1957,7 +1958,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               </h1>
               <p className="text-xs text-stone-500 font-semibold">
                 Cropping Season: {croppingSeason} | Barangay Scope:{' '}
-                {selectedBarangayScope === 'all' ? 'All 40 Barangays' : `Barangay ${selectedBarangayScope}`}
+                {selectedBarangayScope === 'all' ? translateInterfaceText("All 40 Barangays") : translateInterfaceText("Barangay {arg0}", {arg0: selectedBarangayScope})}
               </p>
             </div>
 
@@ -2055,7 +2056,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                       {isColVisible('biosecurity') && (
                         <td className="border border-stone-300 p-2 text-center">
                           <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold text-[10px]">
-                            {swine.biosecurityStatus || 'Not recorded'}
+                            {swine.biosecurityStatus || translateInterfaceText("Not recorded")}
                           </span>
                         </td>
                       )}
@@ -2163,7 +2164,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   className="px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>{isExportingReportPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+                  <span>{isExportingReportPdf ? 'Generating PDF...' : translateInterfaceText("Download PDF")}</span>
                 </button>
               </div>
             </div>
@@ -2191,7 +2192,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   OFFICIAL BIOSECURITY AUDIT & ASF SURVEILLANCE COMPLIANCE REPORT
                 </h1>
                 <p className="text-xs text-stone-500 font-semibold">
-                  Coverage: {selectedBarangayScope === 'all' ? 'All listed barangays' : `Barangay ${selectedBarangayScope}`} • Based on saved registry records
+                  Coverage: {selectedBarangayScope === 'all' ? 'All listed barangays' : translateInterfaceText("Barangay {arg0}", {arg0: selectedBarangayScope})} • Based on saved registry records
                 </p>
               </div>
 
@@ -2202,7 +2203,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                     Biosecurity data summary
                   </h3>
                   <p className="text-xs text-stone-700 mt-0.5">
-                    {greenZoneCount} of {totalSwineHeads} visible registered records are marked compliant. This report does not infer area-wide ASF status.
+                    {greenZoneCount}{" "}<InterfaceText source="of" />{" "}{totalSwineHeads} visible registered records are marked compliant. This report does not infer area-wide ASF status.
                   </p>
                 </div>
                 <div className="bg-stone-100 text-stone-800 font-black text-xs px-3.5 py-1.5 rounded-lg shadow-2xs">
@@ -2257,13 +2258,13 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                             {auditedRecords.length || '—'}
                           </td>
                           <td className="border border-stone-300 p-2 text-center font-bold">
-                            {auditedRecords.length ? `${footbathCount}/${auditedRecords.length} recorded` : 'Not recorded'}
+                            {auditedRecords.length ? `${footbathCount}/${auditedRecords.length} recorded` : translateInterfaceText("Not recorded")}
                           </td>
                           <td className="border border-stone-300 p-2 text-center font-semibold">
-                            {setbackRecords.length ? `${setbackPassCount}/${setbackRecords.length} pass` : 'Not recorded'}
+                            {setbackRecords.length ? `${setbackPassCount}/${setbackRecords.length} pass` : translateInterfaceText("Not recorded")}
                           </td>
                           <td className="border border-stone-300 p-2 text-center">
-                            {zones || 'Not recorded'}
+                            {zones || translateInterfaceText("Not recorded")}
                           </td>
                         </tr>
                       );
@@ -2521,8 +2522,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               </p>
               <p className="font-semibold text-slate-700"><InterfaceText source="Farmer:" /><span className="uppercase">{certToDelete.farmerName}</span>
               </p>
-              <p className="text-slate-500">
-                Barangay: {certToDelete.farmerBarangay || certToDelete.issuingBarangay || 'N/A'} • OR No: {certToDelete.orNumber || 'N/A'}
+              <p className="text-slate-500"><InterfaceText source="Barangay:" />{certToDelete.farmerBarangay || certToDelete.issuingBarangay || 'N/A'} • OR No: {certToDelete.orNumber || 'N/A'}
               </p>
             </div>
 

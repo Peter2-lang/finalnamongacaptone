@@ -1273,7 +1273,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
               <span>Section 8: Professional Media Library</span>
             </div>
             <h2 className="text-xl font-bold text-stone-900 mt-1">All Uploaded Media Assets</h2>
-            <p className="text-xs text-stone-500"><InterfaceText source="Showing" />{filteredMedia.length} of {(config.mediaItems || []).length} media records.
+            <p className="text-xs text-stone-500"><InterfaceText source="Showing" />{filteredMedia.length}{" "}<InterfaceText source="of" />{" "}{(config.mediaItems || []).length} media records.
             </p>
           </div>
 
@@ -1431,7 +1431,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                         className={`p-1.5 rounded-full backdrop-blur-xs shadow-xs transition ${
                           isVisible ? 'bg-emerald-600/90 text-white' : 'bg-stone-700/80 text-stone-300'
                         }`}
-                        title={isVisible ? 'Visible on website' : 'Hidden'}
+                        title={isVisible ? 'Visible on website' : translateInterfaceText("Hidden")}
                       >
                         {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                       </button>
@@ -1480,7 +1480,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                         }
                       }}
                       className="py-1.5 px-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 flex items-center justify-center gap-1 cursor-pointer"
-                      title="Replace File"
+                      title={translateInterfaceText("Replace File")}
                     >
                       <RefreshCw className="w-3 h-3" />
                       <span>Swap</span>
@@ -1493,7 +1493,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                         showToast('Image URL copied to clipboard!', 'info');
                       }}
                       className="py-1.5 px-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 flex items-center justify-center gap-1 cursor-pointer"
-                      title="Copy URL"
+                      title={translateInterfaceText("Copy URL")}
                     >
                       <Copy className="w-3 h-3" />
                       <span><InterfaceText source="Use" /></span>
@@ -1519,7 +1519,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
             <table className="w-full text-left text-xs">
               <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="p-3">Preview</th>
+                  <th className="p-3"><InterfaceText source="Preview" /></th>
                   <th className="p-3">Filename / Title</th>
                   <th className="p-3"><InterfaceText source="Category" /></th>
                   <th className="p-3">Dimensions</th>
@@ -1562,7 +1562,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                           }`}
                         >
                           {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                          <span>{isVisible ? 'Visible' : 'Hidden'}</span>
+                          <span>{isVisible ? translateInterfaceText("Visible") : translateInterfaceText("Hidden")}</span>
                         </button>
                       </td>
                       <td className="p-3 text-right space-x-1">
@@ -1743,7 +1743,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                       <Upload className="w-6 h-6" />
                     </div>
                     <div className="font-bold text-stone-800 text-sm">Drag and drop your files here</div>
-                    <p className="text-stone-500 text-xs">or</p>
+                    <p className="text-stone-500 text-xs"><InterfaceText source="or" /></p>
                     <button
                       type="button"
                       className="py-1.5 px-4 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800"
@@ -1767,11 +1767,11 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                     <option value="hero">{translateInterfaceText("Hero Images")}</option>
                     <option value="backgrounds">{translateInterfaceText("Interface Background")}</option>
                     <option value="slsu">SLSU</option>
-                    <option value="extension">Extension Center</option>
+                    <option value="extension">{translateInterfaceText("Extension Center")}</option>
                     <option value="gallery">{translateInterfaceText("Gallery")}</option>
                     <option value="social">{translateInterfaceText("Social Media")}</option>
                     <option value="videos">{translateInterfaceText("Videos")}</option>
-                    <option value="other">Other</option>
+                    <option value="other">{translateInterfaceText("Other")}</option>
                   </select>
                 </div>
 
@@ -1782,21 +1782,21 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                     onChange={e => setUploadPlacement(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-semibold"
                   >
-                    <option value="Header">Header</option>
-                    <option value="Hero">Hero Section</option>
+                    <option value="Header">{translateInterfaceText("Header")}</option>
+                    <option value="Hero">{translateInterfaceText("Hero Section")}</option>
                     <option value="About">About / Academic</option>
-                    <option value="Features">Features Section</option>
-                    <option value="Gallery">Gallery Section</option>
-                    <option value="Partners">Partners & Seals</option>
+                    <option value="Features">{translateInterfaceText("Features Section")}</option>
+                    <option value="Gallery">{translateInterfaceText("Gallery Section")}</option>
+                    <option value="Partners">{translateInterfaceText("Partners & Seals")}</option>
                     <option value="Contact">Contact Section</option>
-                    <option value="Footer">Footer</option>
+                    <option value="Footer">{translateInterfaceText("Footer")}</option>
                     <option value="Background">{translateInterfaceText("Interface Background")}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-stone-700 block">Title / Name</label>
+                <label className="font-bold text-stone-700 block"><InterfaceText source="Title / Name" /></label>
                 <input
                   type="text"
                   value={uploadTitle}
@@ -1916,7 +1916,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>📁 Import Image from Device</span>
+                  <span><InterfaceText source="📁 Import Image from Device" /></span>
                 </button>
                 <button
                   type="button"
@@ -1928,7 +1928,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                   }`}
                 >
                   <LinkIcon className="w-3.5 h-3.5" />
-                  <span>🔗 Use Image URL</span>
+                  <span><InterfaceText source="🔗 Use Image URL" /></span>
                 </button>
               </div>
 
@@ -2078,7 +2078,7 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
               {/* Right Metadata Fields */}
               <div className="md:col-span-6 space-y-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700 block">Title / Name</label>
+                  <label className="font-bold text-stone-700 block"><InterfaceText source="Title / Name" /></label>
                   <input
                     type="text"
                     value={selectedMediaForEdit.name || ''}
@@ -2112,11 +2112,11 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                       <option value="hero">{translateInterfaceText("Hero Images")}</option>
                       <option value="backgrounds">{translateInterfaceText("Backgrounds")}</option>
                       <option value="slsu">SLSU</option>
-                      <option value="extension">Extension Center</option>
+                      <option value="extension">{translateInterfaceText("Extension Center")}</option>
                       <option value="gallery">{translateInterfaceText("Gallery")}</option>
                       <option value="social">{translateInterfaceText("Social Media")}</option>
                       <option value="videos">{translateInterfaceText("Videos")}</option>
-                      <option value="other">Other</option>
+                      <option value="other">{translateInterfaceText("Other")}</option>
                     </select>
                   </div>
 
@@ -2129,14 +2129,14 @@ const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigat
                       }
                       className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white"
                     >
-                      <option value="Header">Header</option>
-                      <option value="Hero">Hero Section</option>
+                      <option value="Header">{translateInterfaceText("Header")}</option>
+                      <option value="Hero">{translateInterfaceText("Hero Section")}</option>
                       <option value="About">{translateInterfaceText("About Section")}</option>
-                      <option value="Features">Features Section</option>
-                      <option value="Gallery">Gallery Section</option>
-                      <option value="Partners">Partners & Seals</option>
+                      <option value="Features">{translateInterfaceText("Features Section")}</option>
+                      <option value="Gallery">{translateInterfaceText("Gallery Section")}</option>
+                      <option value="Partners">{translateInterfaceText("Partners & Seals")}</option>
                       <option value="Contact">{translateInterfaceText("Contact")}</option>
-                      <option value="Footer">Footer</option>
+                      <option value="Footer">{translateInterfaceText("Footer")}</option>
                       <option value="Background">Background</option>
                     </select>
                   </div>

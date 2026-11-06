@@ -1,3 +1,4 @@
+import { translateInterfaceText } from '../../i18n/interfaceText';
 import React, { ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { isDynamicImportFailure } from '../../utils/chunkLoadRecovery';
@@ -39,7 +40,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h2 className="text-lg font-bold text-stone-900 mb-2">
-              {isChunkLoadError ? 'This page could not be loaded' : 'Something went wrong'}
+              {isChunkLoadError ? translateInterfaceText("This page could not be loaded") : 'Something went wrong'}
             </h2>
             <p className="text-xs text-stone-600 mb-4">
               {isChunkLoadError
@@ -54,7 +55,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs px-4 py-2 rounded-xl transition cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              {isChunkLoadError ? 'Reload application' : 'Reload Application'}
+              {isChunkLoadError ? translateInterfaceText("Reload application") : 'Reload Application'}
             </button>
           </div>
         </div>

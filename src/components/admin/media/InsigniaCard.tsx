@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   FolderOpen,
@@ -249,7 +250,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
             }`}
           >
             <Smartphone className="w-3 h-3" />
-            <span className="text-[9px] font-mono">{logo.mobileVisible ? 'ON' : 'OFF'}</span>
+            <span className="text-[9px] font-mono">{logo.mobileVisible ? translateInterfaceText("ON") : translateInterfaceText("OFF")}</span>
           </button>
 
           {/* Visibility badge */}
@@ -264,7 +265,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
             }`}
           >
             {logo.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-            <span>{logo.visible ? 'Visible' : 'Hidden'}</span>
+            <span>{logo.visible ? translateInterfaceText("Visible") : translateInterfaceText("Hidden")}</span>
           </button>
         </div>
       </div>
@@ -313,8 +314,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
           </p>
 
           <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] text-stone-400 font-medium">
-            <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200">
-              Placement: <strong className="text-stone-800 capitalize">{logo.placement || 'Header'}</strong>
+            <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200"><InterfaceText source="Placement:" /><strong className="text-stone-800 capitalize">{logo.placement || translateInterfaceText("Header")}</strong>
             </span>
             <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200">
               Size: <strong className="text-stone-800">{logo.sizePx || 44}px</strong>
@@ -345,7 +345,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
               onClick={() => onMoveLogo(index, 'up')}
               disabled={index === 0}
               className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs"
-              title="Move Up"
+              title={translateInterfaceText("Move Up")}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -354,7 +354,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
               onClick={() => onMoveLogo(index, 'down')}
               disabled={index === totalLogos - 1}
               className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs"
-              title="Move Down"
+              title={translateInterfaceText("Move Down")}
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
@@ -441,7 +441,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
                   }`}
                 >
                   <FolderOpen className="w-4 h-4 text-emerald-700" />
-                  <span>📁 Import from Device</span>
+                  <span><InterfaceText source="📁 Import from Device" /></span>
                 </button>
 
                 <button
@@ -455,7 +455,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
                   }`}
                 >
                   <LinkIcon className="w-4 h-4 text-blue-700" />
-                  <span>🔗 Use Image URL</span>
+                  <span><InterfaceText source="🔗 Use Image URL" /></span>
                 </button>
               </div>
 
@@ -558,7 +558,7 @@ export const InsigniaCard: React.FC<InsigniaCardProps> = ({
                     {urlError && (
                       <p className="text-[11px] text-red-600 flex items-center gap-1 font-semibold">
                         <AlertCircle className="w-3.5 h-3.5" />
-                        <span>{urlError}</span>
+                        <span>{<LocalizedFeedback value={urlError} />}</span>
                       </p>
                     )}
                   </div>

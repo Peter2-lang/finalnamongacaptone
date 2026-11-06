@@ -1,0 +1,658 @@
+{
+  "Not recorded": {
+    "ceb": "Wala marekord",
+    "fil": "Hindi naitala"
+  },
+  "Hidden": {
+    "ceb": "Gitago",
+    "fil": "Nakatago"
+  },
+  "Hide password": {
+    "ceb": "Tagoa ang password",
+    "fil": "Itago ang password"
+  },
+  "Show password": {
+    "ceb": "Ipakita ang password",
+    "fil": "Ipakita ang password"
+  },
+  "Sort:": {
+    "ceb": "Han-aya:",
+    "fil": "Ayusin:"
+  },
+  "meters": {
+    "ceb": "metros",
+    "fil": "metro"
+  },
+  "Meters": {
+    "ceb": "Metros",
+    "fil": "Metro"
+  },
+  "Barangay:": {
+    "ceb": "Barangay:",
+    "fil": "Barangay:"
+  },
+  "Zone": {
+    "ceb": "Sona",
+    "fil": "Sona"
+  },
+  "ZONE": {
+    "ceb": "SONA",
+    "fil": "SONA"
+  },
+  "View on Facebook": {
+    "ceb": "Tan-awa sa Facebook",
+    "fil": "Tingnan sa Facebook"
+  },
+  "Move Up": {
+    "ceb": "Ibalhin Paibabaw",
+    "fil": "Ilipat Pataas"
+  },
+  "Move Down": {
+    "ceb": "Ibalhin Paubos",
+    "fil": "Ilipat Pababa"
+  },
+  "Municipal Office": {
+    "ceb": "Opisina sa Munisipyo",
+    "fil": "Tanggapan ng Bayan"
+  },
+  "Title Font Color": {
+    "ceb": "Kolor sa Font sa Titulo",
+    "fil": "Kulay ng Font ng Pamagat"
+  },
+  "Hide from landing page": {
+    "ceb": "Tagoa sa publikong pahina",
+    "fil": "Itago sa pampublikong pahina"
+  },
+  "Show on landing page": {
+    "ceb": "Ipakita sa publikong pahina",
+    "fil": "Ipakita sa pampublikong pahina"
+  },
+  "Subtitle Font Color": {
+    "ceb": "Kolor sa Font sa Subtitle",
+    "fil": "Kulay ng Font ng Subtitle"
+  },
+  "🔗 Use Image URL": {
+    "ceb": "🔗 Gamita ang URL sa Litrato",
+    "fil": "🔗 Gamitin ang URL ng Larawan"
+  },
+  "No.": {
+    "ceb": "Num.",
+    "fil": "Blg."
+  },
+  "Province of Southern Leyte Seal": {
+    "ceb": "Selyo sa Probinsya sa Southern Leyte",
+    "fil": "Selyo ng Lalawigan ng Southern Leyte"
+  },
+  "• Brgy.": {
+    "ceb": "• Brgy.",
+    "fil": "• Brgy."
+  },
+  "Date of birth cannot be in the future.": {
+    "ceb": "Dili mahimong umaabot nga petsa ang petsa sa pagkatawo.",
+    "fil": "Hindi maaaring nasa hinaharap ang petsa ng kapanganakan."
+  },
+  "Level": {
+    "ceb": "Lebel",
+    "fil": "Antas"
+  },
+  "By:": {
+    "ceb": "Ni:",
+    "fil": "Ni:"
+  },
+  "Brgy. {arg0}": {
+    "ceb": "Brgy. {arg0}",
+    "fil": "Brgy. {arg0}"
+  },
+  "ON": {
+    "ceb": "AKTIBO",
+    "fil": "BUKAS"
+  },
+  "OFF": {
+    "ceb": "DILI AKTIBO",
+    "fil": "SARADO"
+  },
+  "Saving…": {
+    "ceb": "Gitipigan…",
+    "fil": "Sine-save…"
+  },
+  "System Logo": {
+    "ceb": "Logo sa Sistema",
+    "fil": "Logo ng Sistema"
+  },
+  "Watch on YouTube": {
+    "ceb": "Tan-awa sa YouTube",
+    "fil": "Panoorin sa YouTube"
+  },
+  "Official Municipal Notice": {
+    "ceb": "Opisyal nga Pahibalo sa Munisipyo",
+    "fil": "Opisyal na Abiso ng Bayan"
+  },
+  "Header": {
+    "ceb": "Ulohan",
+    "fil": "Header"
+  },
+  "Preview": {
+    "ceb": "Paunang Tan-aw",
+    "fil": "Paunang Tingnan"
+  },
+  "Standard Commercial": {
+    "ceb": "Standard nga Komersiyal",
+    "fil": "Pamantayang Komersiyal"
+  },
+  "Author:": {
+    "ceb": "Awtor:",
+    "fil": "May-akda:"
+  },
+  "Enacted:": {
+    "ceb": "Gipatuman:",
+    "fil": "Pinagtibay:"
+  },
+  "Municipal Ordinance": {
+    "ceb": "Ordinansa sa Munisipyo",
+    "fil": "Ordinansa ng Bayan"
+  },
+  "Left Seal": {
+    "ceb": "Selyo sa Wala",
+    "fil": "Selyo sa Kaliwa"
+  },
+  "Right Seal": {
+    "ceb": "Selyo sa Tuo",
+    "fil": "Selyo sa Kanan"
+  },
+  "Download PDF": {
+    "ceb": "I-download ang PDF",
+    "fil": "I-download ang PDF"
+  },
+  "Barangay {arg0}": {
+    "ceb": "Barangay {arg0}",
+    "fil": "Barangay {arg0}"
+  },
+  "Municipality of Hinunangan Seal": {
+    "ceb": "Selyo sa Munisipyo sa Hinunangan",
+    "fil": "Selyo ng Bayan ng Hinunangan"
+  },
+  "Department of Agriculture (DA) Seal": {
+    "ceb": "Selyo sa Departamento sa Agrikultura (DA)",
+    "fil": "Selyo ng Kagawaran ng Agrikultura (DA)"
+  },
+  "Title": {
+    "ceb": "Titulo",
+    "fil": "Pamagat"
+  },
+  "Toggle navigation menu": {
+    "ceb": "Ablihi o isira ang menu sa nabigasyon",
+    "fil": "Buksan o isara ang menu ng nabigasyon"
+  },
+  "Install on iPhone / iPad": {
+    "ceb": "I-install sa iPhone / iPad",
+    "fil": "I-install sa iPhone / iPad"
+  },
+  "Swine": {
+    "ceb": "Baboy",
+    "fil": "Baboy"
+  },
+  "Record status": {
+    "ceb": "Kahimtang sa rekord",
+    "fil": "Katayuan ng tala"
+  },
+  "record": {
+    "ceb": "rekord",
+    "fil": "tala"
+  },
+  "Min required:": {
+    "ceb": "Kinagamyang gikinahanglan:",
+    "fil": "Pinakamababang kailangan:"
+  },
+  "This page could not be loaded": {
+    "ceb": "Dili makarga kini nga pahina",
+    "fil": "Hindi ma-load ang pahinang ito"
+  },
+  "Reload application": {
+    "ceb": "I-reload ang aplikasyon",
+    "fil": "I-reload ang aplikasyon"
+  },
+  "user": {
+    "ceb": "gumagamit",
+    "fil": "gumagamit"
+  },
+  "Green Zone (Free)": {
+    "ceb": "Berdeng Sona (Walay Kaso)",
+    "fil": "Berdeng Sona (Walang Kaso)"
+  },
+  "Yellow Zone (Buffer)": {
+    "ceb": "Dalag nga Sona (Buffer)",
+    "fil": "Dilaw na Sona (Buffer)"
+  },
+  "Normal": {
+    "ceb": "Normal",
+    "fil": "Normal"
+  },
+  "At least 12 characters, including uppercase, lowercase, a number, and a symbol.": {
+    "ceb": "Labing menos 12 ka karakter, apil ang dakong letra, gamayng letra, numero, ug simbolo.",
+    "fil": "Hindi bababa sa 12 karakter, kasama ang malaking titik, maliit na titik, numero, at simbolo."
+  },
+  "Reset Password": {
+    "ceb": "I-reset ang Password",
+    "fil": "I-reset ang Password"
+  },
+  "No contact": {
+    "ceb": "Walay kontak",
+    "fil": "Walang kontak"
+  },
+  "ACTIVE": {
+    "ceb": "AKTIBO",
+    "fil": "AKTIBO"
+  },
+  "Desktop View (100%)": {
+    "ceb": "Tan-aw sa Desktop (100%)",
+    "fil": "Tanaw sa Desktop (100%)"
+  },
+  "Tablet View (768px)": {
+    "ceb": "Tan-aw sa Tablet (768px)",
+    "fil": "Tanaw sa Tablet (768px)"
+  },
+  "Mobile View (375px)": {
+    "ceb": "Tan-aw sa Mobile (375px)",
+    "fil": "Tanaw sa Mobile (375px)"
+  },
+  "Using core standard fields. No custom fields added yet.": {
+    "ceb": "Gigamit ang standard nga mga field. Wala pay nadugang nga custom nga field.",
+    "fil": "Ginagamit ang mga standard na field. Wala pang idinagdag na custom na field."
+  },
+  "• Required": {
+    "ceb": "• Gikinahanglan",
+    "fil": "• Kinakailangan"
+  },
+  "• Auto-Generated": {
+    "ceb": "• Awtomatikong Gihimo",
+    "fil": "• Awtomatikong Ginawa"
+  },
+  "• Fixed": {
+    "ceb": "• Pirmi",
+    "fil": "• Nakapirmi"
+  },
+  "Published": {
+    "ceb": "Na-publish",
+    "fil": "Nailathala"
+  },
+  "Agent / Buyer": {
+    "ceb": "Ahente / Mamalitay",
+    "fil": "Ahente / Mamimili"
+  },
+  "Primary": {
+    "ceb": "Panguna",
+    "fil": "Pangunahin"
+  },
+  "Required Field": {
+    "ceb": "Gikinahanglang Field",
+    "fil": "Kinakailangang Field"
+  },
+  "Ear Tag": {
+    "ceb": "Tag sa Dalunggan",
+    "fil": "Tag sa Tainga"
+  },
+  "Custom": {
+    "ceb": "Gipasibo",
+    "fil": "Custom"
+  },
+  "✏️ Editable": {
+    "ceb": "✏️ Mahimong Usbon",
+    "fil": "✏️ Maaaring Baguhin"
+  },
+  "Delete Field": {
+    "ceb": "Tangtangon ang Field",
+    "fil": "Tanggalin ang Field"
+  },
+  "Enter {arg0}...": {
+    "ceb": "Isulod ang {arg0}...",
+    "fil": "Ilagay ang {arg0}..."
+  },
+  "Default": {
+    "ceb": "Orihinal",
+    "fil": "Default"
+  },
+  "Sidebar Logo": {
+    "ceb": "Logo sa Sidebar",
+    "fil": "Logo ng Sidebar"
+  },
+  "Compact": {
+    "ceb": "Gamay nga Porma",
+    "fil": "Compact"
+  },
+  "Description Font Color": {
+    "ceb": "Kolor sa Font sa Deskripsyon",
+    "fil": "Kulay ng Font ng Paglalarawan"
+  },
+  "Media": {
+    "ceb": "Media",
+    "fil": "Media"
+  },
+  "Move Card Up": {
+    "ceb": "Ibalhin ang Kard Paibabaw",
+    "fil": "Ilipat ang Card Pataas"
+  },
+  "Move Card Down": {
+    "ceb": "Ibalhin ang Kard Paubos",
+    "fil": "Ilipat ang Card Pababa"
+  },
+  "Delete Card": {
+    "ceb": "Tangtangon ang Kard",
+    "fil": "Tanggalin ang Card"
+  },
+  "Close Form": {
+    "ceb": "Isira ang Porma",
+    "fil": "Isara ang Form"
+  },
+  "Edit Name": {
+    "ceb": "Usba ang Ngalan",
+    "fil": "Baguhin ang Pangalan"
+  },
+  "e.g. DA HINUNANGAN SWINE REGISTRY": {
+    "ceb": "pananglitan: DA HINUNANGAN SWINE REGISTRY",
+    "fil": "hal. DA HINUNANGAN SWINE REGISTRY"
+  },
+  "Paste image URL or click Import Photo": {
+    "ceb": "Idikit ang URL sa litrato o i-click ang I-import ang Litrato",
+    "fil": "Idikit ang URL ng larawan o i-click ang Mag-import ng Larawan"
+  },
+  "Target Link / Action": {
+    "ceb": "Target nga Link / Aksyon",
+    "fil": "Target na Link / Aksyon"
+  },
+  "Known as: “": {
+    "ceb": "Nailhan isip: “",
+    "fil": "Kilala bilang: “"
+  },
+  "Copy URL": {
+    "ceb": "Kopyaha ang URL",
+    "fil": "Kopyahin ang URL"
+  },
+  "ID:": {
+    "ceb": "ID:",
+    "fil": "ID:"
+  },
+  "Action Button Text (Editable)": {
+    "ceb": "Teksto sa Button sa Aksyon (Mahimong Usbon)",
+    "fil": "Teksto ng Button ng Aksyon (Maaaring Baguhin)"
+  },
+  "Facebook is Blue": {
+    "ceb": "Asul ang Facebook",
+    "fil": "Asul ang Facebook"
+  },
+  "YouTube is Red": {
+    "ceb": "Pula ang YouTube",
+    "fil": "Pula ang YouTube"
+  },
+  "Else (Custom / Green)": {
+    "ceb": "Uban pa (Gipasibo / Berde)",
+    "fil": "Iba pa (Custom / Berde)"
+  },
+  "Official Link": {
+    "ceb": "Opisyal nga Link",
+    "fil": "Opisyal na Link"
+  },
+  "Delete post": {
+    "ceb": "Tangtangon ang post",
+    "fil": "Tanggalin ang post"
+  },
+  "System Sans-Serif": {
+    "ceb": "Sans-Serif sa Sistema",
+    "fil": "Sans-Serif ng Sistema"
+  },
+  "Placement:": {
+    "ceb": "Pagbutang:",
+    "fil": "Paglalagay:"
+  },
+  "📁 Import from Device": {
+    "ceb": "📁 I-import gikan sa Device",
+    "fil": "📁 Mag-import mula sa Device"
+  },
+  "📁 Import Image from Device": {
+    "ceb": "📁 I-import ang Litrato gikan sa Device",
+    "fil": "📁 Mag-import ng Larawan mula sa Device"
+  },
+  "Replace File": {
+    "ceb": "Ilisi ang File",
+    "fil": "Palitan ang File"
+  },
+  "or": {
+    "ceb": "o",
+    "fil": "o"
+  },
+  "Extension Center": {
+    "ceb": "Sentro sa Extension",
+    "fil": "Sentro ng Extension"
+  },
+  "Other": {
+    "ceb": "Uban pa",
+    "fil": "Iba pa"
+  },
+  "Hero Section": {
+    "ceb": "Pangunang Seksyon",
+    "fil": "Pangunahing Seksyon"
+  },
+  "Features Section": {
+    "ceb": "Seksyon sa mga Feature",
+    "fil": "Seksyon ng mga Feature"
+  },
+  "Gallery Section": {
+    "ceb": "Seksyon sa Galeriya",
+    "fil": "Seksyon ng Galeriya"
+  },
+  "Partners & Seals": {
+    "ceb": "Mga Kauban ug Selyo",
+    "fil": "Mga Katuwang at Selyo"
+  },
+  "Footer": {
+    "ceb": "Ubos nga Bahin",
+    "fil": "Footer"
+  },
+  "Title / Name": {
+    "ceb": "Titulo / Ngalan",
+    "fil": "Pamagat / Pangalan"
+  },
+  "Live Weight": {
+    "ceb": "Buhing Timbang",
+    "fil": "Buhay na Timbang"
+  },
+  "Swine {arg0}": {
+    "ceb": "Baboy {arg0}",
+    "fil": "Baboy {arg0}"
+  },
+  "Farm Scale:": {
+    "ceb": "Gidak-on sa Uma:",
+    "fil": "Laki ng Bukid:"
+  },
+  "Restore": {
+    "ceb": "Ibalik",
+    "fil": "Ibalik"
+  },
+  "Permanently Delete": {
+    "ceb": "Permanenteng Tangtangon",
+    "fil": "Permanenteng Tanggalin"
+  },
+  "Mandatory": {
+    "ceb": "Kinahanglanon",
+    "fil": "Sapilitan"
+  },
+  "Provincial Ordinance": {
+    "ceb": "Ordinansa sa Probinsya",
+    "fil": "Ordinansa ng Lalawigan"
+  },
+  "Republic Act": {
+    "ceb": "Republic Act",
+    "fil": "Republic Act"
+  },
+  "Department Order": {
+    "ceb": "Kautusan sa Departamento",
+    "fil": "Kautusan ng Kagawaran"
+  },
+  "Other Legal Document": {
+    "ceb": "Ubang Legal nga Dokumento",
+    "fil": "Iba pang Legal na Dokumento"
+  },
+  "Author / Sponsor": {
+    "ceb": "Awtor / Tigpasiugda",
+    "fil": "May-akda / Tagapagtaguyod"
+  },
+  "e.g. Hon. Gezar S. Ngoho": {
+    "ceb": "pananglitan: Hon. Gezar S. Ngoho",
+    "fil": "hal. Hon. Gezar S. Ngoho"
+  },
+  "Date Enacted": {
+    "ceb": "Petsa sa Pagpatuman",
+    "fil": "Petsa ng Pagpapatibay"
+  },
+  "Status:": {
+    "ceb": "Kahimtang:",
+    "fil": "Katayuan:"
+  },
+  "Created": {
+    "ceb": "Gihimo",
+    "fil": "Ginawa"
+  },
+  "Updated": {
+    "ceb": "Na-update",
+    "fil": "Na-update"
+  },
+  "Restored": {
+    "ceb": "Gibalik",
+    "fil": "Naibalik"
+  },
+  "The operation could not be completed.": {
+    "ceb": "Dili mahuman ang operasyon.",
+    "fil": "Hindi makumpleto ang operasyon."
+  },
+  "Find a page": {
+    "ceb": "Pangitaa ang pahina",
+    "fil": "Maghanap ng pahina"
+  },
+  "Find a page…": {
+    "ceb": "Pangitaa ang pahina…",
+    "fil": "Maghanap ng pahina…"
+  },
+  "Matching pages": {
+    "ceb": "Mga pahinang motakdo",
+    "fil": "Mga tumutugmang pahina"
+  },
+  "Close sidebar drawer": {
+    "ceb": "Isira ang sidebar",
+    "fil": "Isara ang sidebar"
+  },
+  "Municipal workspace": {
+    "ceb": "Workspace sa Munisipyo",
+    "fil": "Workspace ng Bayan"
+  },
+  "Current section": {
+    "ceb": "Kasamtangang seksyon",
+    "fil": "Kasalukuyang seksyon"
+  },
+  "Workspace": {
+    "ceb": "Workspace",
+    "fil": "Workspace"
+  },
+  "Public Info": {
+    "ceb": "Publikong Impormasyon",
+    "fil": "Pampublikong Impormasyon"
+  },
+  "Text": {
+    "ceb": "Teksto",
+    "fil": "Teksto"
+  },
+  "Number": {
+    "ceb": "Numero",
+    "fil": "Numero"
+  },
+  "Date": {
+    "ceb": "Petsa",
+    "fil": "Petsa"
+  },
+  "Long Text": {
+    "ceb": "Taas nga Teksto",
+    "fil": "Mahabang Teksto"
+  },
+  "Dropdown": {
+    "ceb": "Lista sa mga Kapilian",
+    "fil": "Listahan ng mga Pagpipilian"
+  },
+  "Checkbox": {
+    "ceb": "Kahon sa Pagpili",
+    "fil": "Checkbox"
+  },
+  "Select": {
+    "ceb": "Pilia",
+    "fil": "Piliin"
+  },
+  "Choose File": {
+    "ceb": "Pilia ang File",
+    "fil": "Pumili ng File"
+  },
+  "No file selected": {
+    "ceb": "Walay napiling file",
+    "fil": "Walang napiling file"
+  },
+  "Column Name": {
+    "ceb": "Ngalan sa Kolum",
+    "fil": "Pangalan ng Column"
+  },
+  "Field Type": {
+    "ceb": "Klase sa Field",
+    "fil": "Uri ng Field"
+  },
+  "Detected Type": {
+    "ceb": "Namatikdang Klase",
+    "fil": "Natukoy na Uri"
+  },
+  "New Fields Detected": {
+    "ceb": "Bag-ong mga Field nga Namatikdan",
+    "fil": "Mga Bagong Field na Natukoy"
+  },
+  "Valid Records": {
+    "ceb": "Balidong mga Rekord",
+    "fil": "Mga Wastong Tala"
+  },
+  "Invalid Records": {
+    "ceb": "Dili Balidong mga Rekord",
+    "fil": "Mga Hindi Wastong Tala"
+  },
+  "Duplicate Records": {
+    "ceb": "Nadoble nga mga Rekord",
+    "fil": "Mga Dobleng Tala"
+  },
+  "Successful Records": {
+    "ceb": "Malampusong mga Rekord",
+    "fil": "Mga Matagumpay na Tala"
+  },
+  "Failed Records": {
+    "ceb": "Napakyas nga mga Rekord",
+    "fil": "Mga Nabigong Tala"
+  },
+  "Validation Issues": {
+    "ceb": "Mga Problema sa Pagsusi",
+    "fil": "Mga Suliranin sa Pagpapatunay"
+  },
+  "Download Error Report": {
+    "ceb": "I-download ang Report sa mga Sayop",
+    "fil": "I-download ang Ulat ng mga Error"
+  },
+  "Manual Pin Mode": {
+    "ceb": "Manwal nga Pin Mode",
+    "fil": "Manwal na Pin Mode"
+  },
+  "Set Location": {
+    "ceb": "Itakda ang Lokasyon",
+    "fil": "Itakda ang Lokasyon"
+  },
+  "Clear Pin": {
+    "ceb": "Tangtangon ang Pin",
+    "fil": "Alisin ang Pin"
+  },
+  "Search barangay or swine...": {
+    "ceb": "Pangitaa ang barangay o baboy...",
+    "fil": "Maghanap ng barangay o baboy..."
+  },
+  "Farmer Name": {
+    "ceb": "Ngalan sa Mag-uuma",
+    "fil": "Pangalan ng Magsasaka"
+  }
+}

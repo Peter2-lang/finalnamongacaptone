@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Globe, Image as ImageIcon, Mail, Phone, MapPin, Compass, Upload } from 'lucide-react';
 import { LandingCmsConfig } from '../../../../types/landingCms';
@@ -27,7 +27,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
               value={config.siteName}
               onChange={e => onChange({ siteName: e.target.value })}
               className="w-full px-3 py-2 rounded-xl border border-stone-300 font-bold text-stone-900 focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
-              placeholder="e.g. DA HINUNANGAN SWINE REGISTRY"
+              placeholder={translateInterfaceText("e.g. DA HINUNANGAN SWINE REGISTRY")}
             />
           </div>
 
@@ -116,7 +116,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
               <div className="flex-1 space-y-1">
                 <input
                   type="text"
-                  placeholder="Paste image URL or click Import Photo"
+                  placeholder={translateInterfaceText("Paste image URL or click Import Photo")}
                   value={config.faviconUrl}
                   onChange={e => onChange({ faviconUrl: e.target.value })}
                   className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-[11px] font-mono"
@@ -136,7 +136,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">System Logo</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="System Logo" /></label>
               <label className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg cursor-pointer transition">
                 <Upload className="w-3 h-3" />
                 <span><InterfaceText source="Import Photo" /></span>
@@ -161,13 +161,13 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
             <div className="flex items-center gap-3">
               <img
                 src={config.systemLogoUrl || '/icon.svg'}
-                alt="System Logo"
+                alt={translateInterfaceText("System Logo")}
                 className="w-10 h-10 p-1 rounded-xl border border-stone-200 object-contain bg-stone-50"
               />
               <div className="flex-1 space-y-1">
                 <input
                   type="text"
-                  placeholder="Paste image URL or click Import Photo"
+                  placeholder={translateInterfaceText("Paste image URL or click Import Photo")}
                   value={config.systemLogoUrl}
                   onChange={e => onChange({ systemLogoUrl: e.target.value })}
                   className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-[11px] font-mono"

@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -458,7 +459,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in duration-150">
       <div className="bg-white max-w-5xl w-full rounded-2xl shadow-2xl border border-stone-200 flex flex-col max-h-[95vh] overflow-hidden">
-        {saveError && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>}
+        {saveError && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
         {isLoadingTemplates && <div role="status" className="px-4 py-2 text-xs text-stone-600">Loading templates from database...</div>}
 
         {/* Header Bar */}
@@ -894,7 +895,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
             >
               <Check className="w-4 h-4" />
               <span>
-                {isSaving ? 'Saving to database...' : isEditMode ? 'Save Changes' : 'Save & Issue Certificate'}
+                {isSaving ? 'Saving to database...' : isEditMode ? translateInterfaceText("Save Changes") : 'Save & Issue Certificate'}
               </span>
             </button>
 

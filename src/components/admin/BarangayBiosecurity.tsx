@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
@@ -381,7 +382,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
             {databaseError && (
               <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-                {databaseError}
+                {<LocalizedFeedback value={databaseError} />}
               </div>
             )}
             {printNotice && (
@@ -419,7 +420,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                   title={translateInterfaceText("Select Barangay")}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <span className="text-emerald-300 font-semibold">Barangay:</span>
+                    <span className="text-emerald-300 font-semibold"><InterfaceText source="Barangay:" /></span>
                     <span className="font-extrabold text-white truncate">
                       {selectedBarangay ? `[ ${selectedBarangay.name} ▼ ]` : '[ Select Barangay ▼ ]'}
                     </span>
@@ -747,11 +748,11 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                             : 'bg-red-600'
                         }`}
                       />
-                      <span>{selectedBarangay.riskLevel} Zone</span>
+                      <span>{selectedBarangay.riskLevel}{" "}<InterfaceText source="Zone" /></span>
                     </span>
                   </div>
                   <p className="text-xs text-stone-500 flex items-center gap-2">
-                    <span>Focal Person: <strong className="text-stone-800">{selectedBarangay.focalPersonName || 'Municipal Office'}</strong></span>
+                    <span>Focal Person: <strong className="text-stone-800">{selectedBarangay.focalPersonName || translateInterfaceText("Municipal Office")}</strong></span>
                   </p>
                 </div>
 
@@ -828,7 +829,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                       selectedBarangay.riskLevel === 'green' ? 'bg-emerald-500' : selectedBarangay.riskLevel === 'yellow' ? 'bg-amber-500' : 'bg-red-500'
                     }`} />
                     <span className="text-lg font-black text-stone-900 uppercase">
-                      {selectedBarangay.riskLevel === 'green' ? 'Green Zone (Free)' : selectedBarangay.riskLevel === 'yellow' ? 'Yellow Zone (Buffer)' : 'Red Zone (Quarantine)'}
+                      {selectedBarangay.riskLevel === 'green' ? translateInterfaceText("Green Zone (Free)") : selectedBarangay.riskLevel === 'yellow' ? translateInterfaceText("Yellow Zone (Buffer)") : 'Red Zone (Quarantine)'}
                     </span>
                   </div>
                   <p className="text-xs text-stone-500">
@@ -844,8 +845,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                 <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-2">
                   <span className="text-[11px] font-black uppercase tracking-wider text-stone-500">2. Biosecurity Level</span>
                   <div className="flex items-center justify-between">
-                    <span className="text-xl font-black text-stone-900">
-                      Level {selectedAudit?.biosecurityLevel ?? 2}
+                    <span className="text-xl font-black text-stone-900"><InterfaceText source="Level" />{selectedAudit?.biosecurityLevel ?? 2}
                     </span>
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                       {selectedAudit?.complianceScore ?? 85}% Score
@@ -911,8 +911,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                   <div className="text-base font-black text-stone-900 truncate">
                     {selectedAudit?.auditDate ? selectedAudit.auditDate : 'Pending Initial Audit'}
                   </div>
-                  <p className="text-xs text-stone-500 truncate">
-                    By: {selectedAudit?.auditorName || 'MAO Biosecurity Officer'}
+                  <p className="text-xs text-stone-500 truncate"><InterfaceText source="By:" />{selectedAudit?.auditorName || 'MAO Biosecurity Officer'}
                   </p>
                 </div>
 
@@ -927,8 +926,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                         ? 'bg-amber-100 text-amber-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {selectedBarangay.riskLevel} Zone
-                    </span>
+                      {selectedBarangay.riskLevel}<InterfaceText source="Zone" /></span>
                     <span className="text-xs font-bold text-stone-800">
                       {selectedBarangay.riskLevel === 'green'
                         ? 'Low Risk — Inter-barangay Swine Transit Authorized'
@@ -1113,7 +1111,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                             </div>
                             <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-1">
                               <MapPin className="w-3 h-3 text-stone-400" />
-                              <span>Focal: {b.focalPersonName || 'Municipal Office'}</span>
+                              <span>Focal: {b.focalPersonName || translateInterfaceText("Municipal Office")}</span>
                             </p>
                           </div>
 
@@ -1136,7 +1134,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                                   : 'bg-red-600'
                               }`}
                             />
-                            <span>{b.riskLevel} Zone</span>
+                            <span>{b.riskLevel}{" "}<InterfaceText source="Zone" /></span>
                           </span>
                         </div>
 
@@ -1144,8 +1142,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                         <div className="mt-4 p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-2">
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-stone-600 font-semibold"><InterfaceText source="Biosecurity Rating" /></span>
-                            <span className="font-extrabold text-stone-900">
-                              Level {level} ({score}%)
+                            <span className="font-extrabold text-stone-900"><InterfaceText source="Level" />{level} ({score}%)
                             </span>
                           </div>
 
@@ -1275,7 +1272,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                       <span className="font-semibold text-emerald-800"><InterfaceText source="Action:" /></span>
                       <span>{inc.actionTaken}</span>
                       <span className="text-stone-300">|</span>
-                      <span>By: {inc.reportedBy}</span>
+                      <span><InterfaceText source="By:" />{" "}{inc.reportedBy}</span>
                     </div>
                   </div>
 
@@ -1395,8 +1392,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-emerald-800"><InterfaceText source="Score:" />{auditForm.complianceScore}%
                     </span>
-                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
-                      Level {auditForm.biosecurityLevel}
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900"><InterfaceText source="Level" />{auditForm.biosecurityLevel}
                     </span>
                   </div>
                 </div>
@@ -1658,9 +1654,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                         ? 'bg-stone-800 text-white border-stone-800'
                         : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                     }`}
-                  >
-                    Normal
-                  </button>
+                  ><InterfaceText source="Normal" /></button>
                   <button
                     type="button"
                     onClick={() => setAdvisoryPriority('advisory')}
@@ -1748,7 +1742,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
               <div className="bg-stone-50 border border-stone-200 p-4 rounded-xl space-y-2">
                 <div className="flex justify-between font-semibold">
                   <span>Assigned ASF Biosurveillance Zone:</span>
-                  <span className="uppercase font-bold text-emerald-800">{printingAudit.asfZone} ZONE</span>
+                  <span className="uppercase font-bold text-emerald-800">{printingAudit.asfZone}{" "}<InterfaceText source="ZONE" /></span>
                 </div>
                 <div className="flex justify-between font-semibold">
                   <span>Biosecurity Classification:</span>

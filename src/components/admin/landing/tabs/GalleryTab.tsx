@@ -133,7 +133,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                 <button
                   type="button"
                   onClick={() => handleToggleVisible(photo.id)}
-                  title={photo.showOnLanding ? 'Visible on Landing' : 'Hidden'}
+                  title={photo.showOnLanding ? 'Visible on Landing' : translateInterfaceText("Hidden")}
                   className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black text-white cursor-pointer"
                 >
                   {photo.showOnLanding ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -203,9 +203,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                   type="button"
                   onClick={() => onOpenMediaPicker('newGalleryPhoto')}
                   className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 cursor-pointer"
-                >
-                  Media
-                </button>
+                ><InterfaceText source="Media" /></button>
               )}
             </div>
           </div>

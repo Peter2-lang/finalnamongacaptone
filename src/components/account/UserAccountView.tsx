@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   User,
@@ -158,7 +159,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             <p className="text-xs text-stone-500 flex flex-wrap items-center gap-2">
               <span>Account ID: <strong className="font-mono text-stone-700">{currentUser?.id || 'ACC-8821'}</strong></span>
               <span>•</span>
-              <span><InterfaceText source="Username:" />{" "}<strong className="font-semibold text-stone-800">@{currentUser?.username || 'user'}</strong></span>
+              <span><InterfaceText source="Username:" />{" "}<strong className="font-semibold text-stone-800">@{currentUser?.username || translateInterfaceText("user")}</strong></span>
               {isFocal && assignedBarangay && (
                 <>
                   <span>•</span>
@@ -260,7 +261,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2">
               <div className="flex justify-between">
                 <span className="text-stone-500 font-medium"><InterfaceText source="Username:" /></span>
-                <span className="font-semibold text-stone-800">@{currentUser?.username || 'user'}</span>
+                <span className="font-semibold text-stone-800">@{currentUser?.username || translateInterfaceText("user")}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-stone-500 font-medium">Assigned Role:</span>
@@ -304,7 +305,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             {passwordError && (
               <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{passwordError}</span>
+                <span>{<LocalizedFeedback value={passwordError} />}</span>
               </div>
             )}
 

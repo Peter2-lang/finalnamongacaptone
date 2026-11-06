@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../../i18n/interfaceText';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
@@ -725,7 +726,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                     }`}
                   >
                     {logo.visible ? <Eye className="w-3 h-3 text-emerald-600" /> : <EyeOff className="w-3 h-3" />}
-                    {logo.visible ? 'Active' : 'Hidden'}
+                    {logo.visible ? translateInterfaceText("Active") : translateInterfaceText("Hidden")}
                   </span>
                 </div>
 
@@ -755,7 +756,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                   ) : logo.defaultComponent ? (
                     renderVectorSeal(logo.defaultComponent, 'w-20 h-20')
                   ) : (
-                    <img src="/icon.svg" alt="System Logo" className="w-16 h-16 object-contain" />
+                    <img src="/icon.svg" alt={translateInterfaceText("System Logo")} className="w-16 h-16 object-contain" />
                   )}
 
                   {/* Badge indicating source */}
@@ -766,8 +767,8 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
 
                 {/* Placement Details */}
                 <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
-                  <span>Placement: <strong className="text-stone-700 capitalize">{logo.placement.replace('_', ' ')}</strong></span>
-                  <span>Mobile: <strong className={logo.mobileVisible ? 'text-emerald-700' : 'text-stone-400'}>{logo.mobileVisible ? 'Shown' : 'Hidden'}</strong></span>
+                  <span><InterfaceText source="Placement:" />{" "}<strong className="text-stone-700 capitalize">{logo.placement.replace('_', ' ')}</strong></span>
+                  <span>Mobile: <strong className={logo.mobileVisible ? 'text-emerald-700' : 'text-stone-400'}>{logo.mobileVisible ? 'Shown' : translateInterfaceText("Hidden")}</strong></span>
                 </div>
               </div>
 
@@ -850,7 +851,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                   ) : activeEditingEntry.defaultComponent ? (
                     renderVectorSeal(activeEditingEntry.defaultComponent, 'w-20 h-20')
                   ) : (
-                    <img src="/icon.svg" alt="Default" className="w-16 h-16 object-contain" />
+                    <img src="/icon.svg" alt={translateInterfaceText("Default")} className="w-16 h-16 object-contain" />
                   )}
                 </div>
                 <p className="text-[10px] text-stone-400 text-center">Active system logo</p>
@@ -898,7 +899,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5 text-blue-700" />
-                  <span>📁 Import Image from Device</span>
+                  <span><InterfaceText source="📁 Import Image from Device" /></span>
                 </button>
                 <button
                   type="button"
@@ -910,7 +911,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                   }`}
                 >
                   <LinkIcon className="w-3.5 h-3.5 text-blue-700" />
-                  <span>🔗 Use Image URL</span>
+                  <span><InterfaceText source="🔗 Use Image URL" /></span>
                 </button>
               </div>
 
@@ -980,7 +981,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
                         Preview URL
                       </button>
                     </div>
-                    {urlError && <p className="text-[11px] text-red-600 font-medium">{urlError}</p>}
+                    {urlError && <p className="text-[11px] text-red-600 font-medium">{<LocalizedFeedback value={urlError} />}</p>}
                   </div>
                 </div>
               )}
@@ -1179,7 +1180,7 @@ export const LogoConfiguration: React.FC<LogoConfigurationProps> = ({
 
               {newPartnerUrl && (
                 <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-center h-24">
-                  <img src={newPartnerUrl} alt="Preview" className="max-h-full object-contain" />
+                  <img src={newPartnerUrl} alt={translateInterfaceText("Preview")} className="max-h-full object-contain" />
                 </div>
               )}
             </div>

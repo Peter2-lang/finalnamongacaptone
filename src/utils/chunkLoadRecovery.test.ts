@@ -31,14 +31,14 @@ let firstEventPrevented = false;
 listener({
   preventDefault: () => { firstEventPrevented = true; },
 } as unknown as Event);
-assert.equal(firstEventPrevented, true);
-assert.equal(reloadCount, 1);
+assert.equal(firstEventPrevented, false);
+assert.equal(reloadCount, 0);
 
 let secondEventPrevented = false;
 listener({
   preventDefault: () => { secondEventPrevented = true; },
 } as unknown as Event);
 assert.equal(secondEventPrevented, false);
-assert.equal(reloadCount, 1);
+assert.equal(reloadCount, 0);
 
 console.log('Dynamic import recovery tests passed.');

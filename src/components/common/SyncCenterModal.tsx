@@ -289,8 +289,7 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
                         <div className="font-bold text-slate-800 capitalize">
                           {item.operation} {item.entity}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          ID: {item.entityId} • {new Date(item.createdAt).toLocaleTimeString()}
+                        <div className="text-[10px] text-slate-400 font-mono"><InterfaceText source="ID:" />{item.entityId} • {new Date(item.createdAt).toLocaleTimeString()}
                         </div>
                       </div>
                     </div>

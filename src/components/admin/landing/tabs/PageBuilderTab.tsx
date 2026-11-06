@@ -85,7 +85,7 @@ export const PageBuilderTab: React.FC<PageBuilderTabProps> = ({ config, onChange
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <span className="font-bold text-stone-900 text-xs">Page Sections Hierarchy</span>
           <span className="text-[11px] text-stone-400">
-            {sections.filter(s => s.enabled).length} of {sections.length} Sections Active
+            {sections.filter(s => s.enabled).length}{" "}<InterfaceText source="of" />{" "}{sections.length} Sections Active
           </span>
         </div>
 
@@ -123,7 +123,7 @@ export const PageBuilderTab: React.FC<PageBuilderTabProps> = ({ config, onChange
                   onChange={e => handleUpdate(section.id, { padding: e.target.value as any })}
                   className="px-2 py-1 rounded-lg border border-stone-300 bg-white text-[10px]"
                 >
-                  <option value="small">Compact</option>
+                  <option value="small">{translateInterfaceText("Compact")}</option>
                   <option value="medium">Default Spacing</option>
                   <option value="large">Spacious</option>
                 </select>

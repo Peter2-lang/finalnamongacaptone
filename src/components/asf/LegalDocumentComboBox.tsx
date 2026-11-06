@@ -180,7 +180,7 @@ export const LegalDocumentComboBox: React.FC<LegalDocumentComboBoxProps> = ({
                           {doc.title}
                         </p>
                         {doc.author && (
-                          <span className="text-[10px] text-stone-400">Author: {doc.author}</span>
+                          <span className="text-[10px] text-stone-400"><InterfaceText source="Author:" />{" "}{doc.author}</span>
                         )}
                       </div>
                     </div>

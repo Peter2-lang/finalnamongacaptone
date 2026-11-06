@@ -489,7 +489,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         Existing Document Detected in Registry
                       </h4>
                       <p className="text-xs text-amber-800 mt-0.5">
-                        Document <strong>{activeDetection.docTypeName} No. {activeDetection.officialNumber}</strong> already exists: <em>"{activeDetection.duplicateDocTitle}"</em>.
+                        Document <strong>{activeDetection.docTypeName}{" "}<InterfaceText source="No." />{" "}{activeDetection.officialNumber}</strong> already exists: <em>"{activeDetection.duplicateDocTitle}"</em>.
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <label className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-800 border border-amber-200 cursor-pointer">
@@ -595,16 +595,16 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         }}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none"
                       >
-                        <option value="municipal_ordinance">Municipal Ordinance</option>
-                        <option value="provincial_ordinance">Provincial Ordinance</option>
+                        <option value="municipal_ordinance">{translateInterfaceText("Municipal Ordinance")}</option>
+                        <option value="provincial_ordinance">{translateInterfaceText("Provincial Ordinance")}</option>
                         <option value="resolution">Resolution</option>
                         <option value="municipal_eo">Executive Order</option>
                         <option value="memorandum">Memorandum Circular</option>
                         <option value="administrative_order">Administrative Order</option>
                         <option value="proclamation">Proclamation</option>
-                        <option value="republic_act">Republic Act</option>
-                        <option value="department_order">Department Order</option>
-                        <option value="other">Other Legal Document</option>
+                        <option value="republic_act">{translateInterfaceText("Republic Act")}</option>
+                        <option value="department_order">{translateInterfaceText("Department Order")}</option>
+                        <option value="other">{translateInterfaceText("Other Legal Document")}</option>
                       </select>
                     </div>
 
@@ -653,18 +653,18 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1">Author / Sponsor</label>
+                      <label className="block text-xs font-bold text-slate-600 mb-1"><InterfaceText source="Author / Sponsor" /></label>
                       <input
                         type="text"
                         value={activeDetection.author || ''}
                         onChange={e => updateActiveDetection({ author: e.target.value })}
-                        placeholder="e.g. Hon. Gezar S. Ngoho"
+                        placeholder={translateInterfaceText("e.g. Hon. Gezar S. Ngoho")}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1">Date Enacted</label>
+                      <label className="block text-xs font-bold text-slate-600 mb-1"><InterfaceText source="Date Enacted" /></label>
                       <input
                         type="date"
                         value={activeDetection.dateEnacted || ''}
@@ -734,8 +734,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                                     className="flex-1 font-semibold text-slate-700 border-b border-dashed border-slate-300 focus:outline-none"
                                     placeholder={translateInterfaceText("Section Title")}
                                   />
-                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                    Page {sec.scannedPageRef || 1}
+                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded"><InterfaceText source="Page" />{sec.scannedPageRef || 1}
                                   </span>
                                 </div>
                                 <textarea

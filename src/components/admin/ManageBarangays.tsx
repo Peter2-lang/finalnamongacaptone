@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
@@ -159,7 +160,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
 
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
-      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>}
+      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -388,8 +389,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {b.riskLevel.toUpperCase()} ZONE
-                      </span>
+                        {b.riskLevel.toUpperCase()}<InterfaceText source="ZONE" /></span>
                     </td>
                     <td className="py-3 px-4">
                       {area && area > 0 ? (

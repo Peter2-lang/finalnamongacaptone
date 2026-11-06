@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
@@ -183,7 +184,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
-      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{<LocalizedFeedback value={cloudError} />}</p>}
       {cloudBusy && <p role="status">Saving dispatch…</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-stone-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-emerald-800/60 relative overflow-hidden">
@@ -352,7 +353,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                             {record.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 mt-0.5"><InterfaceText source="Farmer:" /><strong>{record.farmerName}</strong> • Brgy. {record.barangay}
+                        <p className="text-xs text-stone-500 mt-0.5"><InterfaceText source="Farmer:" /><strong>{record.farmerName}</strong>{" "}<InterfaceText source="• Brgy." />{" "}{record.barangay}
                         </p>
                       </div>
 
@@ -389,7 +390,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <span className="truncate">Vehicle: <strong>{record.vehiclePlateNo || 'Pending'}</strong> {record.driverName ? `(Driver: ${record.driverName})` : ''}</span>
+                        <span className="truncate">Vehicle: <strong>{record.vehiclePlateNo || translateInterfaceText("Pending")}</strong> {record.driverName ? `(Driver: ${record.driverName})` : ''}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
@@ -562,7 +563,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
               {scheduleForm.earTagNo && (
                 <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1">
                   <div className="font-bold text-stone-900">Selected: {scheduleForm.earTagNo}</div>
-                  <div className="text-stone-600"><InterfaceText source="Farmer:" />{scheduleForm.farmerName} • Brgy. {scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
+                  <div className="text-stone-600"><InterfaceText source="Farmer:" />{scheduleForm.farmerName}{" "}<InterfaceText source="• Brgy." />{" "}{scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
                   </div>
                 </div>
               )}
@@ -736,7 +737,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-stone-500 block">Hauler / Vehicle Plate:</span>
-                  <span className="font-mono font-bold">{printingRecord.vehiclePlateNo || 'Not recorded'}</span>
+                  <span className="font-mono font-bold">{printingRecord.vehiclePlateNo || translateInterfaceText("Not recorded")}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-stone-500 block">Buyer Consolidator:</span>
@@ -746,7 +747,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
 
               <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 text-[11px]">
                 <span className="font-semibold">Veterinary Health Certificate reference: </span>
-                <span className="font-mono">{printingRecord.vhcNumber || 'Not recorded'}</span>
+                <span className="font-mono">{printingRecord.vhcNumber || translateInterfaceText("Not recorded")}</span>
               </div>
             </div>
 

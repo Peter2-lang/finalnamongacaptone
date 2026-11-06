@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Database, RefreshCw } from 'lucide-react';
 import { requestJson } from '../../services/http.ts';
@@ -28,7 +29,7 @@ export const DatabaseConfiguration: React.FC = () => {
     <h2 className="flex gap-2 items-center text-xl font-bold"><Database /> Database connection</h2>
     <p>Configure DATABASE_URL in .env.local for local development and in Vercel environment variables for deployments. Database credentials are managed on the server.</p>
     <p role="status">{loading ? 'Checking connection…' : `Database: ${health?.database || 'unknown'}`}</p>
-    {error && <p role="alert" className="text-red-700">{error}</p>}
+    {error && <p role="alert" className="text-red-700">{<LocalizedFeedback value={error} />}</p>}
     <button type="button" onClick={() => void refresh()} disabled={loading} className="flex gap-2 items-center px-4 py-2 rounded-lg bg-green-700 text-white disabled:opacity-50"><RefreshCw className={loading ? 'animate-spin' : ''} /> Test connection</button>
   </section>;
 };

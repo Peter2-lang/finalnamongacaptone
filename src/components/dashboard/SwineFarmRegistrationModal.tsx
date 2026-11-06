@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
@@ -278,7 +279,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
             {errorMessage && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
-                <span>{errorMessage}</span>
+                <span>{<LocalizedFeedback value={errorMessage} />}</span>
               </div>
             )}
 
@@ -322,7 +323,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                     id="modal-farmer-contact-input"
                     value={farmerContact}
                     onChange={setFarmerContact}
-                    label="Contact Number"
+                    label={translateInterfaceText("Contact Number")}
                     placeholder={translateInterfaceText("9125918781")}
                     required={false}
                     helpText="Enter 10 digits starting with 9; +63 is added automatically."

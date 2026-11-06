@@ -179,7 +179,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
               ) : (
                 <>
                   <EyeOff className="w-3.5 h-3.5 text-stone-500" />
-                  <span>Hidden</span>
+                  <span><InterfaceText source="Hidden" /></span>
                 </>
               )}
             </button>
@@ -216,7 +216,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   value={config.featuresTitleColor || '#064e3b'}
                   onChange={e => onChange({ featuresTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -237,7 +237,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   value={config.featuresSubtitleColor || '#78716c'}
                   onChange={e => onChange({ featuresSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>
@@ -487,7 +487,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   <button
                     type="button"
                     onClick={() => handleToggleVisible(card.id)}
-                    title={card.visible ? 'Hide from landing page' : 'Show on landing page'}
+                    title={card.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                     className={`p-1.5 rounded-lg border text-xs cursor-pointer transition ${
                       card.visible
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
@@ -500,7 +500,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                     type="button"
                     disabled={idx === 0}
                     onClick={() => handleMove(idx, 'up')}
-                    title="Move Card Up"
+                    title={translateInterfaceText("Move Card Up")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -509,7 +509,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                     type="button"
                     disabled={idx === featureCards.length - 1}
                     onClick={() => handleMove(idx, 'down')}
-                    title="Move Card Down"
+                    title={translateInterfaceText("Move Card Down")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -517,7 +517,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   <button
                     type="button"
                     onClick={() => handleDelete(card.id)}
-                    title="Delete Card"
+                    title={translateInterfaceText("Delete Card")}
                     className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

@@ -19,7 +19,10 @@
     "audit:inventory": "node scripts/inventory-system.mjs",
     "test:browser": "playwright test",
     "i18n:audit": "node scripts/audit-translations.mjs",
-    "i18n:check": "node scripts/audit-translations.mjs --check"
+    "i18n:check": "node scripts/audit-translations.mjs --check",
+    "i18n:collect": "node scripts/i18n/catalog.mjs",
+    "i18n:generate": "node scripts/i18n/generate-catalog.mjs",
+    "i18n:apply": "node scripts/i18n/apply-catalog.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState, useEffect, useRef } from 'react';
@@ -178,7 +179,7 @@ For your information and official file.`,
 
   return (
     <div className="space-y-6">
-      {cloudError && <p role="alert" className="text-red-700 text-sm">{cloudError}</p>}
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{<LocalizedFeedback value={cloudError} />}</p>}
       {/* Top Toolbar */}
       <div className="bg-white rounded-2xl border border-stone-200 p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4 no-print">
         <div className="flex items-center gap-3">
@@ -250,7 +251,7 @@ For your information and official file.`,
                 className="px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
               >
                 <FileText className="w-4 h-4" />
-                <span>Download PDF</span>
+                <span><InterfaceText source="Download PDF" /></span>
               </button>
             </>
           )}
@@ -409,9 +410,9 @@ For your information and official file.`,
                   <SealMunicipality className="w-14 h-14" />
                   <SealBagongPilipinas className="w-14 h-14" />
                 </div>
-                <p className="text-xs font-semibold text-stone-600 uppercase"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></p>
-                <h2 className="text-sm font-black uppercase text-stone-900"><InterfaceText source="OFFICE OF THE MUNICIPAL AGRICULTURIST" /></h2>
-                <p className="text-xs font-bold text-stone-700"><InterfaceText source="Municipality of Hinunangan" /></p>
+                <p className="text-xs font-semibold text-stone-600 uppercase">{"Republic of the Philippines • Province of Southern Leyte"}</p>
+                <h2 className="text-sm font-black uppercase text-stone-900">{"OFFICE OF THE MUNICIPAL AGRICULTURIST"}</h2>
+                <p className="text-xs font-bold text-stone-700">{"Municipality of Hinunangan"}</p>
                 <div className="pt-2">
                   <span className="inline-block px-3 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-black tracking-widest uppercase border border-slate-300">
                     OFFICIAL TRANSMITTAL MEMORANDUM
@@ -489,7 +490,7 @@ For your information and official file.`,
               {/* Signatures */}
               <div className="pt-8 grid grid-cols-2 sm:grid-cols-3 gap-6 text-center font-sans text-xs">
                 <div>
-                  <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Prepared by:" /></p>
+                  <p className="text-stone-500 font-semibold mb-6">{"Prepared by:"}</p>
                   <div className="border-b border-black font-bold uppercase pb-1 mx-2">
                     {selectedLetter.preparedBy}
                   </div>
@@ -500,7 +501,7 @@ For your information and official file.`,
 
                 {selectedLetter.verifiedBy && (
                   <div>
-                    <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Verified by:" /></p>
+                    <p className="text-stone-500 font-semibold mb-6">{"Verified by:"}</p>
                     <div className="border-b border-black font-bold uppercase pb-1 mx-2">
                       {selectedLetter.verifiedBy}
                     </div>
@@ -743,7 +744,7 @@ For your information and official file.`,
                       onChange={e =>
                         setEditingLetter({ ...editingLetter, preparedByTitle: e.target.value })
                       }
-                      placeholder="Title"
+                      placeholder={translateInterfaceText("Title")}
                       className="w-full bg-white border border-stone-300 rounded-lg p-1.5 text-[10px] mt-1"
                     />
                   </div>
@@ -766,7 +767,7 @@ For your information and official file.`,
                       onChange={e =>
                         setEditingLetter({ ...editingLetter, verifiedByTitle: e.target.value })
                       }
-                      placeholder="Title"
+                      placeholder={translateInterfaceText("Title")}
                       className="w-full bg-white border border-stone-300 rounded-lg p-1.5 text-[10px] mt-1"
                     />
                   </div>
@@ -789,7 +790,7 @@ For your information and official file.`,
                       onChange={e =>
                         setEditingLetter({ ...editingLetter, approvedByTitle: e.target.value })
                       }
-                      placeholder="Title"
+                      placeholder={translateInterfaceText("Title")}
                       className="w-full bg-white border border-stone-300 rounded-lg p-1.5 text-[10px] mt-1"
                     />
                   </div>

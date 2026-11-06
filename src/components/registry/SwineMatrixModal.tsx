@@ -58,7 +58,7 @@ export const SwineMatrixModal: React.FC<SwineMatrixModalProps> = ({
             <div className="space-y-1">
               <p className="font-bold text-emerald-950">How the Auto-Calculated Matrix Works:</p>
               <p className="text-emerald-900 leading-relaxed text-[11px]">
-                Entering a <strong><InterfaceText source="Birth Date" /></strong> or <strong>Age in Weeks</strong> automatically determines the swine's biological life stage, sets the benchmark weight, and computes the current market value (₱) based on prevailing Hinunangan farmgate prices. You can also click <strong>"Apply Stage"</strong> to auto-fill the form with benchmark standards.
+                Entering a <strong><InterfaceText source="Birth Date" /></strong>{" "}<InterfaceText source="or" />{" "}<strong>Age in Weeks</strong> automatically determines the swine's biological life stage, sets the benchmark weight, and computes the current market value (₱) based on prevailing Hinunangan farmgate prices. You can also click <strong>"Apply Stage"</strong> to auto-fill the form with benchmark standards.
               </p>
             </div>
           </div>

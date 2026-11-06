@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Palette,
@@ -308,7 +308,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
             className="px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
+            <span>{isSaving ? translateInterfaceText("Saving…") : translateInterfaceText("Save Changes")}</span>
           </button>
         </div>
       </div>
@@ -361,7 +361,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   {theme.logoUrl ? (
                     <img
                       src={theme.logoUrl}
-                      alt="Sidebar Logo"
+                      alt={translateInterfaceText("Sidebar Logo")}
                       className={`object-contain ${
                         theme.logoSize === 'lg'
                           ? 'w-12 h-12'
@@ -387,7 +387,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   <div className="font-bold text-stone-900 text-sm flex items-center gap-2">
                     <span>Active Single Logo</span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                      {theme.logoUrl ? 'Custom Image' : 'Official Municipal Seal'}
+                      {theme.logoUrl ? 'Custom Image' : translateInterfaceText("Official Municipal Seal")}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-0.5">
@@ -768,7 +768,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                             : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                         }`}
                       >
-                        {sz === 'sm' ? 'Compact' : sz === 'md' ? 'Normal' : 'Large'}
+                        {sz === 'sm' ? translateInterfaceText("Compact") : sz === 'md' ? translateInterfaceText("Normal") : 'Large'}
                       </button>
                     );
                   })}
@@ -790,7 +790,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-stone-100 text-stone-600">
-                Active: <strong className="text-stone-900">{theme.name || 'Custom'}</strong>
+                Active: <strong className="text-stone-900">{theme.name || translateInterfaceText("Custom")}</strong>
               </span>
             </div>
 
@@ -930,7 +930,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   {theme.logoUrl ? (
                     <img
                       src={theme.logoUrl}
-                      alt="Sidebar Logo"
+                      alt={translateInterfaceText("Sidebar Logo")}
                       className={`object-contain border shadow-xs ${
                         theme.logoSize === 'lg'
                           ? 'w-10 h-10'

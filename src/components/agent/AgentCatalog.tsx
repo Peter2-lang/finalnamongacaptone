@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   Search,
@@ -290,7 +290,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
 
           {/* Weight Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-stone-600 mb-1">Live Weight</label>
+            <label className="block text-[11px] font-bold text-stone-600 mb-1"><InterfaceText source="Live Weight" /></label>
             <select
               value={weightFilter}
               onChange={e => setWeightFilter(e.target.value as any)}
@@ -366,7 +366,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
                 >
                   <img
                     src={swine.photoUrl || '/icon.svg'}
-                    alt={`Swine ${swine.earTagNo}`}
+                    alt={translateInterfaceText("Swine {arg0}", {arg0: swine.earTagNo})}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-95 group-hover:opacity-100"
                     referrerPolicy="no-referrer"
                   />
@@ -413,8 +413,8 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
                       <strong className="text-stone-900 font-bold">{swine.farmerName}</strong>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-stone-500">Farm Scale:</span>
-                      <span className="capitalize font-medium text-stone-700">{swine.farmType || 'Backyard'}</span>
+                      <span className="text-stone-500"><InterfaceText source="Farm Scale:" /></span>
+                      <span className="capitalize font-medium text-stone-700">{swine.farmType || translateInterfaceText("Backyard")}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-stone-500">Target Date:</span>
@@ -501,12 +501,12 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
               <div className="relative h-64 w-full bg-stone-900 rounded-2xl overflow-hidden shadow-inner">
                 <img
                   src={activeSwineDetail.photoUrl || '/icon.svg'}
-                  alt={`Swine ${activeSwineDetail.earTagNo}`}
+                  alt={translateInterfaceText("Swine {arg0}", {arg0: activeSwineDetail.earTagNo})}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-white text-xs px-3 py-1 rounded-xl">
-                  Breed: <strong>{activeSwineDetail.breed || 'Standard Commercial'}</strong>
+                  Breed: <strong>{activeSwineDetail.breed || translateInterfaceText("Standard Commercial")}</strong>
                 </div>
                 <div className="absolute bottom-3 right-3 bg-emerald-700 text-white font-black text-sm px-3.5 py-1 rounded-xl shadow-md">
                   ₱{(activeSwineDetail.estimatedPricePhp || 0).toLocaleString()}
@@ -550,7 +550,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
                     <strong className="text-stone-900 font-bold">{activeSwineDetail.farmerName}</strong>
                   </div>
                   <div className="flex justify-between py-1 border-b border-stone-100">
-                    <span className="text-stone-500">Barangay:</span>
+                    <span className="text-stone-500"><InterfaceText source="Barangay:" /></span>
                     <span className="font-semibold text-stone-800">Brgy. {activeSwineDetail.barangay}, Hinunangan</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-stone-100">
@@ -558,7 +558,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
                     <span className="font-semibold text-stone-800">{activeSwineDetail.sitio || 'Purok Center'}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-stone-500">Farm Scale:</span>
+                    <span className="text-stone-500"><InterfaceText source="Farm Scale:" /></span>
                     <span className="capitalize font-semibold text-stone-800">{activeSwineDetail.farmType || 'Backyard Raiser'}</span>
                   </div>
                 </div>

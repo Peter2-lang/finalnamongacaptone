@@ -1,4 +1,5 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   FileText,
@@ -228,7 +229,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   return (
     <div className="space-y-6">
       {isLoadingDocuments && <p role="status">Loading legal documents…</p>}
-      {documentError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-lg">{documentError}</p>}
+      {documentError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-lg">{<LocalizedFeedback value={documentError} />}</p>}
       {/* Toast notification */}
       {successToast && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 border border-emerald-700 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-medium">
@@ -430,20 +431,19 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                 </h3>
 
                 {selectedDoc.knownAs && (
-                  <p className="text-xs text-emerald-300 font-semibold mt-1">
-                    Known as: &ldquo;{selectedDoc.knownAs}&rdquo;
+                  <p className="text-xs text-emerald-300 font-semibold mt-1"><InterfaceText source="Known as: “" />{selectedDoc.knownAs}&rdquo;
                   </p>
                 )}
 
                 <div className="flex items-center gap-4 mt-3 text-xs text-stone-300 flex-wrap">
                   {selectedDoc.author && (
                     <span>
-                      <strong className="text-stone-100">Author:</strong> {selectedDoc.author}
+                      <strong className="text-stone-100"><InterfaceText source="Author:" /></strong> {selectedDoc.author}
                     </span>
                   )}
                   {selectedDoc.dateEnacted && (
                     <span>
-                      <strong className="text-stone-100">Enacted:</strong> {selectedDoc.dateEnacted}
+                      <strong className="text-stone-100"><InterfaceText source="Enacted:" /></strong> {selectedDoc.dateEnacted}
                     </span>
                   )}
                   {selectedDoc.effectiveDate && (
@@ -493,8 +493,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                         onClick={() => handleRestoreDoc(selectedDoc)}
                         className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" /> Restore
-                      </button>
+                        <RotateCcw className="w-3.5 h-3.5" /><InterfaceText source="Restore" /></button>
                     ) : (
                       <button
                         type="button"
@@ -510,7 +509,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                       type="button"
                       onClick={() => setDeleteConfirmDoc(selectedDoc)}
                       className="p-2 bg-red-950/60 hover:bg-red-900 text-red-200 hover:text-white rounded-xl transition border border-red-800/40"
-                      title="Permanently Delete"
+                      title={translateInterfaceText("Permanently Delete")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -732,7 +731,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                                       : 'bg-emerald-100 text-emerald-800'
                                   }`}
                                 >
-                                  {sec.mandateCategory || 'Mandatory'}
+                                  {sec.mandateCategory || translateInterfaceText("Mandatory")}
                                 </span>
                               </div>
 
@@ -827,8 +826,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                         <div className="flex items-center justify-between">
                           <strong className="text-stone-900 font-bold">{rule.target}</strong>
                           <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                            ≥ {rule.minimumDistance} meters
-                          </span>
+                            ≥ {rule.minimumDistance}<InterfaceText source="meters" /></span>
                         </div>
                         <p className="text-[11px] text-stone-500 font-mono">{rule.statutoryBasis}</p>
                         <p className="text-stone-600 text-[11px]">{rule.rationale}</p>
@@ -1047,9 +1045,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                 type="button"
                 onClick={handleConfirmDelete}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition"
-              >
-                Permanently Delete
-              </button>
+              ><InterfaceText source="Permanently Delete" /></button>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
+import { InterfaceText } from './i18n/interfaceText';
 import { clearConversations } from './services/assistantConversation';
-import { tabForPath, normalizePath, routeTabs } from './utils/appRoutes';
+import { tabForPath, normalizePath, routeTabs, canAccessTab } from './utils/appRoutes';
 import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense, lazy, useRef, useCallback } from 'react';
 import { Header } from './components/common/Header';
@@ -58,7 +59,7 @@ const ViewLoader: React.FC = () => (
 
 const ModuleLoadError: React.FC<{ error: unknown }> = ({ error }) => (
   <div role="alert" className="mx-auto my-12 max-w-xl rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center text-amber-950 shadow-sm">
-    <h2 className="text-lg font-bold">This page could not be loaded</h2>
+    <h2 className="text-lg font-bold"><InterfaceText source="This page could not be loaded" /></h2>
     <p className="mt-2 text-sm">
       {isDynamicImportFailure(error)
         ? 'The app may have updated while this session was open. Reload the page to get the current version.'
@@ -68,9 +69,7 @@ const ModuleLoadError: React.FC<{ error: unknown }> = ({ error }) => (
       type="button"
       onClick={() => window.location.reload()}
       className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-    >
-      Reload application
-    </button>
+    ><InterfaceText source="Reload application" /></button>
   </div>
 );
 
@@ -148,6 +147,8 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole | 'landing'>('landing');
   const [sessionRestoreComplete, setSessionRestoreComplete] = useState(false);
   const [sessionRestoreError, setSessionRestoreError] = useState(false);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
+  const sessionEpochRef = useRef(0);
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentRole === 'super_admin';
   const isAdmin = currentUser?.role === 'admin' || currentRole === 'admin' || isSuperAdmin;
   const { fontStyle, colors, roleConfig } = useRoleTheme(currentRole);
@@ -267,27 +268,29 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    const sessionEpoch = sessionEpochRef.current;
+    setSessionRestoreError(false);
     let verificationTimer:ReturnType<typeof setTimeout>;
     const verification = Promise.race([
       authApi.restoreSession(),
       new Promise<null>((_resolve,reject)=>{verificationTimer=setTimeout(()=>reject(Object.assign(new Error('Session verification timed out.'),{retryable:true})),30000);}),
     ]);
     verification.then(user => {
-      if (!active) return;
-      if (!user) { storageService.setCurrentUser(null); setSessionRestoreComplete(true); return; }
+      if (!active || sessionEpoch !== sessionEpochRef.current) return;
+      if (!user || !storageService.getSessionToken()) { storageService.setCurrentUser(null); setSessionRestoreComplete(true); return; }
       storageService.setCurrentUser(user, true);
       setCurrentUser(user);
       setCurrentRole(user.role);
       setSessionRestoreComplete(true);
     }).catch(error => {
       console.error('Unable to restore Supabase Auth profile:', error);
-      if (!active) return;
+      if (!active || sessionEpoch !== sessionEpochRef.current) return;
       if (error?.retryable) setSessionRestoreError(true);
       else if (!storageService.getSessionToken()) setSessionRestoreComplete(true);
       else setSessionRestoreError(true);
     }).finally(()=>clearTimeout(verificationTimer));
     return () => { active = false; clearTimeout(verificationTimer); };
-  }, []);
+  }, [sessionAttempt]);
 
   useEffect(() => {
     if (!sessionRestoreComplete || currentUser || currentPath === '/' || currentPath === '/login' || currentPath.startsWith('/superadmin')) return;
@@ -302,6 +305,8 @@ export default function App() {
     if (!supabase) return;
     const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session) => {
       if (event !== 'SIGNED_OUT') return;
+      sessionEpochRef.current++;
+      setSessionRestoreComplete(true);
       clearConversations();
       storageService.setCurrentUser(null);
       setCurrentUser(null);
@@ -309,6 +314,15 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!sessionRestoreComplete || !currentUser || currentPath !== '/login') return;
+    setIsAuthModalOpen(false);
+    const destination = returnPathRef.current || (currentUser.role === 'super_admin' ? '/superadmin/dashboard' : currentUser.role === 'agent' ? '/ready_to_sell' : '/dashboard');
+    returnPathRef.current = null;
+    navigateTo(destination);
+    setActiveTab(tabForPath(destination));
+  }, [sessionRestoreComplete,currentUser,currentPath]);
 
   const refreshAccounts = useCallback(async () => {
     const isUserAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
@@ -543,6 +557,7 @@ export default function App() {
       setCurrentPath(path);
 
       if (path === '/superadmin') {
+        setActiveTab('dashboard');
         return;
       }
 
@@ -679,7 +694,7 @@ export default function App() {
   if (!sessionRestoreComplete) {
     return (
       <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-200 text-sm" role="status">
-        {sessionRestoreError ? <div>{t('session_unavailable','Session verification is temporarily unavailable. Please retry.')} <button type="button" onClick={()=>window.location.reload()} className="underline">{t('ui.Retry','Retry')}</button></div> : t('session_restoring', 'Restoring secure session...')}
+        {sessionRestoreError ? <div>{t('session_unavailable','Session verification is temporarily unavailable. Please retry.')} <button type="button" onClick={()=>setSessionAttempt(attempt=>attempt+1)} className="underline">{t('ui.Retry','Retry')}</button></div> : t('session_restoring', 'Restoring secure session...')}
       </div>
     );
   }
@@ -857,6 +872,7 @@ export default function App() {
         {/* Main Dashboard Viewport - ALWAYS fully visible, bright, solid administrative canvas */}
         <main
           id="main-content"
+          data-page={activeTab}
           tabIndex={-1}
           style={{
             backgroundColor: currentRole !== 'landing' && colors?.backgroundColor ? colors.backgroundColor : undefined,
@@ -876,7 +892,7 @@ export default function App() {
             onNavigateTab={handleTabSelect}
             onOpenLogin={() => handleOpenLogin('admin')}
           />
-        ) : currentRole === 'agent' ? (
+        ) : !canAccessTab(currentRole,activeTab) ? <AccessDenied403 moduleName={activeTab.replaceAll('_',' ')} onBackToDashboard={()=>handleTabSelect('dashboard')} /> : currentRole === 'agent' ? (
           activeTab === 'gis' ? (
             <div className="p-4 sm:p-6 w-full">
               <GisMap swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
@@ -1265,7 +1281,7 @@ export default function App() {
 
       {/* Login Authentication Modal */}
       <AuthModal
-        isOpen={isAuthModalOpen}
+        isOpen={isAuthModalOpen && !currentUser}
         onClose={() => {
           setIsAuthModalOpen(false);
           if (currentPath === '/login') {

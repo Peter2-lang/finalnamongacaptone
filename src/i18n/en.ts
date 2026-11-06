@@ -1,4 +1,12 @@
 export const en = {
+  role_super_admin: 'Super Admin',
+
+  access_denied_title: "Access Denied",
+  access_denied_message: "You do not have permission to access this resource.",
+  access_denied_notice: "Security Authorization Notice:",
+  access_denied_scope: "{module} is restricted to authorized roles. Your current account cannot access or modify this resource.",
+  access_denied_back: "Back to Dashboard",
+
   app_tagline: "Real-time municipal-wide monitoring across 40 barangays with offline synchronization, GIS mapping, and clearance issuance.",
   app_title: "Hinunangan Swine Registry & Biosurveillance",
   btn_bulk_delete: "Bulk Delete ({count})",

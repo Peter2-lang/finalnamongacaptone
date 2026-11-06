@@ -1,3 +1,4 @@
+import {canAccessTab} from './appRoutes';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -10,4 +11,17 @@ test('every supported direct URL resolves before session restoration',()=>{
 test('every renderable application tab has a refreshable URL',()=>{
  const source=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
  for(const match of source.matchAll(/activeTab === '([^']+)'/g))assert.equal(tabForPath('/'+match[1]),match[1],match[1]);
+});
+
+test('every role has explicit route permissions and denied tabs cannot fall through to the catalog',()=>{
+ for(const tab of new Set(Object.values(routeTabs))){
+  assert.equal(canAccessTab('super_admin',tab),true,tab);
+  assert.equal(canAccessTab('guest',tab),false,tab);
+ }
+ assert.equal(canAccessTab('agent','records'),false);
+ assert.equal(canAccessTab('agent','gis'),true);
+ assert.equal(canAccessTab('focal','asf_ordinance'),false);
+ assert.equal(canAccessTab('focal','form_customizer'),false);
+ assert.equal(canAccessTab('admin','form_customizer'),true);
+ assert.equal(canAccessTab('admin','api_config'),false);
 });

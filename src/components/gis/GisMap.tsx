@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import 'leaflet/dist/leaflet.css';
 import {escapeHtml} from '../../utils/exportEncoding';
@@ -936,7 +937,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       {accessWarning && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-rose-600/95 text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md border border-rose-300 animate-bounce text-sm font-semibold">
           <AlertTriangle className="w-5 h-5 text-amber-200 flex-shrink-0" />
-          <span>{accessWarning}</span>
+          <span>{<LocalizedFeedback value={accessWarning} />}</span>
           <button onClick={() => setAccessWarning(null)} className="ml-2 hover:opacity-80 p-0.5 rounded cursor-pointer">
             <X className="w-4 h-4" />
           </button>
@@ -973,7 +974,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
             <Search className="w-3.5 h-3.5 text-stone-400 mr-1.5" />
             <input
               type="text"
-              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : 'Search barangay or swine...'}
+              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : translateInterfaceText("Search barangay or swine...")}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="bg-transparent text-white placeholder-stone-400 outline-none w-36 md:w-56 text-xs"
@@ -1022,7 +1023,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           title="Enable Manual Pin Mode to click and drop custom GPS coordinates for swine registration"
         >
           <MapPin className={`w-3.5 h-3.5 ${isManualPinMode ? 'text-white' : 'text-emerald-400'}`} />
-          <span>{isManualPinMode ? 'Pin Mode Active' : 'Select Location for Registration'}</span>
+          <span>{isManualPinMode ? translateInterfaceText("Pin Mode Active") : translateInterfaceText("Select Location for Registration")}</span>
         </button>}
 
         {/* Heatmap Checkbox & Toggle Button */}
@@ -1144,7 +1145,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
               <option value="all">{translateInterfaceText("All Swine Types")}</option>
-              <option value="boar">Breeding Boars</option>
+              <option value="boar">{translateInterfaceText("Breeding Boars")}</option>
               <option value="sow">Breeding Sows</option>
               <option value="piglet">Piglets</option>
               <option value="grower">Growers</option>
@@ -1315,7 +1316,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                 <Building className="w-4 h-4" /> Brgy. {selectedBarangayData.barangayName}
               </h4>
               <span className="text-[10px] text-stone-400">
-                Focal Officer: {selectedBarangayData.focalPersonName || 'Municipal Office'}
+                Focal Officer: {selectedBarangayData.focalPersonName || translateInterfaceText("Municipal Office")}
               </span>
             </div>
             <button type="button" aria-label="Close barangay information" onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
@@ -1370,8 +1371,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                     : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}
               >
-                {selectedBarangayData.asfZone} ZONE
-              </span>
+                {selectedBarangayData.asfZone}<InterfaceText source="ZONE" /></span>
             </div>
           </div>
 

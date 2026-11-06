@@ -1,4 +1,12 @@
 export const ceb: Record<string, string> = {
+  role_super_admin: 'Super Admin',
+
+  access_denied_title: "Walay Pagtugot",
+  access_denied_message: "Wala kay pagtugot sa pag-abli niini nga pahina.",
+  access_denied_notice: "Pahibalo sa Pagtugot:",
+  access_denied_scope: "Ang {module} alang lamang sa mga gitugot nga papel. Dili kini maablihan o mausab sa imong kasamtangang account.",
+  access_denied_back: "Balik sa Dashboard",
+
   app_tagline: "Aktuwal nga pagmonitor sa 40 ka barangay, uban sa offline nga pag-sync, GIS nga mapa, ug pag-isyu og clearance.",
   app_title: "Rehistro sa Baboy ug Biosurveillance sa Hinunangan",
   btn_bulk_delete: "Tangtangon ang Gipili ({count})",

@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { IMPORT_LIMITS, normalizeImportDataset, stableImportFingerprint } from '../../utils/swineImportData';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
@@ -684,7 +685,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-bold">File Parsing Notice</p>
-                <p className="text-rose-700 mt-0.5">{fileReadError}</p>
+                <p className="text-rose-700 mt-0.5">{<LocalizedFeedback value={fileReadError} />}</p>
               </div>
               <button
                 type="button"
@@ -1138,7 +1139,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                                   onChange={e => handleUpdateMapping(idx, { isRequired: e.target.checked })}
                                   className="w-3.5 h-3.5 text-purple-600 rounded border-stone-300 focus:ring-purple-500"
                                 />
-                                <span>Required Field</span>
+                                <span><InterfaceText source="Required Field" /></span>
                               </label>
 
                               <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1489,7 +1490,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
 
               <div>
                 <h3 className="text-lg font-bold text-stone-900"><InterfaceText source="Importing Swine Registry Data..." /></h3>
-                <p className="text-xs text-stone-500 mt-1">{importStatusMsg}</p>
+                <p className="text-xs text-stone-500 mt-1">{<LocalizedFeedback value={importStatusMsg} />}</p>
               </div>
 
               <div className="max-w-md mx-auto space-y-2">
@@ -1517,7 +1518,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
               <div>
                 <h3 className="text-xl font-bold text-stone-900"><InterfaceText source="Import Results" /></h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  {resultStatus}
+                  {<LocalizedFeedback value={resultStatus} />}
                 </p>
               </div>
 
@@ -1596,7 +1597,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-2 shadow-md transition cursor-pointer disabled:opacity-50"
               >
                 <Database className="w-4 h-4" />
-                <span>{validationStats.newFieldsCount ? 'Create Custom Fields & Import' : `Commit ${validationStats.valid + validationStats.warnings} Records to Database`}</span>
+                <span>{validationStats.newFieldsCount ? translateInterfaceText("Create Custom Fields & Import") : `Commit ${validationStats.valid + validationStats.warnings} Records to Database`}</span>
               </button>
             )}
 

@@ -1,4 +1,12 @@
 export const fil: Record<string, string> = {
+  role_super_admin: 'Super Admin',
+
+  access_denied_title: "Walang Pahintulot",
+  access_denied_message: "Wala kang pahintulot na buksan ang pahinang ito.",
+  access_denied_notice: "Abiso sa Pahintulot:",
+  access_denied_scope: "Ang {module} ay para lamang sa mga awtorisadong tungkulin. Hindi ito maaaring buksan o baguhin ng iyong kasalukuyang account.",
+  access_denied_back: "Bumalik sa Dashboard",
+
   app_tagline: "Kasalukuyang pagsubaybay sa 40 barangay, na may offline na pag-sync, GIS na mapa, at pag-isyu ng clearance.",
   app_title: "Rehistro ng Baboy at Biosurveillance sa Hinunangan",
   btn_bulk_delete: "Tanggalin ang mga Napili ({count})",

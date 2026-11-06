@@ -1,5 +1,6 @@
+import extendedLabels from './extendedLabels.json';
 /** Reviewed static interface labels. User-entered and database values never pass through this catalog. */
-export const interfaceLabels: Record<string, {ceb:string;fil:string}> = Object.fromEntries(`
+const curatedLabels: Record<string, {ceb:string;fil:string}> = Object.fromEntries(`
 Cancel|Kanselahon|Kanselahin
 Close|Isira|Isara
 Save Changes|Tipigi ang mga Kausaban|I-save ang mga Pagbabago
@@ -302,3 +303,6 @@ A message is required.|Gikinahanglan ang mensahe.|Kailangan ng mensahe.
 Field is required.|Gikinahanglan kini nga field.|Kailangan ang field na ito.
 Restoring secure session...|Gipahiuli ang luwas nga sesyon...|Ibinabalik ang ligtas na session...
 `.trim().split('\n').map(line=>{const [en,ceb,fil]=line.split('|');return [en,{ceb,fil}];}));
+
+/** Curated entries take precedence over generated translations. */
+export const interfaceLabels:Record<string,{ceb:string;fil:string}> = {...extendedLabels,...curatedLabels};

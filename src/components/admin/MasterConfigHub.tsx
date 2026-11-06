@@ -355,8 +355,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               Super Admin Master Configuration Hub
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-              v{publishedConfig.version} Published
-            </span>
+              v{publishedConfig.version}<InterfaceText source="Published" /></span>
             {isDraftDirty && (
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
                 Unpublished Changes
@@ -475,7 +474,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                         : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    {role === 'admin' ? 'Super Admin / Admin' : role === 'focal' ? 'Focal Person' : 'Agent / Buyer'}
+                    {role === 'admin' ? 'Super Admin / Admin' : role === 'focal' ? translateInterfaceText("Focal Person") : translateInterfaceText("Agent / Buyer")}
                   </button>
                 ))}
               </div>
@@ -730,7 +729,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                     <span className="text-[10px] text-emerald-700 font-bold"><InterfaceText source="Apply" /></span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.primary }} title="Primary" />
+                    <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.primary }} title={translateInterfaceText("Primary")} />
                     <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.sidebar }} title="Sidebar" />
                     <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.accent }} title="Accent" />
                   </div>
@@ -1092,7 +1091,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               >
                 <option value="admin">{translateInterfaceText("Admin")}</option>
                 <option value="focal">{translateInterfaceText("Focal Person")}</option>
-                <option value="agent">Agent / Buyer</option>
+                <option value="agent">{translateInterfaceText("Agent / Buyer")}</option>
               </select>
 
               <span className="text-xs font-bold text-stone-500 uppercase ml-2">Page:</span>
@@ -1207,7 +1206,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                       : previewPage === 'gis'
                       ? 'GIS Biosurveillance Map'
                       : previewPage === 'records'
-                      ? draftConfig.roles[previewRole]?.text.menuLabels?.records || 'Swine Records'
+                      ? draftConfig.roles[previewRole]?.text.menuLabels?.records || translateInterfaceText("Swine Records")
                       : 'Take-Off Queue'}
                   </h2>
 

@@ -366,17 +366,17 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                     }}
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl focus:ring-2 focus:ring-emerald-600"
                   >
-                    <option value="municipal_ordinance">Municipal Ordinance</option>
+                    <option value="municipal_ordinance">{translateInterfaceText("Municipal Ordinance")}</option>
                     <option value="resolution">Sangguniang Bayan Resolution</option>
-                    <option value="provincial_ordinance">Provincial Ordinance</option>
+                    <option value="provincial_ordinance">{translateInterfaceText("Provincial Ordinance")}</option>
                     <option value="administrative_order">DA Administrative Order</option>
                     <option value="municipal_eo">Municipal Executive Order</option>
                     <option value="memorandum">Memorandum Order</option>
-                    <option value="republic_act">Republic Act</option>
+                    <option value="republic_act">{translateInterfaceText("Republic Act")}</option>
                     <option value="proclamation">Presidential Proclamation</option>
-                    <option value="department_order">Department Order</option>
+                    <option value="department_order">{translateInterfaceText("Department Order")}</option>
                     <option value="legal_reference">Legal Reference</option>
-                    <option value="other">Other Legal Document</option>
+                    <option value="other">{translateInterfaceText("Other Legal Document")}</option>
                   </select>
                 </div>
 
@@ -430,12 +430,12 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">Author / Sponsor</label>
+                  <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Author / Sponsor" /></label>
                   <input
                     type="text"
                     value={author}
                     onChange={e => setAuthor(e.target.value)}
-                    placeholder="e.g. Hon. Gezar S. Ngoho"
+                    placeholder={translateInterfaceText("e.g. Hon. Gezar S. Ngoho")}
                     className="w-full px-3 py-2 border border-stone-300 rounded-xl focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
@@ -468,7 +468,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">Date Enacted</label>
+                  <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Date Enacted" /></label>
                   <input
                     type="text"
                     value={dateEnacted}
@@ -629,7 +629,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                             }
                             className="text-[10px] px-2 py-1 bg-stone-50 border border-stone-300 rounded font-semibold text-stone-700"
                           >
-                            <option value="mandatory">Mandatory</option>
+                            <option value="mandatory">{translateInterfaceText("Mandatory")}</option>
                             <option value="prohibitive">Prohibitive</option>
                             <option value="advisory">{translateInterfaceText("Advisory")}</option>
                             <option value="penal">Penal</option>
@@ -712,7 +712,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                           setSetbackRules(updated);
                         }}
                         className="sm:col-span-2 px-2 py-1 bg-white border border-stone-300 rounded font-mono font-bold text-xs"
-                        placeholder="Meters"
+                        placeholder={translateInterfaceText("Meters")}
                       />
                       <input
                         type="text"

@@ -634,11 +634,11 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                     DA Hinunangan
                   </h2>
                   <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {isPublicMode ? 'Public Info' : isSuperAdmin ? 'Super Admin' : 'Live'}
+                    {isPublicMode ? translateInterfaceText("Public Info") : isSuperAdmin ? translateInterfaceText("Super Admin") : 'Live'}
                   </span>
                 </div>
                 <p className="text-[10.5px] text-emerald-200/90 font-medium truncate flex items-center gap-1">
-                  <span>{isPublicMode ? 'Public Information Assistant' : isSuperAdmin ? 'Super Admin Configuration Assistant' : 'Biosecurity & Registry Assistant'}</span>
+                  <span>{isPublicMode ? translateInterfaceText("Public Information Assistant") : isSuperAdmin ? translateInterfaceText("Super Admin Configuration Assistant") : translateInterfaceText("Biosecurity & Registry Assistant")}</span>
                   <span>•</span>
                   <span className="text-emerald-300">● Online</span>
                 </p>
@@ -653,7 +653,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                 onClick={() => setIsMinimized(prev => !prev)}
                 className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label={isMinimized ? 'Expand assistant' : 'Minimize assistant'}
-                title={isMinimized ? 'Expand' : 'Minimize'}
+                title={isMinimized ? translateInterfaceText("Expand") : translateInterfaceText("Minimize")}
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -709,7 +709,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                               onClick={() => handleActionClick(msg.action)}
                               className="w-full py-1.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
                             >
-                              <span>{msg.action.label || (msg.action.type === 'open_login' ? 'Official Login' : 'Open Module')}</span>
+                              <span>{msg.action.label || (msg.action.type === 'open_login' ? translateInterfaceText("Official Login") : 'Open Module')}</span>
                               <ExternalLink className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -894,7 +894,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                   </span>
                   <span>
                     {isPublicMode
-                      ? 'Municipal Agriculture Office'
+                      ? translateInterfaceText("Municipal Agriculture Office")
                       : `Role: ${currentRole === 'super_admin' ? 'Super Admin' : currentRole.toUpperCase()}${currentUser?.assignedBarangay ? ` (${currentUser.assignedBarangay})` : ''}`}
                   </span>
                 </div>

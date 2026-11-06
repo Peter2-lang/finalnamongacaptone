@@ -1,4 +1,4 @@
-import { InterfaceText } from '../../i18n/interfaceText';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { loadApiSettings, saveApiSettings } from '../../services/apiSettings.ts';
 import React, { useState, useEffect } from 'react';
 import {
@@ -138,7 +138,7 @@ export const ApiConfiguration: React.FC = () => {
               className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
             >
               {isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-              <span>{isSaved ? 'Settings Saved' : 'Save Changes'}</span>
+              <span>{isSaved ? 'Settings Saved' : translateInterfaceText("Save Changes")}</span>
             </button>
           </div>
         </div>
