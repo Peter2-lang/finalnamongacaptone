@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../i18n/interfaceText';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
@@ -393,7 +394,7 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 className="text-xs font-bold text-stone-500 hover:text-stone-800 flex items-center gap-1 transition"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span><InterfaceText source="Reset" /></span>
               </button>
             </div>
 
@@ -493,7 +494,7 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
               {/* Brightness */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span>Brightness Level</span>
+                  <span><InterfaceText source="Brightness Level" /></span>
                   <span className="text-emerald-700">{brightness}%</span>
                 </div>
                 <input
@@ -555,9 +556,7 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 type="button"
                 onClick={handleResetToDefault}
                 className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition cursor-pointer"
-              >
-                Reset Defaults
-              </button>
+              ><InterfaceText source="Reset Defaults" /></button>
               <button
                 type="button"
                 onClick={handleSaveBackground}
@@ -610,16 +609,14 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
                 type="button"
                 onClick={() => setIsUrlModalOpen(false)}
                 className="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleApplyUrl}
                 className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
               >
                 <Check className="w-4 h-4" />
-                <span>Apply URL</span>
+                <span><InterfaceText source="Apply URL" /></span>
               </button>
             </div>
           </div>
@@ -632,15 +629,13 @@ export const InterfaceBackgroundConfig: React.FC<InterfaceBackgroundConfigProps>
           <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="font-bold text-sm">Full Canvas Atmosphere Preview</span>
-              <span className="text-xs text-slate-400">Position: {position} • Fit: {fit} • Opacity: {overlayOpacity}%</span>
+              <span className="text-xs text-slate-400"><InterfaceText source="Position:" />{" "}{position} • Fit: {fit} • Opacity: {overlayOpacity}%</span>
             </div>
             <button
               type="button"
               onClick={() => setIsFullPreviewOpen(false)}
               className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
-            >
-              Close Preview
-            </button>
+            ><InterfaceText source="Close Preview" /></button>
           </div>
 
           <div

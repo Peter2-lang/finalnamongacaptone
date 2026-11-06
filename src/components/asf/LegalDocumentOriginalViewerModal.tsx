@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   FileText,
@@ -131,16 +132,16 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
               title="Download Original"
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Download</span>
+              <span><InterfaceText source="Download" /></span>
             </button>
 
             <button
               onClick={handlePrint}
               className="flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
-              title="Print"
+              title={translateInterfaceText("Print")}
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Print</span>
+              <span><InterfaceText source="Print" /></span>
             </button>
 
             <button
@@ -225,9 +226,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                       style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
                       className="w-full max-w-xl rounded-lg bg-white p-6 shadow-md border border-slate-200 font-serif text-xs leading-relaxed transition-transform"
                     >
-                      <div className="text-center font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200 uppercase">
-                        Republic of the Philippines<br />
-                        Province of Southern Leyte<br />
+                      <div className="text-center font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200 uppercase"><InterfaceText source="Republic of the Philippines" /><br /><InterfaceText source="Province of Southern Leyte" /><br />
                         {document.jurisdiction || 'Municipality of Hinunangan'}<br />
                         <span className="text-emerald-800 text-sm mt-1 block">
                           {document.type} No. {document.officialNumber}

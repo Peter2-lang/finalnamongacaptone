@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   FileText,
@@ -313,9 +314,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
               Retry loading templates
             </button>
           )}
-          <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-2">
-            Close
-          </button>
+          <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-2"><InterfaceText source="Close" /></button>
         </div>
       </div>
     );
@@ -600,8 +599,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                       className="w-full bg-slate-50 border border-stone-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
                     >
                       {barangays.map(b => (
-                        <option key={b.name} value={b.name}>
-                          Barangay {b.name}
+                        <option key={b.name} value={b.name}>{translateInterfaceText("Barangay")}{b.name}
                         </option>
                       ))}
                     </select>
@@ -886,9 +884,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-xs font-bold transition cursor-pointer"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
 
             <button
               type="button"

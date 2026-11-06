@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
@@ -565,7 +566,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Filters</span>
+          <span><InterfaceText source="Filters" /></span>
         </button>
 
         {/* Map Type Toggle */}
@@ -575,9 +576,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               mapType === 'hybrid' ? 'bg-emerald-600 text-white' : 'text-stone-300 hover:text-white'
             }`}
-          >
-            Satellite
-          </button>
+          ><InterfaceText source="Satellite" /></button>
           <button
             onClick={() => setMapType('roadmap')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
@@ -623,9 +622,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Barangay Filter (Admin Only; Locked for Focal Person) */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Barangay Scope
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Barangay Scope" /></label>
             {isFocal ? (
               <div className="bg-stone-800/80 border border-amber-500/40 rounded-xl px-3 py-2 text-stone-300 flex items-center justify-between">
                 <span>{authorizedBarangayName}</span>
@@ -651,9 +648,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Swine Type Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Swine Type
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Swine Type" /></label>
             <select
               value={selectedSwineType}
               onChange={e => setSelectedSwineType(e.target.value)}
@@ -670,9 +665,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Market Status Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Market Status
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Market Status" /></label>
             <select
               value={selectedMarketStatus}
               onChange={e => setSelectedMarketStatus(e.target.value)}
@@ -681,7 +674,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               <option value="all">All Market Statuses</option>
               <option value="ready_to_sell">🌟 Ready for Market Sale Only</option>
               <option value="active">Active / Healthy</option>
-              <option value="sold">Sold</option>
+              <option value="sold">{translateInterfaceText("Sold")}</option>
             </select>
           </div>
 
@@ -695,7 +688,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               onChange={e => setSelectedAsfZone(e.target.value)}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
-              <option value="all">All ASF Zones</option>
+              <option value="all">{translateInterfaceText("All ASF Zones")}</option>
               <option value="RED">🔴 Red Zone (Infected / Quarantine)</option>
               <option value="PINK">🟣 Pink Zone (Buffer)</option>
               <option value="YELLOW">🟡 Yellow Zone (Surveillance)</option>
@@ -728,7 +721,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                   >
                     <option value="swine_density">Total Swine Density</option>
                     <option value="farmer_density">Farmer Density</option>
-                    <option value="ready_to_sell">Ready-to-Sell Swine</option>
+                    <option value="ready_to_sell">{translateInterfaceText("Ready-to-Sell Swine")}</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
                     <option value="registry_activity">Registry Activity Index</option>
                   </select>
@@ -802,7 +795,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
       {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{settingsError}</p>}
       {pickedPoint && <div role="status" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-[90%] rounded-xl border border-emerald-700 bg-white px-3 py-2 text-xs text-emerald-950 shadow-lg">
-        <strong>Selected GPS location</strong><br />
+        <strong><InterfaceText source="Selected GPS location" /></strong><br />
         {pickedPoint.lat.toFixed(6)}, {pickedPoint.lng.toFixed(6)} · {findBarangayContainingPoint(pickedPoint.lat,pickedPoint.lng) || 'Outside configured barangay boundaries'}
       </div>}
       {/* Main Google Maps Viewport */}
@@ -830,7 +823,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} manualPinActive={isManualPinMode || isLocationPicker} />
           <GoogleMapNavigationControls />
           {pickedPoint && <AdvancedMarker position={pickedPoint} zIndex={5000}>
-            <div aria-label="Selected GPS location" style={{ transform: 'translate(-50%, -100%)', fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.5))' }}>📍</div>
+            <div aria-label={translateInterfaceText("Selected GPS location")} style={{ transform: 'translate(-50%, -100%)', fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.5))' }}>📍</div>
           </AdvancedMarker>}
 
           <GoogleMapOverlays>
@@ -1005,7 +998,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
                   <div className="text-xs space-y-1 my-2">
                     <div>
-                      <span className="text-stone-500">Farmer:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Farmer:" /></span>{' '}
                       <strong className="text-stone-900">{selectedSwineRecord.farmerName}</strong>
                     </div>
                     <div>
@@ -1017,7 +1010,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                       <strong className="capitalize">{selectedSwineRecord.swineType}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Age:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Age:" /></span>{' '}
                       <strong>{selectedSwineRecord.ageDays || 0} days</strong>
                     </div>
                     <div>
@@ -1068,7 +1061,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     </div>
                     <div>
                       <span className="text-stone-500">Total Registered Swine:</span>{' '}
-                      <strong className="text-emerald-700 font-bold">{selectedFarmerData.swineCount} heads</strong>
+                      <strong className="text-emerald-700 font-bold">{selectedFarmerData.swineCount}{" "}<InterfaceText source="heads" /></strong>
                     </div>
                   </div>
                 </div>
@@ -1097,11 +1090,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           <div className="grid grid-cols-2 gap-2 my-2.5">
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Total Swine Heads</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Total Swine Heads" /></span>
               <strong className="text-lg text-emerald-400 font-black">{selectedBarangayData.totalSwine}</strong>
             </div>
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Registered Farmers</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Registered Farmers" /></span>
               <strong className="text-lg text-blue-400 font-black">{selectedBarangayData.registeredFarmers}</strong>
             </div>
           </div>

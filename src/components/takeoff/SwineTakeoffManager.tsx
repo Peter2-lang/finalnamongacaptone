@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
@@ -351,8 +352,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                             {record.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 mt-0.5">
-                          Farmer: <strong>{record.farmerName}</strong> • Brgy. {record.barangay}
+                        <p className="text-xs text-stone-500 mt-0.5"><InterfaceText source="Farmer:" /><strong>{record.farmerName}</strong> • Brgy. {record.barangay}
                         </p>
                       </div>
 
@@ -495,8 +495,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                     </span>
                     <span className="text-stone-500">Brgy. {s.barangay}</span>
                   </div>
-                  <p className="text-stone-600 text-[11px] mt-0.5">
-                    Farmer: <strong>{s.farmerName}</strong> • {s.breed} • Est. Value: <strong>₱{(s.weightKg * 220).toLocaleString()}</strong>
+                  <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{s.farmerName}</strong> • {s.breed} • Est. Value: <strong>₱{(s.weightKg * 220).toLocaleString()}</strong>
                   </p>
                 </div>
 
@@ -563,8 +562,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
               {scheduleForm.earTagNo && (
                 <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1">
                   <div className="font-bold text-stone-900">Selected: {scheduleForm.earTagNo}</div>
-                  <div className="text-stone-600">
-                    Farmer: {scheduleForm.farmerName} • Brgy. {scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
+                  <div className="text-stone-600"><InterfaceText source="Farmer:" />{scheduleForm.farmerName} • Brgy. {scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
                   </div>
                 </div>
               )}
@@ -684,9 +682,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                   type="button"
                   onClick={() => setIsScheduleModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer shadow-md"
@@ -705,12 +701,8 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
           <div data-print-document="takeoff-record" className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-stone-200 overflow-hidden my-8 p-8 space-y-6">
             {/* Republic Header */}
             <div className="text-center space-y-1 border-b-2 border-emerald-900 pb-4">
-              <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
-                Republic of the Philippines • Province of Southern Leyte
-              </div>
-              <h2 className="text-lg font-black text-stone-900 uppercase">
-                Municipality of Hinunangan
-              </h2>
+              <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></div>
+              <h2 className="text-lg font-black text-stone-900 uppercase"><InterfaceText source="Municipality of Hinunangan" /></h2>
               <div className="text-xs font-bold text-emerald-800">
                 Municipal Agriculture Office • Livestock & Veterinary Section
               </div>
@@ -775,9 +767,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
               <button
                 onClick={() => setPrintingRecord(null)}
                 className="no-print px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
               <button
                 onClick={() => {
                   try {

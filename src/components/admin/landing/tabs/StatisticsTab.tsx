@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { BarChart3, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { LandingCmsConfig, StatItem } from '../../../../types/landingCms';
@@ -70,9 +71,9 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ config, onChange }
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Title</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Title" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.statsTitleColor || '#064e3b'}
@@ -91,9 +92,9 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ config, onChange }
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Subtitle</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Subtitle" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.statsSubtitleColor || '#78716c'}
@@ -224,7 +225,7 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ config, onChange }
             />
           </div>
           <div className="flex-1 min-w-[140px]">
-            <label className="block text-[10px] text-stone-500 mb-1">Caption</label>
+            <label className="block text-[10px] text-stone-500 mb-1"><InterfaceText source="Caption" /></label>
             <input
               type="text"
               value={newDesc}

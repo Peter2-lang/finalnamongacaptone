@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React from 'react';
 import {
   DynamicSeal,
@@ -236,15 +237,11 @@ export const BarangayCertificateView: React.FC<BarangayCertificateViewProps> = (
 
             {/* Center Official Text */}
             <div className="flex-1 text-center space-y-0.5">
-              <p className="text-xs sm:text-[13px] tracking-wide text-stone-800 font-sans font-medium">
-                Republic of the Philippines
-              </p>
+              <p className="text-xs sm:text-[13px] tracking-wide text-stone-800 font-sans font-medium"><InterfaceText source="Republic of the Philippines" /></p>
               <p className="text-xs sm:text-[13px] font-bold tracking-wide uppercase text-stone-900 font-sans">
                 PROVINCE OF SOUTHERN LEYTE
               </p>
-              <p className="text-xs sm:text-[13px] tracking-wide text-stone-800 font-sans font-medium">
-                Municipality of Hinunangan
-              </p>
+              <p className="text-xs sm:text-[13px] tracking-wide text-stone-800 font-sans font-medium"><InterfaceText source="Municipality of Hinunangan" /></p>
               <h2 className="text-sm sm:text-base font-black tracking-wider uppercase text-stone-950 font-sans pt-0.5">
                 BARANGAY {brgyDisplay}
               </h2>
@@ -479,7 +476,7 @@ export const BarangayCertificateView: React.FC<BarangayCertificateViewProps> = (
               </p>
               <p className="indent-8">
                 This certification is being issued to support for transporting this{' '}
-                <strong>{data.numberOfHeads} pigs</strong> from Barangay {rawBrgy}, Hinunangan
+                <strong>{data.numberOfHeads}{" "}<InterfaceText source="pigs" /></strong> from Barangay {rawBrgy}, Hinunangan
                 Southern Leyte to <strong>{data.destination}</strong>.
               </p>
               <p className="indent-8">

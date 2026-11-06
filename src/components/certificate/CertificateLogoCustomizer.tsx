@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   Image,
@@ -339,40 +340,37 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                       className="w-7 h-7 object-contain rounded-full"
                     />
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-400">None</span>
+                    <span className="text-[10px] font-bold text-slate-400"><InterfaceText source="None" /></span>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Seal Type</label>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Seal Type" /></label>
                   <select
                     value={localSettings.leftLogoType}
                     onChange={e => updateSetting('leftLogoType', e.target.value)}
                     className="w-full bg-white border border-stone-300 rounded-lg p-2 font-semibold text-slate-800"
                   >
                     <option value="barangay">Barangay Official Seal (Customizable)</option>
-                    <option value="da">Department of Agriculture (DA)</option>
-                    <option value="municipality">Municipality of Hinunangan</option>
-                    <option value="custom">Custom Uploaded Image</option>
-                    <option value="none">None / Hidden</option>
+                    <option value="da">{translateInterfaceText("Department of Agriculture (DA)")}</option>
+                    <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
+                    <option value="custom">{translateInterfaceText("Custom Uploaded Image")}</option>
+                    <option value="none">{translateInterfaceText("None / Hidden")}</option>
                   </select>
                 </div>
 
                 {localSettings.leftLogoType === 'barangay' && (
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      Select Barangay
-                    </label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Select Barangay" /></label>
                     <select
                       value={localSettings.leftBarangayName}
                       onChange={e => updateSetting('leftBarangayName', e.target.value)}
                       className="w-full bg-white border border-stone-300 rounded-lg p-2 font-bold text-slate-800"
                     >
                       {HINUNANGAN_BARANGAYS.map(b => (
-                        <option key={b.name} value={b.name}>
-                          Barangay {b.name}
+                        <option key={b.name} value={b.name}>{translateInterfaceText("Barangay")}{b.name}
                         </option>
                       ))}
                     </select>
@@ -417,24 +415,24 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                       className="w-7 h-7 object-contain rounded-full"
                     />
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-400">None</span>
+                    <span className="text-[10px] font-bold text-slate-400"><InterfaceText source="None" /></span>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Seal Type</label>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Seal Type" /></label>
                   <select
                     value={localSettings.centerLogoType}
                     onChange={e => updateSetting('centerLogoType', e.target.value)}
                     className="w-full bg-white border border-stone-300 rounded-lg p-2 font-semibold text-slate-800"
                   >
-                    <option value="municipality">Municipality of Hinunangan</option>
-                    <option value="da">Department of Agriculture (DA)</option>
+                    <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
+                    <option value="da">{translateInterfaceText("Department of Agriculture (DA)")}</option>
                     <option value="bagong_pilipinas">Bagong Pilipinas</option>
-                    <option value="none">None / Hidden</option>
-                    <option value="custom">Custom Uploaded Image</option>
+                    <option value="none">{translateInterfaceText("None / Hidden")}</option>
+                    <option value="custom">{translateInterfaceText("Custom Uploaded Image")}</option>
                   </select>
                 </div>
 
@@ -478,25 +476,25 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                       className="w-7 h-7 object-contain rounded-full"
                     />
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-400">None</span>
+                    <span className="text-[10px] font-bold text-slate-400"><InterfaceText source="None" /></span>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Seal Type</label>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Seal Type" /></label>
                   <select
                     value={localSettings.rightLogoType}
                     onChange={e => updateSetting('rightLogoType', e.target.value)}
                     className="w-full bg-white border border-stone-300 rounded-lg p-2 font-semibold text-slate-800"
                   >
                     <option value="bagong_pilipinas">Bagong Pilipinas</option>
-                    <option value="municipality">Municipality of Hinunangan</option>
-                    <option value="province">Province of Southern Leyte</option>
-                    <option value="da">Department of Agriculture (DA)</option>
-                    <option value="none">None / Hidden</option>
-                    <option value="custom">Custom Uploaded Image</option>
+                    <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
+                    <option value="province">{translateInterfaceText("Province of Southern Leyte")}</option>
+                    <option value="da">{translateInterfaceText("Department of Agriculture (DA)")}</option>
+                    <option value="none">{translateInterfaceText("None / Hidden")}</option>
+                    <option value="custom">{translateInterfaceText("Custom Uploaded Image")}</option>
                   </select>
                 </div>
 
@@ -558,7 +556,7 @@ export const CertificateLogoCustomizer: React.FC<CertificateLogoCustomizerProps>
                       onChange={e => updateSetting('watermarkType', e.target.value)}
                       className="w-full bg-white border border-stone-300 rounded-lg p-2 font-semibold text-slate-800"
                     >
-                      <option value="municipality">Municipality of Hinunangan</option>
+                      <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
                       <option value="da">Department of Agriculture</option>
                       <option value="barangay">Barangay Seal</option>
                     </select>

@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../i18n/interfaceText';
 import React from 'react';
 import {
   Globe,
@@ -135,7 +136,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
               }`}
             >
               <Eye className="w-3.5 h-3.5 text-emerald-700" />
-              <span className="hidden sm:inline">Live Preview</span>
+              <span className="hidden sm:inline"><InterfaceText source="Live Preview" /></span>
             </button>
           </div>
 
@@ -178,7 +179,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
             className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-slate-300 shadow-2xs active:scale-[0.98]"
           >
             <Save className="w-3.5 h-3.5 text-slate-600" />
-            <span>Save Draft</span>
+            <span><InterfaceText source="Save Draft" /></span>
           </button>
 
           {/* Publish Changes Button */}
@@ -187,7 +188,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
             className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black shadow-sm hover:shadow-md flex items-center gap-1.5 transition cursor-pointer active:scale-[0.98]"
           >
             <Send className="w-3.5 h-3.5 text-emerald-200" />
-            <span>Publish Changes</span>
+            <span><InterfaceText source="Publish Changes" /></span>
           </button>
         </div>
       </div>
@@ -206,8 +207,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
               onClick={onResetDraft}
               className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 font-bold text-amber-900 transition flex items-center gap-1 cursor-pointer shadow-2xs"
             >
-              <RotateCcw className="w-3 h-3" /> Discard Draft
-            </button>
+              <RotateCcw className="w-3 h-3" /><InterfaceText source="Discard Draft" /></button>
             <button
               onClick={onPublish}
               className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 font-bold text-white shadow-xs transition flex items-center gap-1 cursor-pointer"
@@ -263,8 +263,7 @@ export const LandingCmsHeader: React.FC<LandingCmsHeaderProps> = ({
             <Layers className="w-3.5 h-3.5 text-blue-600" />
           </div>
           <div className="font-black text-slate-900 text-sm">
-            {activeSectionsCount} Active
-          </div>
+            {activeSectionsCount}<InterfaceText source="Active" /></div>
           <span className="text-[11px] text-slate-500 mt-0.5 block">Custom page layout</span>
         </div>
 

@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -580,8 +581,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                         onClick={() => handleAddSection(artIdx)}
                         className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 rounded-lg text-[11px] font-semibold transition"
                       >
-                        <Plus className="w-3 h-3 text-emerald-600" /> Add Section
-                      </button>
+                        <Plus className="w-3 h-3 text-emerald-600" /><InterfaceText source="Add Section" /></button>
                       <button
                         type="button"
                         onClick={() => handleRemoveArticle(artIdx)}
@@ -631,7 +631,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                           >
                             <option value="mandatory">Mandatory</option>
                             <option value="prohibitive">Prohibitive</option>
-                            <option value="advisory">Advisory</option>
+                            <option value="advisory">{translateInterfaceText("Advisory")}</option>
                             <option value="penal">Penal</option>
                           </select>
 
@@ -818,9 +818,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 text-xs font-bold text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-xl transition"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
             <button
               type="submit"
               className="flex items-center gap-2 px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition"

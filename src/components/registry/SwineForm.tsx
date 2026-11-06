@@ -1,3 +1,6 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Upload,
@@ -111,6 +114,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
   onOpenBatchModal,
   onViewOrdinance,
 }) => {
+  const {t} = useLanguage();
   // If user is focal person, restrict to their assigned barangay
   const defaultBarangay = initialFarmer?.barangay || initialCoordinates?.barangay || currentUser?.assignedBarangay || initialData?.barangay || barangays[0]?.name || 'Poblacion';
 
@@ -645,27 +649,27 @@ export const SwineForm: React.FC<SwineFormProps> = ({
 
             if (field.required && field.type === 'checkbox') {
               const checked = value === true || value === 'true';
-              if (!checked) errors[field.id] = `${field.label} must be checked.`;
+              if (!checked) errors[field.id] = t('validation_checked',{field:registryFieldLabel(field)});
               return;
             }
             if (field.required && field.type === 'yes_no') {
-              if (isEmpty) errors[field.id] = `Please choose Yes or No for ${field.label}.`;
+              if (isEmpty) errors[field.id] = t('validation_yes_no',{field:registryFieldLabel(field)});
               return;
             }
             if (isEmpty) {
-              if (field.required) errors[field.id] = `${field.label} is required.`;
+              if (field.required) errors[field.id] = t('validation_required',{field:registryFieldLabel(field)});
               return;
             }
 
             if (field.type === 'number' && !Number.isFinite(Number(value))) {
-              errors[field.id] = `${field.label} must be a valid number.`;
+              errors[field.id] = t('validation_number',{field:registryFieldLabel(field)});
             } else if (field.type === 'date' && Number.isNaN(new Date(String(value)).getTime())) {
-              errors[field.id] = `${field.label} must be a valid date.`;
+              errors[field.id] = t('validation_date',{field:registryFieldLabel(field)});
             } else if (
               field.type === 'email' &&
               !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim())
             ) {
-              errors[field.id] = `Enter a valid email address for ${field.label}.`;
+              errors[field.id] = t('validation_email',{field:registryFieldLabel(field)});
             } else if (field.type === 'phone' && !isValidContactNumber(String(value))) {
               errors[field.id] = CONTACT_NUMBER_ERROR_MESSAGE;
             } else if (
@@ -692,7 +696,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <label className="font-black text-emerald-950 text-xs">
-                  {field.label} / Pig ID Tag
+                  {registryFieldLabel(field)} / Pig ID Tag
                 </label>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-800 text-white font-black text-[10px] tracking-wide flex items-center gap-1 shadow-2xs">
                   <Lock className="w-2.5 h-2.5 text-emerald-300" /> Locked & Immutable
@@ -740,7 +744,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                 setContactError(null);
               }
             }}
-            label={field.label}
+            label={registryFieldLabel(field)}
             required={field.required}
             placeholder={field.placeholder || '9171234567'}
             helpText={field.helpText || 'Enter exactly 10 digits after +63.'}
@@ -757,7 +761,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             <span
               className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${
@@ -802,10 +806,11 @@ export const SwineForm: React.FC<SwineFormProps> = ({
     if (field.id === 'fld_farmer_name') {
       return (
         <div key={field.id}>
-          <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+          <label htmlFor={`registry-${field.id}`} className="block font-bold text-stone-700 mb-1">
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`registry-${field.id}`}
             type="text"
             required={field.required}
             readOnly={Boolean(initialFarmer)}
@@ -824,7 +829,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="text"
@@ -850,7 +855,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             <span
               className={`px-2 py-0.5 rounded-full font-black text-[10px] border ${
@@ -892,7 +897,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2">
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="text"
@@ -914,7 +919,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             <span
               className={`px-2 py-0.5 rounded-full font-black text-[10px] border ${
@@ -950,7 +955,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="text"
@@ -970,7 +975,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="email"
@@ -990,7 +995,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2">
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
             rows={2}
@@ -1022,7 +1027,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             list={`breed-list-${field.id}`}
@@ -1048,7 +1053,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             {showBoarASFWarning ? (
               <span className="text-[10px] text-red-700 bg-red-100 border border-red-300 px-2 py-0.5 rounded-full font-black flex items-center gap-1">
@@ -1088,8 +1093,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
-            <label className="font-bold text-stone-700">
-              Live Weight (kg) {field.required && <span className="text-red-500">*</span>}
+            <label className="font-bold text-stone-700"><InterfaceText source="Live Weight (kg)" />{field.required && <span className="text-red-500">*</span>}
             </label>
             <span className="text-[10px] bg-emerald-50 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200">
               Estimated: {estimatedWeightRange}
@@ -1128,7 +1132,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
             value={gender}
@@ -1160,7 +1164,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block font-bold text-stone-700">
-                {field.label} {field.required && <span className="text-red-500">*</span>}
+                {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
               </label>
               <span className="text-[10px] text-stone-500 font-semibold">
                 Calendar-based DOB
@@ -1218,7 +1222,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2 md:col-span-3">
           <label className="block font-bold text-stone-700 mb-2">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -1265,7 +1269,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
           />
           <div>
-            <span className="font-bold text-stone-900">{field.label}</span>
+            <span className="font-bold text-stone-900">{registryFieldLabel(field)}</span>
             <p className="text-[11px] text-stone-500">{field.helpText || 'Enclosed pen barrier preventing stray animals.'}</p>
           </div>
         </label>
@@ -1285,7 +1289,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
           />
           <div>
-            <span className="font-bold text-stone-900">{field.label}</span>
+            <span className="font-bold text-stone-900">{registryFieldLabel(field)}</span>
             <p className="text-[11px] text-stone-500">{field.helpText || 'Active chemical or lime footbath at entrance.'}</p>
           </div>
         </label>
@@ -1305,7 +1309,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
           />
           <div>
-            <span className="font-bold text-emerald-950">{field.label}</span>
+            <span className="font-bold text-emerald-950">{registryFieldLabel(field)}</span>
             <p className="text-[11px] text-emerald-900">
               {field.helpText || 'Strictly prohibits feeding restaurant scraps/kanin-baboy under Section 3 of EO 12-2023.'}
             </p>
@@ -1322,7 +1326,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
             value={asfClearanceStatus}
@@ -1345,7 +1349,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2 md:col-span-3">
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
             rows={2}
@@ -1444,7 +1448,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             <div>
               <label className="font-black text-stone-900 text-xs flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-emerald-700" />
-                <span>{field.label}</span>
+                <span>{registryFieldLabel(field)}</span>
                 {field.required && <span className="text-red-500">*</span>}
               </label>
               <p className="text-[11px] text-stone-500 mt-0.5">
@@ -1565,7 +1569,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
             <div>
               <label className="font-bold text-stone-900 text-sm block">
-                {field.label} {field.required && <span className="text-red-500">*</span>}
+                {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
               </label>
               <span className="text-[11px] text-stone-500">
                 {field.helpText || 'GPS pen coordinates under Hinunangan Municipal EO 12-2023'}
@@ -1894,7 +1898,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               }}
               className="w-4 h-4 text-amber-600 rounded border-amber-400 focus:ring-amber-500"
             />
-            <span>{field.label}</span>
+            <span>{registryFieldLabel(field)}</span>
           </label>
           {field.helpText && <span className="text-[10px] text-amber-800">{field.helpText}</span>}
         </div>
@@ -1906,7 +1910,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="number"
@@ -1928,7 +1932,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id}>
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             type="date"
@@ -1951,7 +1955,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
             id={`phone-${field.id}`}
             value={rawVal}
             onChange={val => handleCustomFieldChange(field.id, val)}
-            label={field.label}
+            label={registryFieldLabel(field)}
             required={field.required}
             placeholder={field.placeholder || '917 123 4567'}
             helpText={field.helpText}
@@ -1972,7 +1976,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2">
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <div className="flex items-center gap-3">
             <label className="bg-stone-50 hover:bg-stone-100 text-stone-800 font-bold px-3.5 py-2 rounded-xl border border-stone-300 cursor-pointer flex items-center gap-2 transition text-xs">
@@ -2011,9 +2015,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                     handleCustomFieldChange(field.id, '');
                   }}
                   className="text-red-500 text-[11px] hover:underline"
-                >
-                  Remove
-                </button>
+                ><InterfaceText source="Remove" /></button>
               </div>
             ) : (
               <span className="text-[11px] text-stone-400">No document attached</span>
@@ -2034,7 +2036,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       return (
         <div key={field.id} className="sm:col-span-2">
           <label className="block font-bold text-stone-700 mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           <div className="flex items-center gap-3">
             <label className="bg-stone-50 hover:bg-stone-100 text-stone-800 font-bold px-3.5 py-2 rounded-xl border border-stone-300 cursor-pointer flex items-center gap-2 transition text-xs">
@@ -2062,15 +2064,13 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   type="button"
                   onClick={() => handleCustomFieldChange(field.id, '')}
                   className="text-red-500 text-[11px] hover:underline"
-                >
-                  Remove
-                </button>
+                ><InterfaceText source="Remove" /></button>
               </div>
             ) : imageUrl ? (
               <div className="flex items-center gap-2">
                 <img
                   src={imageUrl}
-                  alt={field.label}
+                  alt={registryFieldLabel(field)}
                   className="w-10 h-10 rounded-xl object-cover border border-emerald-500 shadow-2xs"
                 />
                 <button
@@ -2088,9 +2088,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                     handleCustomFieldChange(field.id, '');
                   }}
                   className="text-red-500 text-[11px] hover:underline"
-                >
-                  Remove
-                </button>
+                ><InterfaceText source="Remove" /></button>
               </div>
             ) : (
               <span className="text-[11px] text-stone-400">No image attached</span>
@@ -2112,12 +2110,11 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id} className="sm:col-span-2">
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             {isFixed && (
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                <Lock className="w-2.5 h-2.5" /> Fixed Text
-              </span>
+                <Lock className="w-2.5 h-2.5" /><InterfaceText source="Fixed Text" /></span>
             )}
           </div>
           <div className="relative">
@@ -2150,7 +2147,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             {isFixed && (
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
@@ -2188,12 +2185,11 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id} className="sm:col-span-2">
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             {isFixed && (
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                <Lock className="w-2.5 h-2.5" /> Fixed
-              </span>
+                <Lock className="w-2.5 h-2.5" /><InterfaceText source="Fixed" /></span>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3 mt-1">
@@ -2231,12 +2227,11 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         <div key={field.id}>
           <div className="flex items-center justify-between mb-1">
             <label className="block font-bold text-stone-700">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
+              {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
             </label>
             {isFixed && (
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                <Lock className="w-2.5 h-2.5" /> Fixed
-              </span>
+                <Lock className="w-2.5 h-2.5" /><InterfaceText source="Fixed" /></span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -2249,9 +2244,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   ? 'bg-emerald-700 text-white border-emerald-700 shadow-2xs'
                   : 'bg-stone-50 text-stone-700 border-stone-300 hover:bg-stone-100 disabled:opacity-40'
               }`}
-            >
-              Yes
-            </button>
+            ><InterfaceText source="Yes" /></button>
             <button
               type="button"
               disabled={isFixed}
@@ -2261,9 +2254,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   ? 'bg-red-700 text-white border-red-700 shadow-2xs'
                   : 'bg-stone-50 text-stone-700 border-stone-300 hover:bg-stone-100 disabled:opacity-40'
               }`}
-            >
-              No
-            </button>
+            ><InterfaceText source="No" /></button>
           </div>
           {field.helpText && <p className="text-[10px] text-stone-500 mt-1">{field.helpText}</p>}
         </div>
@@ -2286,12 +2277,11 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               onChange={e => !isFixed && handleCustomFieldChange(field.id, e.target.checked)}
               className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500 disabled:opacity-50"
             />
-            <span className="text-xs text-stone-800 font-bold">{field.label}</span>
+            <span className="text-xs text-stone-800 font-bold">{registryFieldLabel(field)}</span>
             {field.required && <span className="text-red-500">*</span>}
             {isFixed && (
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded flex items-center gap-1 ml-1.5">
-                <Lock className="w-2 h-2" /> Fixed
-              </span>
+                <Lock className="w-2 h-2" /><InterfaceText source="Fixed" /></span>
             )}
           </label>
           {field.helpText && <p className="text-[10px] text-stone-500 mt-0.5 ml-6">{field.helpText}</p>}
@@ -2316,16 +2306,14 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       <div key={field.id}>
         <div className="flex items-center justify-between mb-1">
           <label className="block font-bold text-stone-700">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
+            {registryFieldLabel(field)} {field.required && <span className="text-red-500">*</span>}
           </label>
           {isFieldAutoGenerated ? (
             <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-              <Sparkles className="w-2.5 h-2.5 text-purple-600" /> Auto-Generated
-            </span>
+              <Sparkles className="w-2.5 h-2.5 text-purple-600" /><InterfaceText source="Auto-Generated" /></span>
           ) : isFieldFixed ? (
             <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-              <Lock className="w-2.5 h-2.5" /> Fixed Text
-            </span>
+              <Lock className="w-2.5 h-2.5" /><InterfaceText source="Fixed Text" /></span>
           ) : null}
         </div>
         <div className="relative">
@@ -2901,8 +2889,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                       </span>
                     )}
                     <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-emerald-600" />
-                      Section {secIndex + 1}
+                      <Sparkles className="w-3 h-3 text-emerald-600" /><InterfaceText source="Section" />{secIndex + 1}
                     </span>
                   </div>
                 </div>
@@ -3063,9 +3050,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               onClick={onCancel}
               disabled={isSubmitting}
               className="px-5 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs transition cursor-pointer"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
           )}
 
           <button

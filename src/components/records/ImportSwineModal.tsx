@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { IMPORT_LIMITS, normalizeImportDataset, stableImportFingerprint } from '../../utils/swineImportData';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -573,7 +574,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
             disabled={isImporting || isReadingFile}
             onClick={onClose}
             className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
-            title="Close"
+            title={translateInterfaceText("Close")}
           >
             <X className="w-5 h-5" />
           </button>
@@ -727,7 +728,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-stone-900">
                     Drag and drop your {initialFileType === 'csv' ? 'CSV file' : initialFileType === 'xlsx' ? 'Excel spreadsheet' : 'records file'} here, or{' '}
-                    <span className="text-emerald-700 underline underline-offset-2">Browse Files</span>
+                    <span className="text-emerald-700 underline underline-offset-2"><InterfaceText source="Browse Files" /></span>
                   </h3>
                   <p className="text-xs text-stone-500 mt-1">
                     {initialFileType === 'csv'
@@ -1374,10 +1375,10 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                     <thead className="bg-stone-100 text-stone-700 font-bold border-b border-stone-200 sticky top-0 z-10">
                       <tr>
                         <th className="py-2.5 px-3">Row</th>
-                        <th className="py-2.5 px-3">Status</th>
-                        <th className="py-2.5 px-3">Pig ID Tag</th>
-                        <th className="py-2.5 px-3">Farmer Name</th>
-                        <th className="py-2.5 px-3">Barangay</th>
+                        <th className="py-2.5 px-3"><InterfaceText source="Status" /></th>
+                        <th className="py-2.5 px-3"><InterfaceText source="Pig ID Tag" /></th>
+                        <th className="py-2.5 px-3"><InterfaceText source="Farmer Name" /></th>
+                        <th className="py-2.5 px-3"><InterfaceText source="Barangay" /></th>
                         <th className="py-2.5 px-3">Birth Date / Age</th>
                         <th className="py-2.5 px-3">Weight (kg)</th>
                         <th className="py-2.5 px-3">Custom Fields</th>
@@ -1408,12 +1409,10 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                             <td className="py-2 px-3">
                               {hasErrors ? (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1">
-                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" /> Error
-                                </span>
+                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" /><InterfaceText source="Error" /></span>
                               ) : hasWarnings ? (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" /> Warning
-                                </span>
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" /><InterfaceText source="Warning" /></span>
                               ) : (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                   <Check className="w-2.5 h-2.5 text-emerald-700" /> Valid
@@ -1489,7 +1488,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-stone-900">Importing Swine Registry Data...</h3>
+                <h3 className="text-lg font-bold text-stone-900"><InterfaceText source="Importing Swine Registry Data..." /></h3>
                 <p className="text-xs text-stone-500 mt-1">{importStatusMsg}</p>
               </div>
 
@@ -1501,7 +1500,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                   />
                 </div>
                 <div className="flex justify-between text-[11px] font-bold text-stone-600">
-                  <span>Progress</span>
+                  <span><InterfaceText source="Progress" /></span>
                   <span>{importProgress}%</span>
                 </div>
               </div>
@@ -1516,34 +1515,34 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-stone-900">Import Results</h3>
+                <h3 className="text-xl font-bold text-stone-900"><InterfaceText source="Import Results" /></h3>
                 <p className="text-xs text-stone-500 mt-1">
                   {resultStatus}
                 </p>
               </div>
 
               {importFailures.length > 0 && <div className="text-left rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900">
-                <button type="button" onClick={downloadImportFailures} className="font-bold underline mb-2">Download rejected rows and reasons</button>
+                <button type="button" onClick={downloadImportFailures} className="font-bold underline mb-2"><InterfaceText source="Download rejected rows and reasons" /></button>
                 <ul className="space-y-1">{importFailures.slice(0,20).map((failure,index) => <li key={index}>Row {failure.row}: {failure.reason}</li>)}</ul>
               </div>}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
                 <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
-                  <p className="text-[10px] font-bold text-emerald-800 uppercase">New Records Created</p>
+                  <p className="text-[10px] font-bold text-emerald-800 uppercase"><InterfaceText source="New Records Created" /></p>
                   <p className="text-2xl font-black text-emerald-950 mt-1">{importSummary.created}</p>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl">
-                  <p className="text-[10px] font-bold text-blue-800 uppercase">Records Updated</p>
+                  <p className="text-[10px] font-bold text-blue-800 uppercase"><InterfaceText source="Records Updated" /></p>
                   <p className="text-2xl font-black text-blue-950 mt-1">{importSummary.updated}</p>
                 </div>
 
                 <div className="bg-purple-50 border border-purple-200 p-4 rounded-2xl">
-                  <p className="text-[10px] font-bold text-purple-800 uppercase">Custom Fields Created</p>
+                  <p className="text-[10px] font-bold text-purple-800 uppercase"><InterfaceText source="Custom Fields Created" /></p>
                   <p className="text-2xl font-black text-purple-950 mt-1">{importSummary.newFieldsCount}</p>
                 </div>
 
                 <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl">
-                  <p className="text-[10px] font-bold text-stone-600 uppercase">Skipped / Failed</p>
+                  <p className="text-[10px] font-bold text-stone-600 uppercase"><InterfaceText source="Skipped / Failed" /></p>
                   <p className="text-2xl font-black text-stone-900 mt-1">{importSummary.skipped}</p>
                 </div>
               </div>
@@ -1564,7 +1563,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 className="px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
+                <span><InterfaceText source="Back" /></span>
               </button>
             )}
           </div>
@@ -1575,9 +1574,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
             )}
 
             {currentStep === 'mapping' && (
@@ -1586,7 +1583,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 onClick={handleProceedToValidation}
                 className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition cursor-pointer"
               >
-                <span>Proceed to Data Validation</span>
+                <span><InterfaceText source="Proceed to Data Validation" /></span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}
@@ -1608,9 +1605,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
                 type="button"
                 onClick={onClose}
                 className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md transition cursor-pointer"
-              >
-                Done & View Records
-              </button>
+              ><InterfaceText source="Done & View Records" /></button>
             )}
           </div>
         </div>

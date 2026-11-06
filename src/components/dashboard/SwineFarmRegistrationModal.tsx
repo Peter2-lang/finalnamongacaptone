@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   X,
@@ -213,9 +214,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
               <Building2 className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black tracking-tight text-white">
-                Swine Farm Registration
-              </h2>
+              <h2 className="text-xl font-black tracking-tight text-white"><InterfaceText source="Swine Farm Registration" /></h2>
               <p className="text-xs text-emerald-200">
                 DA Hinunangan Municipal Swine Registry & Biosecurity Form
               </p>
@@ -241,7 +240,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                 Farm Successfully Registered!
               </h3>
               <p className="text-sm text-stone-600 max-w-md mx-auto">
-                <strong>{farmerName}</strong> in <strong>Brgy. {selectedBarangay}</strong> has been officially logged in the Municipal Registry with <strong>{totalHeads} heads</strong>.
+                <strong>{farmerName}</strong> in <strong>Brgy. {selectedBarangay}</strong> has been officially logged in the Municipal Registry with <strong>{totalHeads}{" "}<InterfaceText source="heads" /></strong>.
               </p>
             </div>
 
@@ -256,7 +255,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold text-emerald-700">Total Swine Heads:</span>
-                <span className="font-bold">{totalHeads} Heads</span>
+                <span className="font-bold">{totalHeads}{" "}<InterfaceText source="Heads" /></span>
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold text-emerald-700">Biosecurity Clearance:</span>
@@ -324,7 +323,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                     value={farmerContact}
                     onChange={setFarmerContact}
                     label="Contact Number"
-                    placeholder="9125918781"
+                    placeholder={translateInterfaceText("9125918781")}
                     required={false}
                     helpText="Enter 10 digits starting with 9; +63 is added automatically."
                   />
@@ -361,9 +360,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    RSBSA Reference Number
-                  </label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="RSBSA Reference Number" /></label>
                   <input
                     type="text"
                     placeholder="e.g., RSBSA-08-64-09-0021"
@@ -402,9 +399,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                   <Layers className="w-4 h-4 text-emerald-600" />
                   <span>2. Current Swine Inventory</span>
                 </div>
-                <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                  Total: {totalHeads} Heads
-                </span>
+                <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full"><InterfaceText source="Total:" />{totalHeads}<InterfaceText source="Heads" /></span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -562,11 +557,11 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
               {/* Coordinates */}
               <div className="flex flex-wrap items-center gap-3 bg-stone-50 border border-stone-200 p-3 rounded-2xl">
                 <div className="flex-1 min-w-[140px]">
-                  <span className="block text-[10px] text-stone-500 font-bold uppercase">Latitude</span>
+                  <span className="block text-[10px] text-stone-500 font-bold uppercase"><InterfaceText source="Latitude" /></span>
                   <span className="font-mono text-xs font-bold text-stone-800">{latitude}</span>
                 </div>
                 <div className="flex-1 min-w-[140px]">
-                  <span className="block text-[10px] text-stone-500 font-bold uppercase">Longitude</span>
+                  <span className="block text-[10px] text-stone-500 font-bold uppercase"><InterfaceText source="Longitude" /></span>
                   <span className="font-mono text-xs font-bold text-stone-800">{longitude}</span>
                 </div>
                 <button
@@ -587,9 +582,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs transition cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="submit"
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer shadow-md flex items-center gap-2"

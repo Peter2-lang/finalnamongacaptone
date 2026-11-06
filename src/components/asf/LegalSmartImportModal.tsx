@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   Upload,
@@ -319,7 +320,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                   <Upload className="h-8 w-8" />
                 </div>
                 <h3 className="text-base font-bold text-slate-800">
-                  Drop Legal Documents Here, or <span className="text-emerald-700 underline">Browse Files</span>
+                  Drop Legal Documents Here, or <span className="text-emerald-700 underline"><InterfaceText source="Browse Files" /></span>
                 </h3>
                 <p className="mt-1 text-xs text-slate-500 max-w-lg">
                   Supported formats: PDF, Word (DOC/DOCX), Excel / Spreadsheet (XLS/XLSX/CSV), Text (TXT/RTF/ODT), and Scanned Images (JPG/PNG/TIFF/WEBP) with Automatic OCR.
@@ -682,7 +683,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         <option value="active">Active & Enacted</option>
                         <option value="draft">Draft / Under Review</option>
                         <option value="repealed">Repealed</option>
-                        <option value="archived">Archived</option>
+                        <option value="archived">{translateInterfaceText("Archived")}</option>
                       </select>
                     </div>
 
@@ -709,7 +710,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                               {art.articleNumber}: {art.articleTitle}
                             </span>
                             <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-semibold">
-                              {art.sections.length} Section{art.sections.length > 1 ? 's' : ''}
+                              {art.sections.length}{" "}<InterfaceText source="Section" />{art.sections.length > 1 ? 's' : ''}
                             </span>
                           </div>
 
@@ -731,7 +732,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                                     value={sec.sectionTitle}
                                     onChange={e => updateSection(aIdx, sIdx, { sectionTitle: e.target.value })}
                                     className="flex-1 font-semibold text-slate-700 border-b border-dashed border-slate-300 focus:outline-none"
-                                    placeholder="Section Title"
+                                    placeholder={translateInterfaceText("Section Title")}
                                   />
                                   <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
                                     Page {sec.scannedPageRef || 1}
@@ -833,9 +834,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
               <button
                 onClick={onClose}
                 className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 onClick={startProcessing}
                 disabled={files.length === 0}
@@ -859,9 +858,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                 <button
                   onClick={onClose}
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   onClick={handleConfirmAndSave}
                   className="flex items-center gap-2 rounded-xl bg-emerald-700 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 transition-all"

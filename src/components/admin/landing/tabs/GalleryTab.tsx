@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Image as ImageIcon, Plus, Trash2, Eye, EyeOff, LayoutGrid, Layers, Columns } from 'lucide-react';
 import { GalleryPhotoItem, LandingCmsConfig } from '../../../../types/landingCms';
@@ -159,7 +160,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                     className="px-2 py-1 rounded-lg border border-stone-300 bg-white text-[11px]"
                   >
                     <option value="Field Operations">Field Operations</option>
-                    <option value="Biosecurity">Biosecurity</option>
+                    <option value="Biosecurity">{translateInterfaceText("Biosecurity")}</option>
                     <option value="Training">Training</option>
                     <option value="Marketing">Marketing</option>
                     <option value="Facilities">Facilities</option>

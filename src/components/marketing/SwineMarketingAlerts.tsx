@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
@@ -338,7 +339,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                     {alert.headsNeeded && (
                       <div>
                         <span className="text-[10px] text-stone-500 font-medium block">Heads Needed</span>
-                        <span className="text-sm font-extrabold text-amber-900">{alert.headsNeeded} heads</span>
+                        <span className="text-sm font-extrabold text-amber-900">{alert.headsNeeded}{" "}<InterfaceText source="heads" /></span>
                       </div>
                     )}
                     {(alert.preferredWeightMin || alert.preferredWeightMax) && (
@@ -573,9 +574,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                   type="button"
                   onClick={() => setIsNewAlertModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-md"
@@ -624,8 +623,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                           </span>
                           <span className="text-[10px] text-stone-500">Brgy. {swine.barangay}</span>
                         </div>
-                        <p className="text-stone-600 text-[11px] mt-0.5">
-                          Farmer: <strong>{swine.farmerName}</strong> ({swine.farmerContact || 'No contact'})
+                        <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{swine.farmerName}</strong> ({swine.farmerContact || 'No contact'})
                         </p>
                       </div>
 
@@ -651,9 +649,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
               <button
                 onClick={() => setMatchingAlert(null)}
                 className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-100 cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>

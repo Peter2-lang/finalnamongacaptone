@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import 'leaflet/dist/leaflet.css';
 import {escapeHtml} from '../../utils/exportEncoding';
 import { MapNavigationControls } from './MapNavigationControls';
@@ -1035,13 +1036,13 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         >
           <input
             type="checkbox"
-            aria-label="Heatmap"
+            aria-label={translateInterfaceText("Heatmap")}
             checked={showHeatmap}
             onChange={e => setShowHeatmap(e.target.checked)}
             className="w-3.5 h-3.5 rounded accent-orange-500 cursor-pointer"
           />
           <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'text-white' : 'text-orange-400'}`} />
-          <span className="hidden sm:inline">Heatmap</span>
+          <span className="hidden sm:inline"><InterfaceText source="Heatmap" /></span>
         </label>
 
         {/* Filters Toggle Button */}
@@ -1054,7 +1055,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Filters</span>
+          <span><InterfaceText source="Filters" /></span>
         </button>
 
         {/* Map Type Toggle */}
@@ -1072,9 +1073,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               mapMode === 'satellite' ? 'bg-emerald-600 text-white' : 'text-stone-300 hover:text-white'
             }`}
-          >
-            Satellite
-          </button>
+          ><InterfaceText source="Satellite" /></button>
           <button
             onClick={() => setMapMode('terrain')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
@@ -1112,9 +1111,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
           {/* Barangay Filter (Admin Only; Locked for Focal Person) */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Barangay Scope
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Barangay Scope" /></label>
             {isFocal ? (
               <div className="bg-stone-800/80 border border-amber-500/40 rounded-xl px-3 py-2 text-stone-300 flex items-center justify-between">
                 <span>{authorizedBarangayName}</span>
@@ -1140,15 +1137,13 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
           {/* Swine Type Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Swine Type
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Swine Type" /></label>
             <select
               value={selectedSwineType}
               onChange={e => setSelectedSwineType(e.target.value)}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
-              <option value="all">All Swine Types</option>
+              <option value="all">{translateInterfaceText("All Swine Types")}</option>
               <option value="boar">Breeding Boars</option>
               <option value="sow">Breeding Sows</option>
               <option value="piglet">Piglets</option>
@@ -1159,9 +1154,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
           {/* Market Status Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Market Status
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Market Status" /></label>
             <select
               value={selectedMarketStatus}
               onChange={e => setSelectedMarketStatus(e.target.value)}
@@ -1170,7 +1163,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
               <option value="all">All Market Statuses</option>
               <option value="ready_to_sell">🌟 Ready for Market Sale Only</option>
               <option value="active">Active / Healthy</option>
-              <option value="sold">Sold</option>
+              <option value="sold">{translateInterfaceText("Sold")}</option>
             </select>
           </div>
 
@@ -1184,7 +1177,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
               onChange={e => setSelectedAsfZone(e.target.value)}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
-              <option value="all">All ASF Zones</option>
+              <option value="all">{translateInterfaceText("All ASF Zones")}</option>
               <option value="RED">🔴 Red Zone (Infected / Quarantine)</option>
               <option value="PINK">🟣 Pink Zone (Buffer)</option>
               <option value="YELLOW">🟡 Yellow Zone (Surveillance)</option>
@@ -1217,7 +1210,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                   >
                     <option value="swine_density">Total Swine Density ({heatmapSwine.length})</option>
                     <option value="farmer_density">Farmer Density</option>
-                    <option value="ready_to_sell">Ready-to-Sell Swine</option>
+                    <option value="ready_to_sell">{translateInterfaceText("Ready-to-Sell Swine")}</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
                     <option value="registry_activity">Registry Activity Index</option>
                   </select>
@@ -1332,11 +1325,11 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
 
           <div className="grid grid-cols-2 gap-2 my-2.5">
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Total Swine Heads</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Total Swine Heads" /></span>
               <strong className="text-lg text-emerald-400 font-black">{selectedBarangayData.totalSwine}</strong>
             </div>
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Registered Farmers</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Registered Farmers" /></span>
               <strong className="text-lg text-blue-400 font-black">{selectedBarangayData.registeredFarmers}</strong>
             </div>
           </div>

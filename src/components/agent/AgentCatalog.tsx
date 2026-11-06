@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   Search,
@@ -180,7 +181,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
             <span className="text-2xl sm:text-3xl font-black text-amber-950">
               {filteredListings.length}
             </span>
-            <span className="text-xs font-bold text-stone-500">Heads</span>
+            <span className="text-xs font-bold text-stone-500"><InterfaceText source="Heads" /></span>
           </div>
           <span className="text-[11px] text-stone-400 block mt-0.5">Ready for slaughter / immediate takeoff</span>
         </div>
@@ -255,7 +256,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-stone-100 text-xs">
           {/* Barangay Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-stone-600 mb-1">Barangay</label>
+            <label className="block text-[11px] font-bold text-stone-600 mb-1"><InterfaceText source="Barangay" /></label>
             <select
               value={selectedBarangay}
               onChange={e => setSelectedBarangay(e.target.value)}
@@ -272,7 +273,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
 
           {/* Breed Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-stone-600 mb-1">Swine Breed</label>
+            <label className="block text-[11px] font-bold text-stone-600 mb-1"><InterfaceText source="Swine Breed" /></label>
             <select
               value={selectedBreed}
               onChange={e => setSelectedBreed(e.target.value)}
@@ -323,8 +324,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
         {/* Clear Filters Indicator */}
         {hasActiveFilters && (
           <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs text-stone-500">
-            <span>
-              Showing <strong>{sortedListings.length}</strong> matching listings
+            <span><InterfaceText source="Showing" /><strong>{sortedListings.length}</strong> matching listings
             </span>
             <button
               onClick={clearAllFilters}
@@ -530,7 +530,7 @@ export const AgentCatalog: React.FC<AgentCatalogProps> = ({ swineList, barangays
                     <span className="font-semibold text-stone-800 capitalize">{activeSwineDetail.gender || 'Barrow / Castrated'}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-stone-100">
-                    <span className="text-stone-500">Age:</span>
+                    <span className="text-stone-500"><InterfaceText source="Age:" /></span>
                     <span className="font-semibold text-stone-800">{activeSwineDetail.ageMonths ? `${activeSwineDetail.ageMonths} Months` : 'Market Age'}</span>
                   </div>
                   <div className="flex justify-between py-1">

@@ -1,3 +1,6 @@
+import { clearConversations } from './services/assistantConversation';
+import { tabForPath, normalizePath, routeTabs } from './utils/appRoutes';
+import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense, lazy, useRef, useCallback } from 'react';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
@@ -144,19 +147,23 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole | 'landing'>('landing');
   const [sessionRestoreComplete, setSessionRestoreComplete] = useState(false);
+  const [sessionRestoreError, setSessionRestoreError] = useState(false);
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentRole === 'super_admin';
   const isAdmin = currentUser?.role === 'admin' || currentRole === 'admin' || isSuperAdmin;
   const { fontStyle, colors, roleConfig } = useRoleTheme(currentRole);
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => tabForPath(window.location.pathname));
+  const { language, t } = useLanguage();
 
   // Path-based routing state for strict URL enforcement (/superadmin, /dashboard, etc.)
   const [currentPath, setCurrentPath] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return window.location.pathname;
+      return normalizePath(window.location.pathname);
     }
     return '/';
   });
+
+  const returnPathRef = useRef(routeTabs[normalizePath(window.location.pathname)] ? normalizePath(window.location.pathname) : null);
 
   const navigateTo = (path: string) => {
     if (typeof window !== 'undefined') {
@@ -216,12 +223,12 @@ export default function App() {
     } else if (matchedBg) {
       setGisInitialCenter([matchedBg.latitude, matchedBg.longitude]);
     }
-    setActiveTab('gis');
+    handleTabSelect('gis');
   };
 
   const handleViewSwineRecord = (swine: SwineRecord) => {
     setRecordsViewingRecordId(swine.id || swine.pigIdTag);
-    setActiveTab('records');
+    handleTabSelect('records');
   };
 
   // Counters for Header badges
@@ -260,17 +267,47 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    authApi.restoreSession().then(user => {
-      if (!active || !user) return;
+    let verificationTimer:ReturnType<typeof setTimeout>;
+    const verification = Promise.race([
+      authApi.restoreSession(),
+      new Promise<null>((_resolve,reject)=>{verificationTimer=setTimeout(()=>reject(Object.assign(new Error('Session verification timed out.'),{retryable:true})),30000);}),
+    ]);
+    verification.then(user => {
+      if (!active) return;
+      if (!user) { storageService.setCurrentUser(null); setSessionRestoreComplete(true); return; }
       storageService.setCurrentUser(user, true);
       setCurrentUser(user);
       setCurrentRole(user.role);
+      setSessionRestoreComplete(true);
     }).catch(error => {
       console.error('Unable to restore Supabase Auth profile:', error);
-    }).finally(() => {
-      if (active) setSessionRestoreComplete(true);
+      if (!active) return;
+      if (error?.retryable) setSessionRestoreError(true);
+      else if (!storageService.getSessionToken()) setSessionRestoreComplete(true);
+      else setSessionRestoreError(true);
+    }).finally(()=>clearTimeout(verificationTimer));
+    return () => { active = false; clearTimeout(verificationTimer); };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionRestoreComplete || currentUser || currentPath === '/' || currentPath === '/login' || currentPath.startsWith('/superadmin')) return;
+    if (routeTabs[normalizePath(currentPath)]) {
+      returnPathRef.current = normalizePath(currentPath);
+      navigateTo('/login');
+      setIsAuthModalOpen(true);
+    }
+  }, [sessionRestoreComplete,currentUser,currentPath]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session) => {
+      if (event !== 'SIGNED_OUT') return;
+      clearConversations();
+      storageService.setCurrentUser(null);
+      setCurrentUser(null);
+      setCurrentRole('landing');
     });
-    return () => { active = false; };
+    return () => subscription.unsubscribe();
   }, []);
 
   const refreshAccounts = useCallback(async () => {
@@ -516,60 +553,7 @@ export default function App() {
         return;
       }
 
-      // Map administrative URLs directly to corresponding modules
-      if (path === '/admin/landing-page-cms' || path === '/superadmin/landing-page-cms') {
-        setActiveTab('landing_manager');
-      } else if (path === '/admin/sidebar-configuration' || path === '/superadmin/sidebar-configuration') {
-        setActiveTab('sidebar_color');
-      } else if (path === '/admin/user-accounts' || path === '/superadmin/user-accounts') {
-        setActiveTab('accounts');
-      } else if (path === '/admin/api-configuration' || path === '/superadmin/api-configuration') {
-        setActiveTab('api_config');
-      } else if (path === '/admin/database-configuration' || path === '/superadmin/database-configuration') {
-        setActiveTab('database_config');
-      } else if (path === '/admin/registry-form-customization' || path === '/superadmin/registry-form-customization') {
-        setActiveTab('form_customizer');
-      } else if (path === '/superadmin/system-appearance') {
-        setActiveTab('system_appearance');
-      } else if (path === '/superadmin/role-page-configuration') {
-        setActiveTab('role_page_config');
-      } else if (path === '/superadmin/feature-configuration') {
-        setActiveTab('feature_config');
-      } else if (path === '/superadmin/component-configuration') {
-        setActiveTab('component_config');
-      } else if (path === '/superadmin/chatbot-configuration') {
-        setActiveTab('chatbot_config');
-      } else if (path === '/superadmin/typography') {
-        setActiveTab('typography_config');
-      } else if (path === '/superadmin/branding') {
-        setActiveTab('branding_config');
-      } else if (path === '/superadmin/layout') {
-        setActiveTab('layout_config');
-      } else if (path === '/superadmin/version-history') {
-        setActiveTab('version_history');
-      } else if (path === '/superadmin/audit-logs') {
-        setActiveTab('audit_logs');
-      } else if (path === '/superadmin/dashboard' || path === '/dashboard') {
-        setActiveTab('dashboard');
-      } else if (path === '/gis') {
-        setActiveTab('gis');
-      } else if (path === '/records') {
-        setActiveTab('records');
-      } else if (path === '/reports' || path === '/certificate') {
-        setActiveTab('certificate');
-      } else if (path === '/takeoff') {
-        setActiveTab('takeoff');
-      } else if (path === '/biosecurity') {
-        setActiveTab('biosecurity');
-      } else if (path === '/asf-ordinance' || path === '/asf_ordinance') {
-        setActiveTab('asf_ordinance');
-      } else if (path === '/messages') {
-        setActiveTab('messages');
-      } else if (path === '/barangays') {
-        setActiveTab('barangays');
-      } else if (path === '/account') {
-        setActiveTab('account');
-      }
+      setActiveTab(tabForPath(path));
     };
 
     syncRouteWithState();
@@ -595,12 +579,13 @@ export default function App() {
       navigateTo('/superadmin/dashboard');
       setActiveTab('dashboard');
     } else {
-      navigateTo('/dashboard');
+      navigateTo(currentUser.role === 'agent' ? '/ready_to_sell' : '/dashboard');
       setActiveTab(currentUser.role === 'agent' ? 'ready_to_sell' : 'dashboard');
     }
   };
 
   const handleLogout = () => {
+    clearConversations();
     void authApi.logout();
     setCurrentRole('landing');
     setCurrentUser(null);
@@ -625,11 +610,18 @@ export default function App() {
     setCurrentRole(user.role);
     storageService.setCurrentUser(user, true);
     setIsAuthModalOpen(false);
+    if (returnPathRef.current) {
+      const destination = returnPathRef.current;
+      returnPathRef.current = null;
+      navigateTo(destination);
+      setActiveTab(tabForPath(destination));
+      return;
+    }
     if (user.role === 'super_admin') {
       navigateTo('/superadmin/dashboard');
       setActiveTab('dashboard');
     } else {
-      navigateTo('/dashboard');
+      navigateTo(user.role === 'agent' ? '/ready_to_sell' : '/dashboard');
       setActiveTab(user.role === 'agent' ? 'ready_to_sell' : 'dashboard');
     }
   };
@@ -671,22 +663,23 @@ export default function App() {
 
   // Navigations from records
   const handleEditSwine = (swine: SwineRecord) => {
+    // Tab navigation clears a new-registration draft; install the edit record afterward.
+    handleTabSelect('add_swine');
     setEditingSwine(swine);
-    setActiveTab('add_swine');
   };
 
   const handleIssueCertificateForSwine = (swine: SwineRecord) => {
     setCertificateSwine(swine);
-    setActiveTab('certificate');
+    handleTabSelect('certificate');
   };
 
   // Dedicated /superadmin portal handling
   const isSuperAdminRoute = currentPath === '/superadmin' || currentPath.startsWith('/superadmin');
 
-  if (isSuperAdminRoute && !currentUser && !sessionRestoreComplete) {
+  if (!sessionRestoreComplete) {
     return (
       <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-200 text-sm" role="status">
-        Restoring secure session...
+        {sessionRestoreError ? <div>{t('session_unavailable','Session verification is temporarily unavailable. Please retry.')} <button type="button" onClick={()=>window.location.reload()} className="underline">{t('ui.Retry','Retry')}</button></div> : t('session_restoring', 'Restoring secure session...')}
       </div>
     );
   }
@@ -737,6 +730,7 @@ export default function App() {
   return (
     <div
       style={fontStyle}
+      lang={language}
       className={`${currentRole === 'landing' ? 'min-h-dvh' : 'h-dvh max-h-dvh overflow-hidden'} app-shell ${currentRole === 'landing' ? 'public-shell' : 'workspace-shell'} bg-slate-100 text-stone-900 flex flex-col font-sans antialiased selection:bg-emerald-200 relative`}
     >
       {/* Connected Interface Background Layer - Exclusively for Public Landing View */}
@@ -787,7 +781,7 @@ export default function App() {
         currentUser={currentUser}
         currentRole={currentRole}
         onSelectRole={handleSelectRole}
-        activeTab={activeTab}
+        activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
         onSelectTab={handleTabSelect}
         unreadCount={unreadCount}
         onOpenMessages={() => handleTabSelect('messages')}
@@ -810,7 +804,7 @@ export default function App() {
             <Sidebar
               currentUser={currentUser}
               currentRole={currentRole}
-              activeTab={activeTab}
+              activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
               onSelectTab={handleTabSelect}
               onSelectRole={handleSelectRole}
               unreadCount={unreadCount}
@@ -835,7 +829,7 @@ export default function App() {
               <Sidebar
                 currentUser={currentUser}
                 currentRole={currentRole}
-                activeTab={activeTab}
+                activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
                 onSelectTab={tab => {
                   handleTabSelect(tab);
                   setIsSidebarOpen(false);
@@ -879,7 +873,7 @@ export default function App() {
             config={landingConfig}
             accounts={accounts}
             onSelectRole={handleSelectRole}
-            onNavigateTab={tab => setActiveTab(tab)}
+            onNavigateTab={handleTabSelect}
             onOpenLogin={() => handleOpenLogin('admin')}
           />
         ) : currentRole === 'agent' ? (
@@ -913,10 +907,10 @@ export default function App() {
                 barangays={barangays}
                 currentUser={currentUser}
                 currentRole={currentRole}
-                onNavigateTab={setActiveTab}
+                onNavigateTab={handleTabSelect}
                 onAddSwine={() => {
                   setEditingSwine(null);
-                  setActiveTab('add_swine');
+                  handleTabSelect('add_swine');
                 }}
                 onOpenBatchModal={() => setIsBatchModalOpen(true)}
               />
@@ -949,7 +943,7 @@ export default function App() {
                 currentUser={currentUser}
                 onScheduleTakeoff={(swine) => {
                   setPreselectedTakeoffSwine(swine);
-                  setActiveTab('takeoff');
+                  handleTabSelect('takeoff');
                 }}
                 onRefresh={refreshAllData}
               />
@@ -970,7 +964,7 @@ export default function App() {
                     <button type="button"
                       onClick={() => {
                         setEditingSwine(null);
-                        setActiveTab('add_swine');
+                        handleTabSelect('add_swine');
                       }}
                       className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer shadow-sm flex items-center gap-1.5"
                     >
@@ -1005,7 +999,7 @@ export default function App() {
               <ASFOrdinanceModule
                 barangays={barangays}
                 currentUser={currentUser}
-                onNavigateTab={setActiveTab}
+                onNavigateTab={handleTabSelect}
               />
             )}
 
@@ -1021,16 +1015,16 @@ export default function App() {
                   setSelectedFarmerForSwine(null);
                   setPendingGisCoordinates(null);
                   refreshAllData();
-                  setActiveTab('records');
+                  handleTabSelect('records');
                 }}
                 onCancel={() => {
                   setEditingSwine(null);
                   setSelectedFarmerForSwine(null);
                   setPendingGisCoordinates(null);
-                  setActiveTab('records');
+                  handleTabSelect('records');
                 }}
                 onOpenBatchModal={() => setIsBatchModalOpen(true)}
-                onViewOrdinance={() => setActiveTab('asf_ordinance')}
+                onViewOrdinance={() => handleTabSelect('asf_ordinance')}
               />
             )}
 
@@ -1047,7 +1041,7 @@ export default function App() {
                 onAddSwine={farmer => {
                   setEditingSwine(null);
                   setSelectedFarmerForSwine(farmer || null);
-                  setActiveTab('add_swine');
+                  handleTabSelect('add_swine');
                 }}
                 onRefresh={refreshAllData}
               />
@@ -1075,7 +1069,7 @@ export default function App() {
                 <ManageBarangays barangays={barangays} onRefresh={refreshAllData} />
               ) : (
                 <AccessDenied403
-                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onBackToDashboard={() => handleTabSelect('dashboard')}
                   moduleName="Manage Barangays"
                 />
               )
@@ -1094,7 +1088,7 @@ export default function App() {
                 />
               ) : (
                 <AccessDenied403
-                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onBackToDashboard={() => handleTabSelect('dashboard')}
                   moduleName="User Accounts"
                 />
               )
@@ -1125,7 +1119,7 @@ export default function App() {
                 />
               ) : (
                 <AccessDenied403
-                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onBackToDashboard={() => handleTabSelect('dashboard')}
                   moduleName="Landing Page CMS"
                 />
               )
@@ -1137,7 +1131,7 @@ export default function App() {
                 <ManageLandingPage onRefresh={refreshAllData} />
               ) : (
                 <AccessDenied403
-                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onBackToDashboard={() => handleTabSelect('dashboard')}
                   moduleName="Theme & Appearance Settings"
                 />
               )
@@ -1148,11 +1142,11 @@ export default function App() {
               isSuperAdmin ? (
                 <SidebarColorConfig
                   onSaved={refreshAllData}
-                  onNavigateTab={setActiveTab}
+                  onNavigateTab={handleTabSelect}
                 />
               ) : (
                 <AccessDenied403
-                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onBackToDashboard={() => handleTabSelect('dashboard')}
                   moduleName="Sidebar Configuration"
                 />
               )
@@ -1285,6 +1279,7 @@ export default function App() {
       {/* Floating DA Hinunangan Biosecurity Assistant */}
       <Suspense fallback={null}>
         <BiosecurityAssistant
+          key={`${currentUser?.id || 'public'}:${currentRole}:${currentUser?.assignedBarangay || ''}`}
           currentUser={currentUser}
           currentRole={currentRole}
           onNavigateTab={handleTabSelect}

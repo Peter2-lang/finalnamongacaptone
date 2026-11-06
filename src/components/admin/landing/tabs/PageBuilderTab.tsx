@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   Layers,
@@ -101,8 +102,7 @@ export const PageBuilderTab: React.FC<PageBuilderTabProps> = ({ config, onChange
                 <span className="font-mono text-stone-400 text-[11px] w-5">#{idx + 1}</span>
                 <div>
                   <h4 className="font-bold text-stone-900 text-xs">{section.name}</h4>
-                  <span className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold">
-                    Type: {section.sectionType}
+                  <span className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold"><InterfaceText source="Type:" />{section.sectionType}
                   </span>
                 </div>
               </div>
@@ -188,15 +188,14 @@ export const PageBuilderTab: React.FC<PageBuilderTabProps> = ({ config, onChange
             type="text"
             value={newSubtitle}
             onChange={e => setNewSubtitle(e.target.value)}
-            placeholder="Section Subtitle"
+            placeholder={translateInterfaceText("Section Subtitle")}
             className="px-3 py-1.5 rounded-xl border border-stone-300 flex-1"
           />
           <button
             type="submit"
             className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Section
-          </button>
+            <Plus className="w-3.5 h-3.5" /><InterfaceText source="Add Section" /></button>
         </form>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Phone, Mail, MapPin, Clock, ShieldAlert, Image as ImageIcon } from 'lucide-react';
 import { LandingCmsConfig } from '../../../../types/landingCms';
@@ -21,9 +22,9 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-stone-100">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Title</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Title" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.contactTitleColor || '#064e3b'}
@@ -42,9 +43,9 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Subtitle</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Subtitle" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.contactSubtitleColor || '#78716c'}

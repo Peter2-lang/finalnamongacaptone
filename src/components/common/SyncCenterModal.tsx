@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   X,
@@ -218,9 +219,7 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-slate-800">{t('sync_simulate_offline_toggle')}</span>
                 {isSimulatedOffline && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 border border-amber-300">
-                    Active
-                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 border border-amber-300"><InterfaceText source="Active" /></span>
                 )}
               </div>
               <p className="text-xs text-slate-500">
@@ -301,9 +300,7 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
                           Retry ({item.retryCount})
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">
-                          Pending
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]"><InterfaceText source="Pending" /></span>
                       )}
                     </div>
                   </div>
@@ -322,9 +319,7 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
-            >
-              Close
-            </button>
+            ><InterfaceText source="Close" /></button>
             <button
               onClick={handleManualSync}
               disabled={isSyncing || !isOnline}

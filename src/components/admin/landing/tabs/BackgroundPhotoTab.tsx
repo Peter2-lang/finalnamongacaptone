@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useRef, useState } from 'react';
 import {
   Image as ImageIcon,
@@ -63,7 +64,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <div className="flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-emerald-700" />
-            <h3 className="font-bold text-stone-900 text-sm">Interface Background Photo</h3>
+            <h3 className="font-bold text-stone-900 text-sm"><InterfaceText source="Interface Background Photo" /></h3>
           </div>
           <span className="text-[11px] text-stone-400">Controls overall website backdrop</span>
         </div>
@@ -89,8 +90,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
           />
           <div className="relative z-10 bg-black/60 backdrop-blur-sm p-4 rounded-xl text-white text-center border border-white/20 max-w-sm">
             <p className="font-black text-sm">Backdrop Visual Filter Preview</p>
-            <p className="text-[11px] text-stone-300 mt-1">
-              Brightness: {bg.brightness}% • Blur: {bg.blur}px • Opacity: {bg.overlayOpacity}%
+            <p className="text-[11px] text-stone-300 mt-1"><InterfaceText source="Brightness:" />{bg.brightness}% • Blur: {bg.blur}px • Opacity: {bg.overlayOpacity}%
             </p>
           </div>
         </div>
@@ -133,8 +133,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
               onClick={() => onOpenMediaPicker('interfaceBackground.imageUrl')}
               className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer border border-emerald-300"
             >
-              <FolderOpen className="w-3.5 h-3.5 text-emerald-700" /> Media Library
-            </button>
+              <FolderOpen className="w-3.5 h-3.5 text-emerald-700" /><InterfaceText source="Media Library" /></button>
           )}
 
           <button
@@ -151,8 +150,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
             }`}
             title="Delete current background image"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </button>
+            <Trash2 className="w-3.5 h-3.5" /><InterfaceText source="Delete" /></button>
 
           <button
             type="button"
@@ -167,8 +165,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
             }
             className="px-3 py-2 rounded-xl text-stone-500 hover:text-stone-800 text-xs transition cursor-pointer flex items-center gap-1 ml-auto"
           >
-            <RotateCcw className="w-3 h-3" /> Reset
-          </button>
+            <RotateCcw className="w-3 h-3" /><InterfaceText source="Reset" /></button>
         </div>
 
         {/* Interactive URL Input Accordion Bar */}
@@ -194,16 +191,12 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
                   }
                 }}
                 className="py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer"
-              >
-                Apply
-              </button>
+              ><InterfaceText source="Apply" /></button>
               <button
                 type="button"
                 onClick={() => setIsUrlInputOpen(false)}
                 className="py-1.5 px-2.5 rounded-lg border border-stone-300 bg-white text-stone-700 text-xs cursor-pointer hover:bg-stone-50"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
             </div>
           </div>
         )}
@@ -218,8 +211,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">
-              Brightness: {bg.brightness ?? 100}%
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Brightness:" />{bg.brightness ?? 100}%
             </label>
             <input
               type="range"
@@ -232,8 +224,7 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
           </div>
 
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">
-              Overlay Opacity: {bg.overlayOpacity ?? 35}%
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Overlay Opacity:" />{bg.overlayOpacity ?? 35}%
             </label>
             <input
               type="range"
@@ -276,17 +267,17 @@ export const BackgroundPhotoTab: React.FC<BackgroundPhotoTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-stone-100">
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">Background Position</label>
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Background Position" /></label>
             <select
               value={bg.position || 'center'}
               onChange={e => updateBg({ position: e.target.value as any })}
               className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white"
             >
-              <option value="center">Center</option>
-              <option value="top">Top</option>
-              <option value="bottom">Bottom</option>
-              <option value="left">Left</option>
-              <option value="right">Right</option>
+              <option value="center">{translateInterfaceText("Center")}</option>
+              <option value="top">{translateInterfaceText("Top")}</option>
+              <option value="bottom">{translateInterfaceText("Bottom")}</option>
+              <option value="left">{translateInterfaceText("Left")}</option>
+              <option value="right">{translateInterfaceText("Right")}</option>
             </select>
           </div>
 

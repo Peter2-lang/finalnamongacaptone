@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React from 'react';
 import { X, Sparkles, Scale, Calendar, CheckCircle2, ChevronRight, Info, AlertTriangle } from 'lucide-react';
 import { SWINE_GROWTH_MATRIX, GrowthMatrixStage } from '../../utils/swineMatrixCalculator';
@@ -57,7 +58,7 @@ export const SwineMatrixModal: React.FC<SwineMatrixModalProps> = ({
             <div className="space-y-1">
               <p className="font-bold text-emerald-950">How the Auto-Calculated Matrix Works:</p>
               <p className="text-emerald-900 leading-relaxed text-[11px]">
-                Entering a <strong>Birth Date</strong> or <strong>Age in Weeks</strong> automatically determines the swine's biological life stage, sets the benchmark weight, and computes the current market value (₱) based on prevailing Hinunangan farmgate prices. You can also click <strong>"Apply Stage"</strong> to auto-fill the form with benchmark standards.
+                Entering a <strong><InterfaceText source="Birth Date" /></strong> or <strong>Age in Weeks</strong> automatically determines the swine's biological life stage, sets the benchmark weight, and computes the current market value (₱) based on prevailing Hinunangan farmgate prices. You can also click <strong>"Apply Stage"</strong> to auto-fill the form with benchmark standards.
               </p>
             </div>
           </div>
@@ -118,8 +119,7 @@ export const SwineMatrixModal: React.FC<SwineMatrixModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-stone-500 font-medium">
-                          Age: {stage.ageWeeksRange[0]} - {stage.ageWeeksRange[1]} Weeks ({stage.ageDaysRange[0]} - {stage.ageDaysRange[1]} Days)
+                        <span className="text-[11px] text-stone-500 font-medium"><InterfaceText source="Age:" />{stage.ageWeeksRange[0]} - {stage.ageWeeksRange[1]} Weeks ({stage.ageDaysRange[0]} - {stage.ageDaysRange[1]} Days)
                         </span>
                       </div>
 
@@ -131,7 +131,7 @@ export const SwineMatrixModal: React.FC<SwineMatrixModalProps> = ({
                         }}
                         className="px-2.5 py-1.5 rounded-xl bg-stone-900 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer flex items-center gap-1 shadow-xs"
                       >
-                        <span>Apply</span>
+                        <span><InterfaceText source="Apply" /></span>
                         <ChevronRight className="w-3 h-3" />
                       </button>
                     </div>

@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   FileText,
@@ -814,7 +815,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            <span>Print Document</span>
+            <span><InterfaceText source="Print Document" /></span>
           </button>
 
           {onClose && (
@@ -862,7 +863,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               onChange={e => setSelectedBarangayFilter(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="all">All Barangays</option>
+              <option value="all">{translateInterfaceText("All Barangays")}</option>
               {HINUNANGAN_BARANGAYS.map(b => (
                 <option key={b.code} value={b.name}>
                   {b.name}
@@ -943,9 +944,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               type="button"
               onClick={() => void loadTemplates()}
               className="min-h-10 rounded-lg border border-rose-300/60 px-3 font-bold hover:bg-rose-900/40"
-            >
-              Retry
-            </button>
+            ><InterfaceText source="Retry" /></button>
           </div>
         )}
         {!isLoadingTemplates && !templateLoadError && availableTemplates.length === 0 && (
@@ -1033,7 +1032,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Barangay Scope</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="Barangay Scope" /></label>
                   <select
                     value={template.barangay}
                     disabled={isFocalPerson}
@@ -1304,8 +1303,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {/* Position Selector (LEFT, CENTER, RIGHT) */}
                         <div>
-                          <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                            Position: <span className="text-blue-600 uppercase font-black">{logo.position}</span>
+                          <label className="block text-[11px] font-bold text-stone-700 mb-1"><InterfaceText source="Position:" /><span className="text-blue-600 uppercase font-black">{logo.position}</span>
                           </label>
                           <select
                             value={logo.position}
@@ -1324,7 +1322,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
 
                         {/* Seal Type / Change Logo */}
                         <div>
-                          <label className="block text-[11px] font-bold text-stone-700 mb-1">Seal Type</label>
+                          <label className="block text-[11px] font-bold text-stone-700 mb-1"><InterfaceText source="Seal Type" /></label>
                           <select
                             value={logo.type}
                             onChange={e =>
@@ -1334,10 +1332,10 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             }
                             className="w-full px-2.5 py-1.5 bg-stone-50 border border-stone-300 rounded-lg text-xs font-semibold text-slate-900"
                           >
-                            <option value="barangay">Barangay Official Seal</option>
-                            <option value="municipality">Municipality of Hinunangan</option>
-                            <option value="province">Province of Southern Leyte</option>
-                            <option value="da">Department of Agriculture (DA)</option>
+                            <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
+                            <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
+                            <option value="province">{translateInterfaceText("Province of Southern Leyte")}</option>
+                            <option value="da">{translateInterfaceText("Department of Agriculture (DA)")}</option>
                             <option value="bagong_pilipinas">Bagong Pilipinas</option>
                             <option value="custom">Custom Uploaded File</option>
                           </select>
@@ -1667,9 +1665,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                               }
                               className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-xs font-semibold text-slate-900"
                             >
-                              <option value="left">Left</option>
-                              <option value="center">Center</option>
-                              <option value="right">Right</option>
+                              <option value="left">{translateInterfaceText("Left")}</option>
+                              <option value="center">{translateInterfaceText("Center")}</option>
+                              <option value="right">{translateInterfaceText("Right")}</option>
                             </select>
                           </div>
 
@@ -1751,7 +1749,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="municipality">Municipality of Hinunangan Seal</option>
-                        <option value="barangay">Barangay Official Seal</option>
+                        <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
                         <option value="da">Department of Agriculture (DA) Seal</option>
                         <option value="province">Province of Southern Leyte Seal</option>
                         <option value="custom">Custom Uploaded Watermark</option>
@@ -1906,7 +1904,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <Printer className="w-3.5 h-3.5 text-amber-400" />
-                <span>Print Document</span>
+                <span><InterfaceText source="Print Document" /></span>
               </button>
             </div>
           </div>
@@ -1971,7 +1969,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                   onChange={e => setNewLogoType(e.target.value as CertificateLogoType)}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl font-semibold text-slate-900"
                 >
-                  <option value="barangay">Barangay Official Seal</option>
+                  <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
                   <option value="municipality">Municipality of Hinunangan Seal</option>
                   <option value="province">Province of Southern Leyte Seal</option>
                   <option value="da">Department of Agriculture (DA) Seal</option>
@@ -1983,7 +1981,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               {/* If Barangay Seal, select which barangay */}
               {newLogoType === 'barangay' && (
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Select Barangay</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="Select Barangay" /></label>
                   <select
                     value={newLogoBarangay}
                     onChange={e => setNewLogoBarangay(e.target.value)}
@@ -2033,9 +2031,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 type="button"
                 onClick={() => setIsAddLogoModalOpen(false)}
                 className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl text-xs transition cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleSaveNewLogo}
@@ -2084,7 +2080,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     <p className="mt-1 text-[11px] text-slate-400">Select a template export, HTML layout, or reference document.</p>
                   </div>
                   <input type="file" accept=".json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp" onChange={handleImportTemplateFile} className="hidden" />
-                  <span className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white">Browse Files</span>
+                  <span className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white"><InterfaceText source="Browse Files" /></span>
                 </label>
               </div>
 
@@ -2135,7 +2131,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-bold text-slate-200">Description</label>
+                      <label className="mb-1 block text-xs font-bold text-slate-200"><InterfaceText source="Description" /></label>
                       <textarea
                         value={importedTemplateDescription}
                         onChange={e => setImportedTemplateDescription(e.target.value)}
@@ -2164,7 +2160,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         onChange={e => setImportedBarangay(e.target.value)}
                         className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-blue-500"
                       >
-                        <option value="All">All Barangays</option>
+                        <option value="All">{translateInterfaceText("All Barangays")}</option>
                         {HINUNANGAN_BARANGAYS.map(b => (
                           <option key={b.code} value={b.name}>{b.name}</option>
                         ))}
@@ -2195,9 +2191,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 type="button"
                 onClick={() => setIsImportDialogOpen(false)}
                 className="rounded-xl border border-slate-600 px-4 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 disabled={!importedTemplate}

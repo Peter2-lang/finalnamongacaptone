@@ -23,7 +23,9 @@ const oldQuery=pool.query;
 const oldGetUser=supabaseAuthClient!.auth.getUser;
 supabaseAuthClient!.auth.getUser=async()=>({data:{user:{id:userId} as any},error:null});
 const {createApp}=await import('./app.ts');
-const server=createApp().listen(0,'127.0.0.1');await once(server,'listening');
+const assistantRequests:any[]=[];
+let assistantReplies:any[]=[];
+const server=createApp({assistantGenerate:async input=>{assistantRequests.push(input);const reply=assistantReplies.shift();if(reply instanceof Error)throw reply;return reply || {text:'A pig is a domesticated mammal raised for meat and breeding.'};}}).listen(0,'127.0.0.1');await once(server,'listening');
 const base=`http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 const request=(path:string,method='GET',body?:any)=>fetch(base+path,{method,headers:{Authorization:'Bearer isolated-fixture','Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
 after(async()=>{await new Promise<void>(resolve=>server.close(()=>resolve()));pool.query=oldQuery;supabaseAuthClient!.auth.getUser=oldGetUser;await pool.end();});
@@ -63,4 +65,27 @@ test('import preserves role restrictions and rejects excessive or unsafe batches
  assert.equal((await request('/api/swine-records/import','POST',{records:Array(101).fill(record),batchId:'fixture-import'})).status,400);
  assert.equal((await request('/api/swine-records/import','POST',{records:[record]})).status,400);
  assert.equal((await request('/api/swine-records/import','POST',{records:[record],batchId:'fixture-import',newFields:[{fieldKey:'constructor',label:'Unsafe',type:'text'}]})).status,400);
+});
+
+test('assistant APIs use verified roles, read scoped live counts and handle failures',async()=>{
+ active=true;
+ for(role of ['super_admin','admin','focal','agent']){
+  barangay='Ambacon';
+  assistantReplies=[{functionCalls:[{name:'query_registry',args:{period:'today'}}]},{text:'0 new records today in your authorized scope.'}];
+  const response=await request('/api/assistant/chat','POST',{message:'How many new records today?',language:'ceb',role:'super_admin',barangay:'Canipaan',history:[{role:'user',content:'Hello'}]});
+  assert.equal(response.status,200,role);const body=await response.json();assert.match(body.reply,/0 new records/);
+  const query=queries.filter(item=>item.text.includes('from "swine_records"')&&!item.text.includes('count(*)')).at(-1)!;
+  if(role==='focal')assert.ok(query.params.includes('Ambacon'));
+  if(role==='agent')assert.ok(query.params.includes(true));
+  assert.match(assistantRequests.at(-1).config.systemInstruction,/ceb/);
+ }
+ role='admin';
+ assistantReplies=[new Error('provider offline')];
+ let response=await request('/api/assistant/chat','POST',{message:'What is a pig?'});assert.equal(response.status,503);assert.doesNotMatch((await response.json()).error,/provider offline/);
+ assistantReplies=[{text:'What is a pig?'}];
+ response=await request('/api/assistant/chat','POST',{message:'What is a pig?'});assert.equal(response.status,503);
+ assistantReplies=[{functionCalls:[{name:'query_registry',args:{period:'today'}}]},{text:'Sign in to access private registry statistics.'}];
+ const before=queries.length;
+ response=await fetch(base+'/api/public/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'How many new records today?',role:'super_admin'})});
+ assert.equal(response.status,200);assert.match((await response.json()).reply,/Sign in/);assert.equal(queries.length,before);
 });

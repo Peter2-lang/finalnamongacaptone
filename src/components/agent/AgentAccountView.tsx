@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React from 'react';
 import {
   User,
@@ -55,7 +56,7 @@ export const AgentAccountView: React.FC<AgentAccountViewProps> = ({ currentUser,
 
           <div className="space-y-3 text-xs">
             <div className="flex justify-between py-1.5 border-b border-stone-50">
-              <span className="text-stone-500">Username:</span>
+              <span className="text-stone-500"><InterfaceText source="Username:" /></span>
               <span className="font-semibold text-stone-800">{currentUser?.username || 'trader_agent'}</span>
             </div>
 

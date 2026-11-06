@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Printer,
@@ -967,8 +968,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
             )}
 
             <details className="relative">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden">
-                More actions <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"><InterfaceText source="More actions" /><ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
               </summary>
               <div className="absolute right-0 z-40 mt-1 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
                 <button
@@ -1224,7 +1224,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 aria-label="Filter templates by barangay"
                 className="min-h-11 w-full min-w-0 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
-                <option value="all">All Barangays</option>
+                <option value="all">{translateInterfaceText("All Barangays")}</option>
                 {HINUNANGAN_BARANGAYS.map(b => (
                   <option key={b.code} value={b.name}>
                     {b.name}
@@ -1347,7 +1347,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               {/* Active Badge */}
               {activeTemplate && (
                 <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg text-[11px] font-semibold text-blue-800">
-                  <span className="font-bold">Format:</span>
+                  <span className="font-bold"><InterfaceText source="Format:" /></span>
                   <span className="capitalize">{(activeTemplate.layoutStyle || 'standard').replace(/_/g, ' ')}</span>
                   {activeTemplate.language && (
                     <span className="text-[10px] text-blue-600 bg-blue-100/80 px-1.5 py-0.5 rounded font-bold uppercase">
@@ -1359,9 +1359,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               {!isLoadingTemplates && templateLoadError && (
                 <div role="alert" className="flex flex-wrap items-center gap-3 text-xs text-rose-700 sm:col-span-2 xl:col-span-4">
                   <span>Template list could not be loaded: {templateLoadError}</span>
-                  <button type="button" onClick={() => void loadTemplates()} className="min-h-10 rounded-lg border border-rose-300 px-3 font-bold hover:bg-rose-50">
-                    Retry
-                  </button>
+                  <button type="button" onClick={() => void loadTemplates()} className="min-h-10 rounded-lg border border-rose-300 px-3 font-bold hover:bg-rose-50"><InterfaceText source="Retry" /></button>
                 </div>
               )}
               {!isLoadingTemplates && !templateLoadError && templates.length === 0 && (
@@ -1417,7 +1415,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Document</span>
+                  <span><InterfaceText source="Print Document" /></span>
                 </button>
 
                 <button
@@ -1465,7 +1463,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
                   <span>
-                    <strong>Authorized Scope:</strong> Showing issued certificates for <strong>Barangay {userAssignedBarangay || 'Assigned Barangay'}</strong>. Cross-barangay access is restricted under municipal security policy.
+                    <strong>Authorized Scope:</strong> Showing issued certificates for <strong><InterfaceText source="Barangay" />{" "}{userAssignedBarangay || 'Assigned Barangay'}</strong>. Cross-barangay access is restricted under municipal security policy.
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded bg-amber-200 text-amber-950 font-black text-[10px] uppercase tracking-wider">
@@ -1529,13 +1527,13 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   <thead>
                     <tr className="bg-slate-50 border-b border-stone-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
                       <th className="py-2.5 px-3">Cert # / Date</th>
-                      <th className="py-2.5 px-3">Farmer / Raiser</th>
-                      <th className="py-2.5 px-3">Barangay</th>
-                      <th className="py-2.5 px-3">Heads</th>
+                      <th className="py-2.5 px-3"><InterfaceText source="Farmer / Raiser" /></th>
+                      <th className="py-2.5 px-3"><InterfaceText source="Barangay" /></th>
+                      <th className="py-2.5 px-3"><InterfaceText source="Heads" /></th>
                       <th className="py-2.5 px-3">Buyer & Destination</th>
                       <th className="py-2.5 px-3">O.R. Number</th>
                       <th className="py-2.5 px-3">Issued By</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
+                      <th className="py-2.5 px-3 text-right"><InterfaceText source="Actions" /></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -1555,8 +1553,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                         </td>
                         <td className="py-3 px-3">
                           <span className="font-black px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded">
-                            {cert.numberOfHeads ?? '—'} Heads
-                          </span>
+                            {cert.numberOfHeads ?? '—'}<InterfaceText source="Heads" /></span>
                         </td>
                         <td className="py-3 px-3">
                           <span className="font-semibold text-slate-800 block">
@@ -1684,16 +1681,14 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   ) : (
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-stone-300 rounded-xl text-xs font-semibold text-slate-700 select-none">
                       <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Barangay {userAssignedBarangay || 'Assigned'} (Locked)</span>
+                      <span><InterfaceText source="Barangay" />{" "}{userAssignedBarangay || 'Assigned'} (Locked)</span>
                     </div>
                   )}
                 </div>
 
                 {/* Certificate Type Filter */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Certificate Type
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5"><InterfaceText source="Certificate Type" /></label>
                   <select
                     value={reportCertTypeFilter}
                     onChange={e => setReportCertTypeFilter(e.target.value)}
@@ -1748,12 +1743,8 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 </div>
 
                 <div className="text-center font-sans">
-                  <div className="text-xs font-bold tracking-widest text-slate-600 uppercase">
-                    Republic of the Philippines • Province of Southern Leyte
-                  </div>
-                  <div className="text-lg font-black text-slate-900 uppercase tracking-tight">
-                    Municipality of Hinunangan
-                  </div>
+                  <div className="text-xs font-bold tracking-widest text-slate-600 uppercase"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></div>
+                  <div className="text-lg font-black text-slate-900 uppercase tracking-tight"><InterfaceText source="Municipality of Hinunangan" /></div>
                   <div className="text-sm font-bold text-emerald-800 uppercase tracking-wider mt-0.5">
                     Office of the Municipal Agriculturist
                   </div>
@@ -1831,8 +1822,8 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                       <th className="py-2.5 px-3 border-r border-stone-300 text-center w-10">#</th>
                       <th className="py-2.5 px-3 border-r border-stone-300">Cert # / Date</th>
                       <th className="py-2.5 px-3 border-r border-stone-300">Hog Raiser / Farmer</th>
-                      <th className="py-2.5 px-3 border-r border-stone-300">Barangay</th>
-                      <th className="py-2.5 px-3 border-r border-stone-300 text-center">Heads</th>
+                      <th className="py-2.5 px-3 border-r border-stone-300"><InterfaceText source="Barangay" /></th>
+                      <th className="py-2.5 px-3 border-r border-stone-300 text-center"><InterfaceText source="Heads" /></th>
                       <th className="py-2.5 px-3 border-r border-stone-300">Buyer & Destination</th>
                       <th className="py-2.5 px-3 border-r border-stone-300">O.R. No. / Fee</th>
                       <th className="py-2.5 px-3">Authorized Signatory</th>
@@ -1985,7 +1976,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 <span className="text-base font-black text-emerald-700">{totalWeightKg.toLocaleString()} kg</span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-stone-500 block">Biosecurity Rating</span>
+                <span className="text-[10px] uppercase font-bold text-stone-500 block"><InterfaceText source="Biosecurity Rating" /></span>
                 <span className="text-base font-black text-purple-700">
                   {greenZoneCount} compliant
                 </span>
@@ -1999,16 +1990,16 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   <tr className="bg-slate-100 border-b border-stone-300 text-slate-800 font-black uppercase text-[10px]">
                     <th className="border border-stone-300 p-2">#</th>
                     {isColVisible('rsbsa') && <th className="border border-stone-300 p-2">RSBSA ID</th>}
-                    {isColVisible('name') && <th className="border border-stone-300 p-2">Farmer Full Name</th>}
-                    {isColVisible('address') && <th className="border border-stone-300 p-2">Barangay</th>}
+                    {isColVisible('name') && <th className="border border-stone-300 p-2"><InterfaceText source="Farmer Full Name" /></th>}
+                    {isColVisible('address') && <th className="border border-stone-300 p-2"><InterfaceText source="Barangay" /></th>}
                     {isColVisible('birthday') && <th className="border border-stone-300 p-2">Farmer Birthday</th>}
-                    {isColVisible('swineDob') && <th className="border border-stone-300 p-2">Date of Birth</th>}
+                    {isColVisible('swineDob') && <th className="border border-stone-300 p-2"><InterfaceText source="Date of Birth" /></th>}
                     {isColVisible('swineAge') && <th className="border border-stone-300 p-2">Age at Report Date</th>}
-                    {isColVisible('heads') && <th className="border border-stone-300 p-2">Heads</th>}
-                    {isColVisible('breed') && <th className="border border-stone-300 p-2">Breed</th>}
+                    {isColVisible('heads') && <th className="border border-stone-300 p-2"><InterfaceText source="Heads" /></th>}
+                    {isColVisible('breed') && <th className="border border-stone-300 p-2"><InterfaceText source="Breed" /></th>}
                     {isColVisible('weight') && <th className="border border-stone-300 p-2">Weight (kg)</th>}
                     {isColVisible('farmType') && <th className="border border-stone-300 p-2">Scale</th>}
-                    {isColVisible('biosecurity') && <th className="border border-stone-300 p-2">Biosecurity</th>}
+                    {isColVisible('biosecurity') && <th className="border border-stone-300 p-2"><InterfaceText source="Biosecurity" /></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2077,13 +2068,13 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
             {/* Signatures */}
             <div className="pt-8 grid grid-cols-3 gap-6 text-center text-xs">
               <div>
-                <p className="text-stone-500 font-semibold mb-6">Prepared by:</p>
+                <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Prepared by:" /></p>
                 <div className="border-b border-black font-bold uppercase pb-1">{preparedByName}</div>
                 <p className="text-[10px] text-stone-600 font-semibold pt-0.5">{preparedByTitle}</p>
               </div>
 
               <div>
-                <p className="text-stone-500 font-semibold mb-6">Verified by:</p>
+                <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Verified by:" /></p>
                 <div className="border-b border-black font-bold uppercase pb-1">{verifiedByName}</div>
                 <p className="text-[10px] text-stone-600 font-semibold pt-0.5">{verifiedByTitle}</p>
               </div>
@@ -2192,9 +2183,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 <p className="text-xs font-semibold text-stone-600 uppercase">
                   Republic of the Philippines • Department of Agriculture • Region VIII
                 </p>
-                <h2 className="text-base font-black uppercase text-stone-900 tracking-wide">
-                  OFFICE OF THE MUNICIPAL AGRICULTURIST
-                </h2>
+                <h2 className="text-base font-black uppercase text-stone-900 tracking-wide"><InterfaceText source="OFFICE OF THE MUNICIPAL AGRICULTURIST" /></h2>
                 <p className="text-xs font-bold text-stone-700">
                   Municipality of Hinunangan, Province of Southern Leyte
                 </p>
@@ -2227,7 +2216,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   <thead>
                     <tr className="bg-slate-100 border-b border-stone-300 font-black uppercase text-[10px] text-slate-800">
                       <th className="border border-stone-300 p-2">#</th>
-                      <th className="border border-stone-300 p-2">Barangay</th>
+                      <th className="border border-stone-300 p-2"><InterfaceText source="Barangay" /></th>
                       <th className="border border-stone-300 p-2 text-center">Registered Farms</th>
                       <th className="border border-stone-300 p-2 text-center">Audited Farms</th>
                       <th className="border border-stone-300 p-2 text-center">Footbath / Disinfection</th>
@@ -2286,13 +2275,13 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               {/* Official Signatures */}
               <div className="pt-8 grid grid-cols-3 gap-6 text-center text-xs">
                 <div>
-                  <p className="text-stone-500 font-semibold mb-6">Prepared by:</p>
+                  <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Prepared by:" /></p>
                   <div className="border-b border-black font-bold uppercase pb-1">{preparedByName}</div>
                   <p className="text-[10px] text-stone-600 font-semibold pt-0.5">{preparedByTitle}</p>
                 </div>
 
                 <div>
-                  <p className="text-stone-500 font-semibold mb-6">Verified by:</p>
+                  <p className="text-stone-500 font-semibold mb-6"><InterfaceText source="Verified by:" /></p>
                   <div className="border-b border-black font-bold uppercase pb-1">{verifiedByName}</div>
                   <p className="text-[10px] text-stone-600 font-semibold pt-0.5">{verifiedByTitle}</p>
                 </div>
@@ -2429,9 +2418,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      Official Position Title
-                    </label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Official Position Title" /></label>
                     <input
                       type="text"
                       value={preparedByTitle}
@@ -2459,9 +2446,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      Official Position Title
-                    </label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Official Position Title" /></label>
                     <input
                       type="text"
                       value={verifiedByTitle}
@@ -2489,9 +2474,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      Official Position Title
-                    </label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1"><InterfaceText source="Official Position Title" /></label>
                     <input
                       type="text"
                       value={approvedByTitle}
@@ -2507,15 +2490,11 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   type="button"
                   onClick={() => setIsSignatoryModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold cursor-pointer shadow-sm"
-                >
-                  Save Changes
-                </button>
+                ><InterfaceText source="Save Changes" /></button>
               </div>
             </form>
           </div>
@@ -2540,8 +2519,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
               <p className="font-bold text-slate-800">
                 Cert No: <span className="font-mono text-blue-700">{certToDelete.certificateNo}</span>
               </p>
-              <p className="font-semibold text-slate-700">
-                Farmer: <span className="uppercase">{certToDelete.farmerName}</span>
+              <p className="font-semibold text-slate-700"><InterfaceText source="Farmer:" /><span className="uppercase">{certToDelete.farmerName}</span>
               </p>
               <p className="text-slate-500">
                 Barangay: {certToDelete.farmerBarangay || certToDelete.issuingBarangay || 'N/A'} • OR No: {certToDelete.orNumber || 'N/A'}
@@ -2553,9 +2531,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                 type="button"
                 onClick={() => setCertToDelete(null)}
                 className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={() => {
@@ -2563,9 +2539,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
                   setCertToDelete(null);
                 }}
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs cursor-pointer shadow-sm"
-              >
-                Confirm Delete
-              </button>
+              ><InterfaceText source="Confirm Delete" /></button>
             </div>
           </div>
         </div>

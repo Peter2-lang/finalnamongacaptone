@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   Video,
@@ -277,7 +278,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">Section Title</label>
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Title" /></label>
             <input
               type="text"
               value={config.videosTitle || config.videoTitle || 'Educational & Extension Videos'}
@@ -286,7 +287,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
             />
           </div>
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">Section Subtitle</label>
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Subtitle" /></label>
             <input
               type="text"
               value={config.videosSubtitle || config.videoSubtitle || 'Field protocols, biosafety standards, and instructional material.'}
@@ -315,7 +316,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
               className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
             >
               <UploadCloud className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Import Video</span>
+              <span><InterfaceText source="Import Video" /></span>
             </button>
 
             {/* Add Video Button */}
@@ -345,9 +346,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                 type="button"
                 onClick={() => setShowAddForm(false)}
                 className="text-[11px] text-stone-500 hover:text-stone-800 font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -461,9 +460,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                 type="button"
                 onClick={() => setShowAddForm(false)}
                 className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="submit"
                 className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
@@ -615,9 +612,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                 type="button"
                 onClick={() => setShowImportModal(true)}
                 className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 font-bold text-xs cursor-pointer hover:bg-emerald-100"
-              >
-                Import Video
-              </button>
+              ><InterfaceText source="Import Video" /></button>
               <button
                 type="button"
                 onClick={() => setShowAddForm(true)}
@@ -754,9 +749,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                       type="button"
                       onClick={() => setShowImportModal(false)}
                       className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold cursor-pointer"
-                    >
-                      Cancel
-                    </button>
+                    ><InterfaceText source="Cancel" /></button>
                     <button
                       type="submit"
                       className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
@@ -859,7 +852,7 @@ export const VideoMediaTab: React.FC<VideoMediaTabProps> = ({
                           className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shrink-0 flex items-center gap-1 cursor-pointer shadow-2xs transition"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>Import</span>
+                          <span><InterfaceText source="Import" /></span>
                         </button>
                       </div>
                     ))}

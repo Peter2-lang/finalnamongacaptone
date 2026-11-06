@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Users, Plus, Edit, Trash2, Save, X, Key, Shield, UserCheck, Search, Eye, EyeOff } from 'lucide-react';
 import { Barangay, UserAccount, UserRole } from '../../types';
@@ -222,7 +223,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
           {resetError && <p role="alert" className="text-xs text-red-700">{resetError}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="reset-new-password" className="block font-semibold text-stone-700">New Password</label>
+              <label htmlFor="reset-new-password" className="block font-semibold text-stone-700"><InterfaceText source="New Password" /></label>
               <div className="relative mt-1">
                 <input id="reset-new-password" type={showNewPassword ? 'text' : 'password'} required autoComplete="new-password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
                 <button type="button" onClick={() => setShowNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showNewPassword ? 'Hide password' : 'Show password'} title={showNewPassword ? 'Hide password' : 'Show password'}>
@@ -231,7 +232,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
               </div>
             </div>
             <div>
-              <label htmlFor="reset-confirm-password" className="block font-semibold text-stone-700">Confirm New Password</label>
+              <label htmlFor="reset-confirm-password" className="block font-semibold text-stone-700"><InterfaceText source="Confirm New Password" /></label>
               <div className="relative mt-1">
                 <input id="reset-confirm-password" type={showConfirmNewPassword ? 'text' : 'password'} required autoComplete="new-password" value={confirmResetPassword} onChange={e => setConfirmResetPassword(e.target.value)} className="w-full px-3 pr-10 py-2 rounded-lg border border-stone-300" />
                 <button type="button" onClick={() => setShowConfirmNewPassword(value => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-500 hover:text-emerald-700 rounded-md" aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'} title={showConfirmNewPassword ? 'Hide password' : 'Show password'}>
@@ -403,9 +404,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
                 setShowConfirmPassword(false);
               }}
               className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 font-semibold text-stone-700 cursor-pointer"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
             <button
               type="submit"
               className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -452,11 +451,11 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
               <thead className="bg-stone-100/80 text-stone-700 font-semibold border-b border-stone-200 uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Account Name</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Assigned Jurisdiction</th>
+                  <th className="py-3 px-4"><InterfaceText source="Role" /></th>
+                  <th className="py-3 px-4"><InterfaceText source="Assigned Jurisdiction" /></th>
                   <th className="py-3 px-4">Login Email / Username</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4"><InterfaceText source="Status" /></th>
+                  <th className="py-3 px-4 text-right"><InterfaceText source="Actions" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200">

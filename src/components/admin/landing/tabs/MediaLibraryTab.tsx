@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   FolderOpen,
@@ -216,8 +217,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 text-[11px] text-stone-500 self-end sm:self-auto">
-            <span>
-              Showing <strong>{filteredItems.length}</strong> of {mediaItems.length} assets
+            <span><InterfaceText source="Showing" /><strong>{filteredItems.length}</strong> of {mediaItems.length} assets
             </span>
           </div>
         </div>
@@ -332,8 +332,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                   onClick={() => onSelectForField(item.url)}
                   className="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[11px] cursor-pointer flex items-center gap-1 shadow-2xs transition"
                 >
-                  <Check className="w-3.5 h-3.5" /> Use
-                </button>
+                  <Check className="w-3.5 h-3.5" /><InterfaceText source="Use" /></button>
               ) : (
                 <button
                   type="button"
@@ -382,8 +381,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
             <div className="p-5 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <label className="block font-semibold text-stone-700 mb-1">
-                    Brightness: {editBrightness}%
+                  <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Brightness:" />{editBrightness}%
                   </label>
                   <input
                     type="range"
@@ -410,8 +408,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-stone-700 mb-1">
-                    Opacity: {editOpacity}%
+                  <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Opacity:" />{editOpacity}%
                   </label>
                   <input
                     type="range"
@@ -498,9 +495,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
                 type="button"
                 onClick={() => setEditingItem(null)}
                 className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-200 font-bold text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={saveEditedItem}
@@ -535,9 +530,7 @@ export const MediaLibraryTab: React.FC<MediaLibraryTabProps> = ({
               <button
                 onClick={() => setPreviewingItem(null)}
                 className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 font-bold"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>

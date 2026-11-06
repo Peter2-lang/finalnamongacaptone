@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   User,
@@ -157,7 +158,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             <p className="text-xs text-stone-500 flex flex-wrap items-center gap-2">
               <span>Account ID: <strong className="font-mono text-stone-700">{currentUser?.id || 'ACC-8821'}</strong></span>
               <span>•</span>
-              <span>Username: <strong className="font-semibold text-stone-800">@{currentUser?.username || 'user'}</strong></span>
+              <span><InterfaceText source="Username:" />{" "}<strong className="font-semibold text-stone-800">@{currentUser?.username || 'user'}</strong></span>
               {isFocal && assignedBarangay && (
                 <>
                   <span>•</span>
@@ -178,7 +179,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-rose-50 text-stone-700 hover:text-rose-700 border border-stone-200 hover:border-rose-300 font-bold text-xs flex items-center gap-2 transition cursor-pointer self-stretch sm:self-auto justify-center"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <span><InterfaceText source="Sign Out" /></span>
           </button>
         )}
       </div>
@@ -187,7 +188,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
       {isFocal && assignedBarangay && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Assigned Jurisdiction</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500"><InterfaceText source="Assigned Jurisdiction" /></span>
             <div className="text-xl font-black text-emerald-950 flex items-center gap-1.5">
               <MapPin className="w-5 h-5 text-emerald-600" />
               <span>Brgy. {assignedBarangay}</span>
@@ -199,7 +200,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
             <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Total Registered Swine</span>
             <div className="text-2xl font-black text-stone-900 flex items-center gap-1.5">
               <Layers className="w-5 h-5 text-emerald-600" />
-              <span>{barangaySwine.length} Heads</span>
+              <span>{barangaySwine.length}{" "}<InterfaceText source="Heads" /></span>
             </div>
             <p className="text-[11px] text-emerald-700 font-semibold">{activeSwineCount} active in backyard & farm registries</p>
           </div>
@@ -258,7 +259,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
 
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2">
               <div className="flex justify-between">
-                <span className="text-stone-500 font-medium">Username:</span>
+                <span className="text-stone-500 font-medium"><InterfaceText source="Username:" /></span>
                 <span className="font-semibold text-stone-800">@{currentUser?.username || 'user'}</span>
               </div>
               <div className="flex justify-between">
@@ -268,7 +269,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
               {currentUser?.assignedBarangay && (
                 <div className="flex justify-between">
                   <span className="text-stone-500 font-medium">Assigned Barangay:</span>
-                  <span className="font-bold text-emerald-800">Barangay {currentUser.assignedBarangay}</span>
+                  <span className="font-bold text-emerald-800"><InterfaceText source="Barangay" />{" "}{currentUser.assignedBarangay}</span>
                 </div>
               )}
             </div>
@@ -321,7 +322,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-bold text-stone-700 mb-1">New Password</label>
+                <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="New Password" /></label>
                 <input
                   type="password"
                   required
@@ -332,7 +333,7 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-bold text-stone-700 mb-1">Confirm New Password</label>
+                <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Confirm New Password" /></label>
                 <input
                   type="password"
                   required

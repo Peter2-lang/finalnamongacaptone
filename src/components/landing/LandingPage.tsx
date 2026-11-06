@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
@@ -86,7 +87,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const cmsConfig = overrideCmsConfig || publishedConfig;
   const [selectedVideo, setSelectedVideo] = useState<VideoMediaItem | null>(null);
-  const [currentLanguage, setCurrentLanguage] = useState<'EN' | 'CEB'>('EN');
 
   // Interactive 15 Barangays & Biosecurity Directory State
   const [barangaySearch, setBarangaySearch] = useState('');
@@ -452,15 +452,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ) : (
                 <>
                   <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                      Registered Swine
-                    </span>
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Swine" /></span>
                     <span
                       className="text-3xl sm:text-4xl font-black mt-1 block"
                       style={{ color: theme.headingColor || '#064e3b' }}
                     >
-                      {totalSwine || cmsConfig.statSwineCount || '3,850+'} Heads
-                    </span>
+                      {totalSwine || cmsConfig.statSwineCount || '3,850+'}<InterfaceText source="Heads" /></span>
                     <span className="text-[11px] text-stone-400 mt-1 block">Actively monitored</span>
                   </div>
 
@@ -469,8 +466,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       Incoming Ready to Sell
                     </span>
                     <span className="text-3xl sm:text-4xl font-black text-amber-900 mt-1 block">
-                      {readyToSellCount || cmsConfig.statMarketReadyCount || '142'} Heads
-                    </span>
+                      {readyToSellCount || cmsConfig.statMarketReadyCount || '142'}<InterfaceText source="Heads" /></span>
                     <span className="text-[11px] text-amber-700 mt-1 block">Market harvest ready</span>
                   </div>
 
@@ -642,7 +638,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             <span className="text-xs font-black text-emerald-950 block">{bg.swineCount}</span>
                           </div>
                           <div className="border-l border-stone-200 pl-1">
-                            <span className="text-[10px] text-amber-800 font-semibold block">Ready to Sell</span>
+                            <span className="text-[10px] text-amber-800 font-semibold block"><InterfaceText source="Ready to Sell" /></span>
                             <span className="text-xs font-black text-amber-900 block">{bg.readyToSellCount}</span>
                           </div>
                         </div>
@@ -1100,9 +1096,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     type="button"
                     onClick={() => setLegalDocSearch('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-bold"
-                  >
-                    Clear
-                  </button>
+                  ><InterfaceText source="Clear" /></button>
                 )}
               </div>
             )}
@@ -1590,8 +1584,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       : 'Red Zone (Surveillance)'}
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black mt-1.5 text-white">
-                  Barangay {selectedBarangayDetail.name}
+                <h3 className="text-xl sm:text-2xl font-black mt-1.5 text-white"><InterfaceText source="Barangay" />{selectedBarangayDetail.name}
                 </h3>
                 <p className="text-xs text-emerald-100/80">
                   Hinunangan, Southern Leyte • {selectedBarangayDetail.isUrban ? 'Urban Zone' : 'Rural Agricultural Zone'}
@@ -1620,7 +1613,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-center">
-                  <span className="text-[11px] font-bold text-amber-800 uppercase block">Ready for Market</span>
+                  <span className="text-[11px] font-bold text-amber-800 uppercase block"><InterfaceText source="Ready for Market" /></span>
                   <span className="text-2xl sm:text-3xl font-black text-amber-900 block mt-0.5">
                     {selectedBarangayDetail.readyToSellCount}
                   </span>
@@ -1680,9 +1673,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={() => setSelectedBarangayDetail(null)}
                 className="px-5 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>
@@ -1835,9 +1826,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={() => setSelectedOrdinance(null)}
                 className="px-5 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>

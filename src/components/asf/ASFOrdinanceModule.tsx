@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo } from 'react';
 import {
   FileText,
@@ -416,8 +417,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                   </span>
                   {selectedDoc.status === 'archived' ? (
                     <span className="text-xs bg-amber-500/90 text-amber-950 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <Archive className="w-3 h-3" /> Archived
-                    </span>
+                      <Archive className="w-3 h-3" /><InterfaceText source="Archived" /></span>
                   ) : (
                     <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
                       <Check className="w-3 h-3 text-emerald-400" /> Active Enacted Law
@@ -475,8 +475,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                   onClick={() => setIsPrintViewOpen(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition border border-white/20"
                 >
-                  <Printer className="w-4 h-4" /> Print Document
-                </button>
+                  <Printer className="w-4 h-4" /><InterfaceText source="Print Document" /></button>
 
                 {isAdmin && (
                   <>
@@ -943,8 +942,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                             onClick={() => setIsPrintViewOpen(true)}
                             className="flex items-center gap-1 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg transition"
                           >
-                            <Eye className="w-3.5 h-3.5" /> View
-                          </button>
+                            <Eye className="w-3.5 h-3.5" /><InterfaceText source="View" /></button>
                         </div>
                       </div>
                     ))
@@ -985,8 +983,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-stone-900 capitalize">
-                              Action: {log.action}
+                            <span className="font-bold text-stone-900 capitalize"><InterfaceText source="Action:" />{log.action}
                             </span>
                             <span className="text-[10px] text-stone-400 font-mono">
                               {new Date(log.timestamp).toLocaleString()}
@@ -1035,9 +1032,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                 type="button"
                 onClick={() => setDeleteConfirmDoc(null)}
                 className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={() => {

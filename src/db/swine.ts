@@ -485,7 +485,7 @@ export function mapDbToSwine(row: any): SwineRecord {
     registeredAt:
       row.registeredAt ||
       row.registered_at ||
-      new Date().toISOString(),
+      row.createdAt?.toISOString?.() || row.created_at || '',
 
     updatedAt:
       row.updatedAt ||

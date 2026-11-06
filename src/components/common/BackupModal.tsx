@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Database, Download, Upload, RefreshCw, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { storageService } from '../../services/storageService';
@@ -146,9 +147,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-semibold text-xs cursor-pointer"
-          >
-            Close
-          </button>
+          ><InterfaceText source="Close" /></button>
         </div>
       </div>
     </div>

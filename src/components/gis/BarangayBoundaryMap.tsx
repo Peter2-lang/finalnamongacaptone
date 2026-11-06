@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import {
@@ -419,9 +420,7 @@ export const BarangayBoundaryMap: React.FC<BarangayBoundaryMapProps> = ({
               className={`px-2 py-1 rounded text-[11px] font-semibold cursor-pointer ${
                 basemap === 'satellite' ? 'bg-stone-800 text-white' : 'text-stone-600 hover:bg-stone-100'
               }`}
-            >
-              Satellite
-            </button>
+            ><InterfaceText source="Satellite" /></button>
             <button
               type="button"
               onClick={() => setBasemap('topo')}

@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useRef } from 'react';
 import {
   Layers,
@@ -391,9 +392,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                     type="button"
                     onClick={() => setShowAddLogoForm(false)}
                     className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
+                  ><InterfaceText source="Cancel" /></button>
                   <button
                     type="submit"
                     className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
@@ -478,7 +477,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                           <button
                             type="button"
                             onClick={() => setEditingLogoId(null)}
-                            title="Cancel"
+                            title={translateInterfaceText("Cancel")}
                             className="p-1 rounded bg-stone-200 hover:bg-stone-300 text-stone-700 cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -572,8 +571,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                 onClick={() => onOpenMediaPicker('footerLogoUrl')}
                 className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
               >
-                <ImageIcon className="w-3.5 h-3.5" /> Media Library
-              </button>
+                <ImageIcon className="w-3.5 h-3.5" /><InterfaceText source="Media Library" /></button>
             )}
             {config.footerLogoUrl && (
               <button
@@ -601,7 +599,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Footer Narrative Summary</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.footerTextColor || '#a8a29e'}
@@ -647,7 +645,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <h3 className="font-bold text-stone-900 text-sm">Footer Link Columns</h3>
-          <span className="text-[11px] text-stone-400">{columns.length} Columns</span>
+          <span className="text-[11px] text-stone-400">{columns.length}{" "}<InterfaceText source="Columns" /></span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -715,9 +713,7 @@ export const FooterTab: React.FC<FooterTabProps> = ({ config, onChange, onOpenMe
                       type="button"
                       onClick={() => setActiveColId(null)}
                       className="px-2 py-1 rounded text-stone-500 hover:bg-stone-100 text-[10px] cursor-pointer"
-                    >
-                      Cancel
-                    </button>
+                    ><InterfaceText source="Cancel" /></button>
                     <button
                       type="button"
                       onClick={() => handleAddLinkToColumn(col.id)}

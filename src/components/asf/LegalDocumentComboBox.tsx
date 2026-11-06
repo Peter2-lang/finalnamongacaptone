@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, Check, FileText, ScrollText, ShieldAlert, BookOpen, Archive } from 'lucide-react';
 import { ASFRegulatoryDocument } from '../../types';
@@ -104,9 +105,7 @@ export const LegalDocumentComboBox: React.FC<LegalDocumentComboBoxProps> = ({
                 {selectedDoc?.officialNumber || 'Select Legal Decree / Ordinance'}
               </span>
               {selectedDoc?.status === 'archived' ? (
-                <span className="text-[10px] bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded-sm font-semibold">
-                  Archived
-                </span>
+                <span className="text-[10px] bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded-sm font-semibold"><InterfaceText source="Archived" /></span>
               ) : (
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-sm font-semibold">
                   {selectedDoc?.seriesYear}
@@ -173,8 +172,7 @@ export const LegalDocumentComboBox: React.FC<LegalDocumentComboBoxProps> = ({
                           </span>
                           {doc.status === 'archived' && (
                             <span className="text-[9px] bg-stone-200 text-stone-600 px-1.5 py-0.2 rounded-sm font-semibold flex items-center gap-0.5">
-                              <Archive className="w-2.5 h-2.5" /> Archived
-                            </span>
+                              <Archive className="w-2.5 h-2.5" /><InterfaceText source="Archived" /></span>
                           )}
                         </div>
                         <p className="text-[11px] text-stone-600 line-clamp-1 mt-0.5 font-normal">

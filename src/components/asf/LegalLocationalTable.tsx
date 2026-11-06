@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React from 'react';
 import { LocationalDesignStandardItem, LegalProximityRegulation } from '../../types';
 import { ShieldCheck, MapPin, Compass, AlertCircle, Sparkles, Building2, Trees } from 'lucide-react';
@@ -58,9 +59,9 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                 <th className="px-4 py-3">Number of Heads</th>
                 <th className="px-4 py-3">ECC Requirement</th>
                 <th className="px-4 py-3">Zone</th>
-                <th className="px-4 py-3">Groundwater</th>
+                <th className="px-4 py-3"><InterfaceText source="Groundwater" /></th>
                 <th className="px-4 py-3">Built-up Area</th>
-                <th className="px-4 py-3">Major Roads</th>
+                <th className="px-4 py-3"><InterfaceText source="Major Roads" /></th>
                 <th className="px-4 py-3">Between Farms</th>
               </tr>
             </thead>
@@ -136,9 +137,9 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                 <th className="px-4 py-3">Number of Heads</th>
                 <th className="px-4 py-3">ECC Requirement</th>
                 <th className="px-4 py-3">Zone</th>
-                <th className="px-4 py-3">Groundwater</th>
+                <th className="px-4 py-3"><InterfaceText source="Groundwater" /></th>
                 <th className="px-4 py-3">Built-up Area</th>
-                <th className="px-4 py-3">Major Roads</th>
+                <th className="px-4 py-3"><InterfaceText source="Major Roads" /></th>
                 <th className="px-4 py-3">Between Farms</th>
               </tr>
             </thead>

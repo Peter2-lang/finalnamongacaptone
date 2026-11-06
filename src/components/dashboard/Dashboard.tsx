@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import { farmerIdentity } from '../../utils/farmerIdentity.ts';
 import React, { useState } from 'react';
 import { SwineFarmRegistrationModal } from './SwineFarmRegistrationModal';
@@ -877,8 +878,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <p className="text-[11px] text-stone-500">Distribution of heads by growth classification</p>
             </div>
             <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-              {totalSwine} Total
-            </span>
+              {totalSwine}<InterfaceText source="Total" /></span>
           </div>
 
           <div className="space-y-3 text-xs">
@@ -995,7 +995,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="flex-1">
                       <div className="flex justify-between font-semibold text-stone-800 mb-1">
                         <span>Brgy. {item.name}</span>
-                        <span className="text-emerald-800 font-bold">{item.count} heads</span>
+                        <span className="text-emerald-800 font-bold">{item.count}{" "}<InterfaceText source="heads" /></span>
                       </div>
                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
                         <div
@@ -1049,7 +1049,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onClick={() => onNavigateTab('records')}
             className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
           >
-            <span>View All Records</span>
+            <span><InterfaceText source="View All Records" /></span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -1059,9 +1059,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <thead className="bg-stone-50 text-stone-700 font-semibold border-b border-stone-200 uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="py-3 px-4">Ear Tag</th>
-                <th className="py-3 px-4">Farmer / Raiser</th>
-                <th className="py-3 px-4">Barangay</th>
-                <th className="py-3 px-4">Breed</th>
+                <th className="py-3 px-4"><InterfaceText source="Farmer / Raiser" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Barangay" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Breed" /></th>
                 <th className="py-3 px-4">Live Weight</th>
                 <th className="py-3 px-4">Estimated Price</th>
                 <th className="py-3 px-4">Target Sell Date</th>

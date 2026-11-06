@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   Share2,
@@ -148,7 +149,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">Section Title</label>
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Title" /></label>
             <input
               type="text"
               value={config.socialTitle}
@@ -157,7 +158,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
             />
           </div>
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">Section Subtitle</label>
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Subtitle" /></label>
             <input
               type="text"
               value={config.socialSubtitle}
@@ -173,8 +174,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <h3 className="font-bold text-stone-900 text-sm">Official Social Media Profiles & Feeds</h3>
           <span className="text-[11px] text-stone-400">
-            {socials.filter(s => s.enabled).length} of {socials.length} Enabled
-          </span>
+            {socials.filter(s => s.enabled).length} of {socials.length}<InterfaceText source="Enabled" /></span>
         </div>
 
         <div className="space-y-3">
@@ -285,7 +285,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
 
                       {/* Action Button Color Preset Selection (facebook is blue, youtube is red and else) */}
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <span className="text-[10px] font-bold text-stone-500 uppercase">Style:</span>
+                        <span className="text-[10px] font-bold text-stone-500 uppercase"><InterfaceText source="Style:" /></span>
                         <button
                           type="button"
                           onClick={() =>
@@ -362,7 +362,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                     </div>
 
                     <div>
-                      <label className="block font-bold text-stone-700 mb-1">Author / Office</label>
+                      <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Author / Office" /></label>
                       <input
                         type="text"
                         value={editForm.author}
@@ -407,15 +407,13 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
                         onClick={handleCancelEdit}
                         className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold flex items-center gap-1 cursor-pointer"
                       >
-                        <X className="w-3.5 h-3.5" /> Cancel
-                      </button>
+                        <X className="w-3.5 h-3.5" /><InterfaceText source="Cancel" /></button>
                       <button
                         type="button"
                         onClick={() => handleSaveEdit()}
                         className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1 cursor-pointer shadow-xs"
                       >
-                        <Check className="w-3.5 h-3.5" /> Save Changes
-                      </button>
+                        <Check className="w-3.5 h-3.5" /><InterfaceText source="Save Changes" /></button>
                     </div>
                   </div>
                 </div>
@@ -552,7 +550,7 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
 
               {/* Color style presets for new post */}
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                <span className="text-[10px] font-bold text-stone-500 uppercase">Style:</span>
+                <span className="text-[10px] font-bold text-stone-500 uppercase"><InterfaceText source="Style:" /></span>
                 <button
                   type="button"
                   onClick={() => {
@@ -626,12 +624,12 @@ export const SocialMediaTab: React.FC<SocialMediaTabProps> = ({ config, onChange
             </div>
 
             <div>
-              <label className="block font-semibold text-stone-700 mb-1">Author / Office</label>
+              <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Author / Office" /></label>
               <input
                 type="text"
                 value={newPostAuthor}
                 onChange={e => setNewPostAuthor(e.target.value)}
-                placeholder="Municipal Agriculture Office"
+                placeholder={translateInterfaceText("Municipal Agriculture Office")}
                 className="w-full px-3 py-1.5 rounded-xl border border-stone-300 bg-white"
               />
             </div>

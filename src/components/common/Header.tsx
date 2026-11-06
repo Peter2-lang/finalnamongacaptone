@@ -80,12 +80,12 @@ export const Header: React.FC<HeaderProps> = ({
   const activeHeaderLogo = logos['logo-header'] || logos['logo-system'] || logos['logo-da'] || logos['logo-website'] || '/icon.svg';
 
   const landingNavItems = [
-    { id: 'programs', label: 'Programs & Services', href: '#programs' },
-    { id: 'about', label: 'About Office', href: '#about' },
-    { id: 'barangays', label: '40 Barangays', href: '#barangays' },
-    { id: 'ordinances', label: 'Ordinances', fullLabel: 'Legal Decrees & Ordinances', href: '#ordinances' },
-    { id: 'biosecurity-map', label: 'Biosecurity GIS', href: '#biosecurity-map' },
-    { id: 'contact', label: 'Contact & Support', href: '#contact' },
+    { id: 'programs', label: t('landing_programs','Programs & Services'), href: '#programs' },
+    { id: 'about', label: t('landing_about','About Office'), href: '#about' },
+    { id: 'barangays', label: t('landing_barangays','40 Barangays'), href: '#barangays' },
+    { id: 'ordinances', label: t('landing_ordinances','Ordinances'), fullLabel: t('landing_legal','Legal Decrees & Ordinances'), href: '#ordinances' },
+    { id: 'biosecurity-map', label: t('landing_gis','Biosecurity GIS'), href: '#biosecurity-map' },
+    { id: 'contact', label: t('landing_contact','Contact & Support'), href: '#contact' },
   ];
 
   const scrollToLandingSection = (href: string) => {
@@ -223,6 +223,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Actions & User Account */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <select aria-label={t('common_language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'ceb'|'fil')} className="rounded-lg border border-stone-200 bg-white px-1 py-1.5 text-xs text-stone-700">
+            <option value="en">EN</option><option value="ceb">CEB</option><option value="fil">FIL</option>
+          </select>
           <PWAInstallButton compact />
 
           {/* Messages Alert */}

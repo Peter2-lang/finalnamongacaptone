@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   Scale,
@@ -271,9 +272,7 @@ export const LegalDocumentsTab: React.FC<LegalDocumentsTabProps> = ({ config, on
               type="button"
               onClick={selectAllFeatured}
               className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition"
-            >
-              Select All
-            </button>
+            ><InterfaceText source="Select All" /></button>
             <button
               type="button"
               onClick={clearAllFeatured}

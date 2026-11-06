@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import { DEMO_ACCOUNTS } from '../../data/demoAccounts';
 import React, { useState, useEffect } from 'react';
 import {
@@ -178,7 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-stone-700">Password</label>
+                <label className="block text-xs font-bold text-stone-700"><InterfaceText source="Password" /></label>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3 top-3 text-stone-400" />

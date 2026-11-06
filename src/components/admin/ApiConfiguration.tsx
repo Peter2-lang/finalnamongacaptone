@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import { loadApiSettings, saveApiSettings } from '../../services/apiSettings.ts';
 import React, { useState, useEffect } from 'react';
 import {
@@ -157,9 +158,7 @@ export const ApiConfiguration: React.FC = () => {
                 <p className="text-[11px] text-stone-500">Core server REST endpoints</p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-              Active
-            </span>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200"><InterfaceText source="Active" /></span>
           </div>
 
           <div className="space-y-3 text-xs">

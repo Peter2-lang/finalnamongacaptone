@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   Send,
@@ -335,8 +336,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         : 'bg-stone-100 text-stone-700'
                     }`}
                   >
-                    {selectedMessage.priority} Notice
-                  </span>
+                    {selectedMessage.priority}<InterfaceText source="Notice" /></span>
                   <h3 className="text-base font-bold text-stone-900 mt-1.5">{selectedMessage.subject || selectedMessage.title || 'Official Advisory'}</h3>
                   <p className="text-[11px] text-stone-500 mt-0.5">
                     Sender: <strong>{selectedMessage.senderName}</strong> • Target:{' '}

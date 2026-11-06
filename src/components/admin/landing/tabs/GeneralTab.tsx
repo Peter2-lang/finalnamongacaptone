@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Globe, Image as ImageIcon, Mail, Phone, MapPin, Compass, Upload } from 'lucide-react';
 import { LandingCmsConfig } from '../../../../types/landingCms';
@@ -87,7 +88,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
               <label className="block font-semibold text-stone-700">Browser Tab Favicon</label>
               <label className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg cursor-pointer transition">
                 <Upload className="w-3 h-3" />
-                <span>Import Photo</span>
+                <span><InterfaceText source="Import Photo" /></span>
                 <input
                   type="file"
                   accept="image/*"
@@ -138,7 +139,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ config, onChange, onOpen
               <label className="block font-semibold text-stone-700">System Logo</label>
               <label className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg cursor-pointer transition">
                 <Upload className="w-3 h-3" />
-                <span>Import Photo</span>
+                <span><InterfaceText source="Import Photo" /></span>
                 <input
                   type="file"
                   accept="image/*"

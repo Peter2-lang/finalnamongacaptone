@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   LayoutGrid,
@@ -610,7 +611,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectTab('landing_manager')}
-                      title="Landing Page CMS"
+                      title={translateInterfaceText("Landing Page CMS")}
                       className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                       style={{
                         backgroundColor:
@@ -632,7 +633,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               : theme.iconColor || '#93c5fd',
                         }}
                       />
-                      <span className="flex-1 min-w-0 truncate">Landing Page CMS</span>
+                      <span className="flex-1 min-w-0 truncate"><InterfaceText source="Landing Page CMS" /></span>
                     </button>
                   )}
 
@@ -653,7 +654,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         color: activeTab === 'form_customizer' ? theme.activeTextColor || '#ffffff' : theme.iconColor || '#93c5fd',
                       }}
                     />
-                    <span className="flex-1 min-w-0 truncate">Registry Form Customization</span>
+                    <span className="flex-1 min-w-0 truncate"><InterfaceText source="Registry Form Customization" /></span>
                   </button>
 
                   {/* 13. Sidebar Configuration (SUPER ADMIN ONLY) */}
@@ -661,7 +662,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectTab('sidebar_color')}
-                      title="Sidebar Configuration"
+                      title={translateInterfaceText("Sidebar Configuration")}
                       className="w-full text-left px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-3 transition cursor-pointer hover:bg-white/10"
                       style={{
                         backgroundColor: activeTab === 'sidebar_color' ? theme.activeMenuColor || '#2563eb' : 'transparent',
@@ -674,7 +675,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           color: activeTab === 'sidebar_color' ? theme.activeTextColor || '#ffffff' : theme.iconColor || '#93c5fd',
                         }}
                       />
-                      <span className="flex-1 min-w-0 truncate">Sidebar Configuration</span>
+                      <span className="flex-1 min-w-0 truncate"><InterfaceText source="Sidebar Configuration" /></span>
                     </button>
                   )}
 
@@ -740,7 +741,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           color: activeTab === 'accounts' ? theme.activeTextColor || '#ffffff' : theme.iconColor || '#93c5fd',
                         }}
                       />
-                      <span className="truncate">User Accounts</span>
+                      <span className="truncate"><InterfaceText source="User Accounts" /></span>
                     </button>
                   )}
 
