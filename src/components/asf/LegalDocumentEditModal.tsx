@@ -1,5 +1,6 @@
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Save,
@@ -128,6 +129,15 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
     }
   }, [documentToEdit, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Article handlers
@@ -253,8 +263,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-stone-900/60 p-2 backdrop-blur-xs sm:p-4">
+      <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-[900px] flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200 sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-emerald-950 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -280,7 +290,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 border-b border-stone-200 bg-stone-50 flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-stone-200 bg-stone-50 px-3 sm:px-6">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
@@ -317,7 +327,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-6">
           {activeTab === 'details' && (
             <div className="space-y-4 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -811,7 +821,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
           )}
 
           {/* Modal Action Buttons */}
-          <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3 shrink-0">
+          <div className="sticky bottom-0 -mx-3 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:gap-3 sm:px-6">
             <button
               type="button"
               onClick={onClose}
@@ -826,6 +836,6 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>, document.body)
   );
 };

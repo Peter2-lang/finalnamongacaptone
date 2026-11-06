@@ -1,5 +1,6 @@
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileEdit,
   Plus,
@@ -157,6 +158,15 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
   const [isFullPreviewOpen, setIsFullPreviewOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [draggedFieldIndex, setDraggedFieldIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!editingField && !isFullPreviewOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editingField, isFullPreviewOpen]);
 
   useEffect(() => {
     setPreviewTab(activeSectionId);
@@ -1227,14 +1237,14 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
 
       {/* FIELD EDITOR MODAL */}
       {editingField && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+        createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-black/60 p-2 backdrop-blur-xs sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="registry-field-editor-title" className="max-h-[calc(100dvh-16px)] w-[calc(100vw-16px)] max-w-lg space-y-4 overflow-y-auto overscroll-contain rounded-3xl border border-stone-200 bg-white p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)] sm:space-y-5 sm:p-6">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-stone-100 bg-white pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
                   {editingField.isNew ? <Plus className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
                 </div>
-                <h3 className="text-lg font-bold text-stone-900">
+                <h3 id="registry-field-editor-title" className="text-base font-bold text-stone-900 sm:text-lg">
                   {editingField.isNew ? 'Add New Registry Field' : 'Edit Registry Field'}
                 </h3>
               </div>
@@ -1694,7 +1704,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-stone-100">
+            <div className="sticky bottom-0 -mx-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:gap-2.5 sm:px-6">
               {!editingField.isNew ? (
                 <button
                   type="button"
@@ -1732,7 +1742,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>, document.body)
       )}
 
       {/* ADD SECTION MODAL */}
@@ -1846,25 +1856,26 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
 
       {/* FULL PREVIEW MODAL */}
       {isFullPreviewOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-stone-200 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+        createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-black/70 p-2 backdrop-blur-xs sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="registry-form-preview-title" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-3xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white p-3 shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)] sm:p-6">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-lg font-bold text-stone-900">
+                <h3 id="registry-form-preview-title" className="text-base font-bold text-stone-900 sm:text-lg">
                   Comprehensive Registration Form Preview
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFullPreviewOpen(false)}
+                aria-label="Close form preview"
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+            <div className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain py-3 pr-1 sm:py-4">
               {schema.sections.map((sec) => (
                 <div key={sec.id} className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
                   <div className="border-b border-stone-200 pb-2">
@@ -1890,7 +1901,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
               ))}
             </div>
 
-            <div className="border-t border-stone-100 pt-3 flex justify-end">
+            <div className="flex shrink-0 justify-end border-t border-stone-100 pt-3">
               <button
                 type="button"
                 onClick={() => setIsFullPreviewOpen(false)}
@@ -1898,7 +1909,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
               ><InterfaceText source="Close Preview" /></button>
             </div>
           </div>
-        </div>
+        </div>, document.body)
       )}
 
       {/* IN-APP DELETE CONFIRMATION MODAL */}

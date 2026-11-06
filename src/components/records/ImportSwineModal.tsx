@@ -3,6 +3,7 @@ import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText'
 import { IMPORT_LIMITS, normalizeImportDataset, stableImportFingerprint } from '../../utils/swineImportData';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Upload,
   FileSpreadsheet,
@@ -545,20 +546,29 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
     XLSX.writeFile(workbook, 'swine-import-errors.xlsx');
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-stone-900/60 p-2 backdrop-blur-xs animate-fadeIn sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="swine-import-title" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-[900px] flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white p-5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 p-3 text-white sm:gap-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="p-2.5 bg-white/10 rounded-2xl border border-white/20 shadow-inner">
               <FileSpreadsheet className="w-6 h-6 text-emerald-300" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold tracking-tight">
+                <h2 id="swine-import-title" className="text-sm font-bold tracking-tight sm:text-lg">
                   {t('import_title', 'Smart Swine Registry Importer')}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
@@ -572,8 +582,10 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
           </div>
 
           <button
+            type="button"
             disabled={isImporting || isReadingFile}
             onClick={onClose}
+            aria-label={translateInterfaceText("Close")}
             className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
             title={translateInterfaceText("Close")}
           >
@@ -582,7 +594,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
         </div>
 
         {/* Wizard Stepper Progress Bar */}
-        <div className="bg-stone-50 border-b border-stone-200 px-6 py-3 flex items-center justify-between text-xs font-semibold shrink-0">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-stone-200 bg-stone-50 px-3 py-3 text-xs font-semibold sm:px-6">
           <div className="flex items-center gap-6">
             <div
               className={`flex items-center gap-2 ${
@@ -679,7 +691,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
         </div>
 
         {/* Modal Body Area */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-6">
           {fileReadError && (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-900 text-xs flex items-start gap-3 animate-fadeIn">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
@@ -1552,7 +1564,7 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
         </div>
 
         {/* Modal Footer Navigation */}
-        <div className="bg-stone-50 border-t border-stone-200 p-4 px-6 flex items-center justify-between shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-stone-200 bg-stone-50 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
           <div>
             {currentStep !== 'upload' && currentStep !== 'completed' && currentStep !== 'importing' && (
               <button
@@ -1569,12 +1581,13 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {currentStep === 'upload' && (
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            {currentStep !== 'completed' && (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition cursor-pointer"
+                disabled={isImporting || isReadingFile}
+                className="min-h-10 px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
               ><InterfaceText source="Cancel" /></button>
             )}
 
@@ -1611,6 +1624,6 @@ export const ImportSwineModal: React.FC<ImportSwineModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>, document.body)
   );
 };

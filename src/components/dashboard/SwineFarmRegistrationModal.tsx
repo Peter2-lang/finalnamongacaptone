@@ -1,6 +1,7 @@
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Building2,
@@ -74,6 +75,15 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [registeredBatchId, setRegisteredBatchId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -206,23 +216,25 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden my-6">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-stone-950/70 p-2 backdrop-blur-xs animate-fadeIn sm:p-4">
+      <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-2xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 px-6 py-5 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 px-3 py-3 text-white sm:gap-3 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="p-2 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
               <Building2 className="w-6 h-6" />
             </div>
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-white"><InterfaceText source="Swine Farm Registration" /></h2>
+            <div className="min-w-0">
+              <h2 className="text-base font-black tracking-tight text-white sm:text-xl"><InterfaceText source="Swine Farm Registration" /></h2>
               <p className="text-xs text-emerald-200">
                 DA Hinunangan Municipal Swine Registry & Biosecurity Form
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close swine farm registration"
             className="p-1.5 rounded-full hover:bg-white/10 text-emerald-200 hover:text-white transition cursor-pointer"
             title="Close modal"
           >
@@ -232,7 +244,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
 
         {/* Modal Body */}
         {isSubmitted ? (
-          <div className="p-8 text-center space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 text-center overscroll-contain sm:p-8">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -275,7 +287,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto p-3 overscroll-contain sm:p-6">
             {errorMessage && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
@@ -578,7 +590,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-200">
+            <div className="sticky bottom-0 -mx-3 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:gap-3 sm:px-6">
               <button
                 type="button"
                 onClick={onClose}
@@ -595,6 +607,6 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
           </form>
         )}
       </div>
-    </div>
+    </div>, document.body)
   );
 };
