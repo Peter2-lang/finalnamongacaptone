@@ -28,7 +28,7 @@ import {
 } from '../db/swine.ts';
 import { archiveCertificateByControlNumber, getAllCertificates, getCertificateByIdOrControlNumber, upsertCertificate } from '../db/certificates.ts';
 import { getCertificateTemplates, saveCertificateTemplate } from '../db/certificateTemplates.ts';
-import { filterCertificateTemplatesForUser } from '../utils/certificateTemplateFilters.ts';
+import { filterCertificateTemplatesForUser, isCertificateTemplateIssuable } from '../utils/certificateTemplateFilters.ts';
 import { formatCertificateTemplateDatabaseError } from '../utils/certificateTemplateDatabaseError.ts';
 import { getAllUsers, getUserByAuthUserId, getUserByUsernameOrEmail, insertUserProfile, upsertUser, deleteUserByUid } from '../db/users.ts';
 import { getAllMessages, createMessage, markMessageRead, deleteMessageById } from '../db/messages.ts';
@@ -49,7 +49,9 @@ import { DEFAULT_MASTER_CONFIG } from '../data/defaultMasterConfig.ts';
 import { INITIAL_LANDING_CMS_CONFIG } from '../data/initialLandingCmsData.ts';
 import {
   createCertificateAssetSignedUrl,
+  createCertificateTemplateSourceSignedUrl,
   createLegalDocumentSignedUrl,
+  verifyDirectCertificateTemplateSource,
   verifyDirectImage,
   verifyDirectLegalDocument,
   deleteLandingCmsAsset,
@@ -402,6 +404,21 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     return null;
   }
 
+  async function validateCertificateTemplateIssuance(
+    certificate: Record<string, any>,
+    user: ReturnType<typeof getUserSecurityContext>,
+  ): Promise<string | null> {
+    if (typeof certificate.templateId !== 'string' || !certificate.templateId.trim()) return null;
+    const storedTemplates = await getCertificateTemplates();
+    const template = filterCertificateTemplatesForUser(storedTemplates, user)
+      .find(item => item.id === certificate.templateId);
+    if (!template) return 'The certificate template is unavailable or outside your authorized barangay.';
+    if (!isCertificateTemplateIssuable(template)) {
+      return 'This certificate template is still a draft or inactive and cannot be issued.';
+    }
+    return null;
+  }
+
   async function signTemplateAssetUrls(template: Awaited<ReturnType<typeof getCertificateTemplates>>[number], user: ReturnType<typeof getUserSecurityContext>) {
     const sign = async (path?: string) => {
       if (!path) return undefined;
@@ -435,8 +452,14 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
         ])
         : Promise.resolve(undefined),
     ]);
+    const sourceUrl = user.isAdmin && template.sourceDocument?.storagePath && supabaseAdminClient
+      ? await createCertificateTemplateSourceSignedUrl(supabaseAdminClient, template.sourceDocument.storagePath)
+      : undefined;
     return {
       ...template,
+      sourceDocument: template.sourceDocument
+        ? { ...template.sourceDocument, url: sourceUrl }
+        : undefined,
       logos,
       watermark: {
         ...template.watermark,
@@ -1105,7 +1128,7 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     }
     if (!sharedModuleDataKeys.has(req.params.key) ||
       (req.params.key === 'certificate_templates'
-        ? !(user.isAdmin || user.isFocal)
+        ? !user.isAdmin
         : adminOnlyModuleDataKeys.has(req.params.key) ? !user.isAdmin : !user.isAuthenticated)) {
       return res.status(403).json({ success: false, error: 'You do not have permission to update this resource.' });
     }
@@ -1123,6 +1146,26 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       return res.status(400).json({ success: false, error: 'This module data must be an object.' });
     }
     try {
+      if (req.params.key === 'certificate_templates' && req.body.data.sourceDocument) {
+        const source = req.body.data.sourceDocument;
+        if (!user.isAdmin || !supabaseAdminClient ||
+            typeof source.fileName !== 'string' || typeof source.mimeType !== 'string' ||
+            typeof source.storagePath !== 'string') {
+          return res.status(user.isAdmin ? 503 : 403).json({
+            success: false,
+            error: user.isAdmin ? 'Certificate source storage is unavailable or its metadata is invalid.' : 'Administrator access is required.',
+          });
+        }
+        try {
+          await verifyDirectCertificateTemplateSource(supabaseAdminClient, source.storagePath, source.fileName, source.mimeType);
+        } catch (error) {
+          console.error('[certificate-template] persisted source validation failed', error);
+          return res.status(400).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'The imported source file is unavailable.',
+          });
+        }
+      }
       if (req.params.key.startsWith('biosecurity_')) {
         let items = req.body.data;
         if (user.isFocal && scopeBiosecurityItems(items,user.assignedBarangay).length !== items.length) {
@@ -1198,6 +1241,30 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   app.post('/api/storage/upload-url', async (req, res) => {
     const user = getUserSecurityContext(req);
     const { target, fileName, mimeType, documentId } = req.body || {};
+    if (target === 'certificate-template') {
+      if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can import certificate templates.' });
+      if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+      const extension = typeof fileName === 'string' ? fileName.split('.').pop()?.toLowerCase() : '';
+      const extensionsByType: Record<string, string[]> = {
+        'application/pdf': ['pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+        'image/jpeg': ['jpg', 'jpeg'],
+        'image/png': ['png'],
+      };
+      if (typeof fileName !== 'string' || !extensionsByType[mimeType]?.includes(extension || '')) {
+        return res.status(400).json({ success: false, error: 'Choose a PDF, DOCX, JPEG, or PNG certificate.' });
+      }
+      try {
+        const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'certificate-source';
+        const filePath = `shared/certificate-imports/${randomUUID()}-${safeFileName}`;
+        const signed = await supabaseAdminClient.storage.from('certificates').createSignedUploadUrl(filePath);
+        if (signed.error) throw signed.error;
+        return res.json({ success: true, bucket: 'certificates', filePath, token: signed.data.token });
+      } catch (error) {
+        console.error('[certificate-template] unable to prepare source upload', error);
+        return res.status(503).json({ success: false, error: 'Unable to prepare a private certificate source upload.' });
+      }
+    }
     if (target === 'legal-document') {
       if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can upload legal documents.' });
       if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
@@ -1245,6 +1312,24 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       if (signed.error) throw signed.error;
       return res.json({ success: true, bucket, filePath, token: signed.data.token });
     } catch { return res.status(503).json({ success: false, error: 'Unable to prepare a Storage upload.' }); }
+  });
+
+  app.post('/api/certificate-template-sources/complete', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can import certificate templates.' });
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: getSupabaseAdminConfigError() });
+    const { filePath, fileName, mimeType } = req.body || {};
+    if (typeof filePath !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') {
+      return res.status(400).json({ success: false, error: 'Uploaded certificate source metadata is incomplete.' });
+    }
+    try {
+      const result = await verifyDirectCertificateTemplateSource(supabaseAdminClient, filePath, fileName, mimeType);
+      return res.status(201).json({ success: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify the uploaded certificate source.';
+      return res.status(/invalid|choose|empty|large|match/i.test(message) ? 400 : 503)
+        .json({ success: false, error: message });
+    }
   });
 
   async function completedDirectImage(req: express.Request, certificate = false) {
@@ -2212,6 +2297,8 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     }
 
     try {
+      const templateError = await validateCertificateTemplateIssuance(cert, user);
+      if (templateError) return res.status(403).json({ success: false, error: templateError });
       const selectionError = await validateCertificateSwineSelection(cert, user, true);
       if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
         .json({ success: false, error: selectionError });
@@ -2293,6 +2380,10 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       }
 
       const candidate = { ...existing, ...cert };
+      if (candidate.templateId !== existing.templateId) {
+        const templateError = await validateCertificateTemplateIssuance(candidate, user);
+        if (templateError) return res.status(403).json({ success: false, error: templateError });
+      }
       const selectionError = await validateCertificateSwineSelection(candidate, user, false);
       if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
         .json({ success: false, error: selectionError });

@@ -468,6 +468,10 @@ export interface CertificateTemplate {
   bodyFontSizePt?: number;
   pageMarginMm?: number;
   paragraphSpacingPx?: number;
+  templateFields?: CertificateTemplateField[];
+  sourceDocument?: CertificateTemplateSource;
+  templateVersions?: CertificateTemplateVersion[];
+  reviewStatus?: 'draft' | 'approved';
   language: 'english' | 'bisaya' | 'filipino' | 'custom';
   pageSize: 'A4' | 'Letter' | 'Folio';
   orientation: 'portrait' | 'landscape';
@@ -485,6 +489,29 @@ export interface CertificateTemplate {
   description?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CertificateTemplateField {
+  key: string;
+  label: string;
+  required: boolean;
+  defaultValue?: string;
+}
+
+export interface CertificateTemplateSource {
+  fileName: string;
+  mimeType: string;
+  storagePath: string;
+  fileSize: number;
+  uploadedAt: string;
+  url?: string;
+}
+
+export interface CertificateTemplateVersion {
+  version: number;
+  updatedAt: string;
+  updatedBy: string;
+  snapshot: Omit<CertificateTemplate, 'templateVersions'>;
 }
 
 export interface CertificateTypeDefinition {

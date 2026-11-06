@@ -242,7 +242,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
   selectedSwineInitial,
 }) => {
   const isUserAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
-  const canManageTemplates = isUserAdmin || currentUser?.role === 'focal';
+  const canManageTemplates = isUserAdmin;
   const userAssignedBarangay = currentUser?.assignedBarangay || '';
   const userBarangayId = currentUser?.barangay_id || '';
 

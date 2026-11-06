@@ -44,6 +44,15 @@ interface CreateCertificateModalProps {
 const getFarmerKey = (swine: SwineRecord) =>
   `${swine.barangay.trim().toLowerCase()}::${swine.farmerId || swine.farmerName.trim().toLowerCase()}`;
 
+const CERTIFICATE_REGISTRY_DATA_KEYS = new Set([
+  'resident_name', 'farmer_name', 'farmer_address', 'barangay', 'municipality', 'province',
+  'number_of_pigs', 'heads', 'swine_identification', 'buyer_name', 'buyer_address',
+  'destination', 'transport_origin', 'price_per_kilo', 'purpose', 'date_issued', 'issue_date',
+  'or_number', 'amount_paid', 'issued_at', 'certificate_number', 'punong_barangay',
+  'association_name', 'farmer_age_civil_status', 'swine_age', 'female_count', 'male_count',
+  'color_description', 'animal_type',
+]);
+
 export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   isOpen,
   onClose,
@@ -148,6 +157,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   const [issueDate, setIssueDate] = useState<string>(
     initialData?.issueDate || new Date().toISOString().substring(0, 10)
   );
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [selectedSwineIds, setSelectedSwineIds] = useState<string[]>(() => {
     if (Array.isArray(initialData?.swineIds)) return initialData.swineIds;
     if (initialData?.swineId) return [initialData.swineId];
@@ -361,7 +371,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   }
 
   // Active compiled data context for preview and placeholder replacement
-  const activeDataContext = {
+  const activeDataContext: Record<string, string | number> = {
     resident_name: farmerName,
     farmer_name: farmerName,
     barangay: selectedBarangay,
@@ -376,6 +386,13 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     transport_origin: selectedBarangay,
     number_of_pigs: selectedSwineRecords.length,
     heads: selectedSwineRecords.length,
+    swine_identification: selectedSwineRecords
+      .map(sw => sw.pigIdTag?.trim() || sw.earTagNo?.trim() || '')
+      .filter(Boolean)
+      .join(', '),
+    certificate_number: initialData?.certificateNo || initialData?.controlNumber || '—',
+    punong_barangay: activeTemplate.signatories.find(signatory =>
+      signatory.position?.toLowerCase().includes('punong') || signatory.section === 'certified_by')?.name || '—',
     swine_age: swineAge,
     female_count: femaleCount,
     male_count: maleCount,
@@ -387,7 +404,13 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     date_issued: issueDate,
     issue_date: issueDate,
     issued_at: `Barangay ${selectedBarangay}, Hinunangan, Southern Leyte`,
+    ...customFieldValues,
   };
+  activeTemplate.templateFields?.forEach(field => {
+    if ((activeDataContext[field.key] === undefined || activeDataContext[field.key] === '') && field.defaultValue) {
+      activeDataContext[field.key] = field.defaultValue;
+    }
+  });
 
   const handleArchiveCertificate = async () => {
     const certRef = initialData?.controlNumber || initialData?.certificateNo || initialData?.id;
@@ -424,6 +447,17 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
       setSaveError('The selected swine must belong to the displayed farmer.');
       return;
     }
+    const missingTemplateFields = (activeTemplate.templateFields || [])
+      .filter(field => field.required && field.key !== 'certificate_number')
+      .filter(field => {
+        const value = activeDataContext[field.key];
+        return value === undefined || String(value).trim() === '' || String(value).trim() === '—';
+      });
+    if (missingTemplateFields.length) {
+      setSaveError(`Complete the required template fields: ${missingTemplateFields.map(field => field.label).join(', ')}.`);
+      setActiveTab('form');
+      return;
+    }
     if (!isEditMode && selectedSwineRecords.length === 0) {
       setSaveError('Select a registered farmer with swine records in the selected barangay before issuing.');
       return;
@@ -441,14 +475,19 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         initialData?.controlNumber ||
         `HN-BRGY-${selectedBarangay.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
       const certId = initialData?.id || `cert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const renderedBody = replaceTemplatePlaceholders(activeTemplate.bodyTemplate || '', activeDataContext);
+      const firstPB =
+        activeTemplate.signatories.find(s => s.position?.toLowerCase().includes('punong') || s.section === 'certified_by')
+          ?.name || '';
+      const issueDataContext = {
+        ...activeDataContext,
+        certificate_number: certNumber,
+        punong_barangay: firstPB || '—',
+      };
+      const renderedBody = replaceTemplatePlaceholders(activeTemplate.bodyTemplate || '', issueDataContext);
       const recordedEarTags = selectedSwineRecords
         .map(swine => swine.pigIdTag?.trim() || swine.earTagNo?.trim() || '')
         .filter(Boolean);
 
-      const firstPB =
-        activeTemplate.signatories.find(s => s.position?.toLowerCase().includes('punong') || s.section === 'certified_by')
-          ?.name || '';
       const firstBBO =
         activeTemplate.signatories.find(s => s.position?.toLowerCase().includes('bbo') || s.section === 'noted_by')
           ?.name || '';
@@ -490,7 +529,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         destination,
         inspectedBy: currentUser?.name || firstBBO,
         createdBy: initialData?.createdBy || currentUser?.id,
-        certificateData: activeDataContext,
+        certificateData: issueDataContext,
       };
 
       const savedCertificate = isEditMode
@@ -596,7 +635,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {allTemplates.map(tpl => {
+                  {allTemplates.filter(tpl => tpl.isActive !== false && tpl.reviewStatus !== 'draft').map(tpl => {
                     const isSelected = activeTemplate.id === tpl.id;
                     return (
                       <button
@@ -726,6 +765,31 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                     />
                   </div>
                 </div>
+                {(activeTemplate.templateFields || []).filter(field =>
+                  !CERTIFICATE_REGISTRY_DATA_KEYS.has(field.key)
+                ).length > 0 && (
+                  <div className="grid grid-cols-1 gap-4 border-t border-stone-100 pt-4 sm:grid-cols-2">
+                    {(activeTemplate.templateFields || [])
+                      .filter(field => !CERTIFICATE_REGISTRY_DATA_KEYS.has(field.key))
+                      .map(field => (
+                        <div key={field.key}>
+                          <label className="mb-1 block text-xs font-bold text-slate-700">
+                            {field.label}{field.required && <span className="ml-1 text-rose-600">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={customFieldValues[field.key] ?? field.defaultValue ?? ''}
+                            onChange={event => setCustomFieldValues(previous => ({
+                              ...previous,
+                              [field.key]: event.target.value,
+                            }))}
+                            placeholder={`Enter ${field.label.toLocaleLowerCase()}`}
+                            className="w-full rounded-xl border border-stone-300 bg-white p-2.5 text-xs font-semibold text-slate-900"
+                          />
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Form Grid 2: Swine Specifications */}

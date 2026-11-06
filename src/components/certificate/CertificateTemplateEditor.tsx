@@ -34,6 +34,7 @@ import {
   CertificateLogoPosition,
   CertificateLogoType,
   CertificateTemplate,
+  CertificateTemplateField,
   CertificateWatermarkConfig,
 } from '../../types';
 import { printDocument } from '../../utils/printUtils';
@@ -41,10 +42,13 @@ import { downloadElementAsPdf } from '../../utils/pdfUtils';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import { DOCUMENT_TYPE_OPTIONS } from '../../data/certificateTemplates';
 import { AVAILABLE_PLACEHOLDERS } from '../../utils/templateReplacer';
+import { replaceTemplatePlaceholders } from '../../utils/templateReplacer';
 import { DynamicCertificateView } from './DynamicCertificateView';
 import { mediaApi, moduleDataApi } from '../../services/api';
 import { filterCertificateTemplates } from '../../utils/certificateTemplateFilters';
 import { useCertificateTemplateSync } from '../../hooks/useCertificateTemplateSync';
+import { CERTIFICATE_FIELD_OPTIONS, extractCertificate } from '../../services/certificateImportService';
+import type { CertificateFieldSuggestion } from '../../services/certificateImportService';
 
 interface CertificateTemplateEditorProps {
   initialTemplate?: CertificateTemplate;
@@ -111,6 +115,17 @@ interface ImportedTemplateMetadata {
   bodyTemplate: string;
   warnings: string[];
   isReferenceOnly: boolean;
+  fields: CertificateFieldSuggestion[];
+  pageSize: CertificateTemplate['pageSize'];
+  orientation: CertificateTemplate['orientation'];
+  header?: Partial<CertificateTemplate['header']>;
+  layoutHints?: {
+    headings: string[];
+    hasTables: boolean;
+    hasImages: boolean;
+    hasSignatureArea: boolean;
+  };
+  signatories: CertificateTemplate['signatories'];
 }
 
 const formatImportSize = (bytes: number) => {
@@ -148,7 +163,10 @@ const sanitizeImportedHtml = (rawHtml: string) => {
   return doc;
 };
 
-const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMetadata> => {
+const parseImportedTemplateFile = async (
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<ImportedTemplateMetadata> => {
   if (file.size > IMPORT_TEMPLATE_SIZE_LIMIT) {
     throw new Error(`The selected file exceeds the 5 MB size limit. Please choose a smaller template import.`);
   }
@@ -186,6 +204,10 @@ const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMe
       bodyTemplate,
       warnings: [],
       isReferenceOnly: false,
+      fields: [],
+      pageSize: 'A4',
+      orientation: 'portrait',
+      signatories: [],
     };
   }
 
@@ -207,49 +229,34 @@ const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMe
       bodyTemplate: bodyText,
       warnings: ['Scripts, event handlers, and unsafe URLs were removed for safety.'],
       isReferenceOnly: false,
+      fields: [],
+      pageSize: 'A4',
+      orientation: 'portrait',
+      signatories: [],
     };
   }
 
-  if (lowerName.endsWith('.docx')) {
+  if (lowerName.endsWith('.docx') || lowerName.endsWith('.pdf') || /\.(jpe?g|png)$/i.test(lowerName)) {
+    const extracted = await extractCertificate(file, onProgress);
     return {
-      kind: 'docx',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Microsoft Word document imported as a reference layout.',
+      kind: lowerName.endsWith('.pdf') ? 'pdf' : lowerName.endsWith('.docx') ? 'docx' : 'image',
+      title: extracted.title,
+      description: `Editable template imported from ${fileName}. Original source retained privately for administrator review.`,
       documentType: 'Barangay Certification',
       barangay: 'All',
-      bodyTemplate: `Imported DOCX reference: ${fileName}. Review the layout, map placeholders, and complete the editable template body before saving.`,
-      warnings: ['This DOCX import is reference-only. The layout requires manual review and cleanup before official use.'],
-      isReferenceOnly: true,
+      bodyTemplate: extracted.text,
+      warnings: extracted.warnings,
+      isReferenceOnly: false,
+      fields: extracted.fields,
+      pageSize: extracted.pageSize,
+      orientation: extracted.orientation,
+      header: extracted.header,
+      layoutHints: extracted.layoutHints,
+      signatories: extracted.signatories,
     };
   }
 
-  if (lowerName.endsWith('.pdf')) {
-    return {
-      kind: 'pdf',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Reference PDF imported as an optional background or source document.',
-      documentType: 'Barangay Certification',
-      barangay: 'All',
-      bodyTemplate: `Imported PDF reference: ${fileName}. This file cannot be converted into an editable template automatically and should be used only as a background reference.`,
-      warnings: ['PDF conversion is not automatic. Configure the editable template manually.'],
-      isReferenceOnly: true,
-    };
-  }
-
-  if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(lowerName)) {
-    return {
-      kind: 'image',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Image imported as a reference asset or background graphic.',
-      documentType: 'Barangay Certification',
-      barangay: 'All',
-      bodyTemplate: `Imported image asset: ${fileName}. Use this as a logo, watermark, or background reference and complete the certificate body separately.`,
-      warnings: ['Images are treated as visual assets, not editable certificate layouts.'],
-      isReferenceOnly: true,
-    };
-  }
-
-  throw new Error('Unsupported import format. Use JSON, HTML, DOCX, PDF, or image files.');
+  throw new Error('Unsupported or mismatched import format. Use a valid PDF, DOCX, JPG/JPEG, PNG, JSON, or HTML template.');
 };
 
 export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps> = ({
@@ -271,6 +278,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
 
   // Selected template state
   const isFocalPerson = userRole === 'focal';
+  const canImportTemplates = userRole === 'admin' || userRole === 'super_admin';
   const defaultTpl = initialTemplate || createBlankTemplate(isFocalPerson ? assignedBarangay : 'All');
   const [template, setTemplate] = useState<CertificateTemplate>(() => JSON.parse(JSON.stringify(defaultTpl)));
   const [activeSection, setActiveSection] = useState<
@@ -285,6 +293,12 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [importedTemplateDescription, setImportedTemplateDescription] = useState('');
   const [importedDocumentType, setImportedDocumentType] = useState('Barangay Certification');
   const [importedBarangay, setImportedBarangay] = useState('All');
+  const [importedBody, setImportedBody] = useState('');
+  const [importedFields, setImportedFields] = useState<CertificateFieldSuggestion[]>([]);
+  const [pendingSourceFile, setPendingSourceFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [customFieldLabel, setCustomFieldLabel] = useState('');
+  const [templateCustomFieldLabel, setTemplateCustomFieldLabel] = useState('');
 
   const loadTemplates = useCallback(async () => {
     const sequence = ++templateLoadSequence.current;
@@ -343,6 +357,13 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [newLogoStoragePath, setNewLogoStoragePath] = useState<string | undefined>(undefined);
 
   const printRef = useRef<HTMLDivElement>(null);
+  const importedSourcePreviewUrl = useMemo(
+    () => importedFile ? URL.createObjectURL(importedFile) : null,
+    [importedFile],
+  );
+  useEffect(() => () => {
+    if (importedSourcePreviewUrl) URL.revokeObjectURL(importedSourcePreviewUrl);
+  }, [importedSourcePreviewUrl]);
 
   // Placeholder-only context prevents example data from being mistaken for an issued document.
   const sampleDataContext = {
@@ -500,6 +521,11 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     setImportedTemplateDescription('');
     setImportedDocumentType(template.documentType || 'Barangay Certification');
     setImportedBarangay(template.barangay || 'All');
+    setImportedBody('');
+    setImportedFields([]);
+    setPendingSourceFile(null);
+    setImportProgress(0);
+    setCustomFieldLabel('');
     setIsImportDialogOpen(true);
   };
 
@@ -508,9 +534,13 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     if (!file) return;
 
     try {
-      const parsed = await parseImportedTemplateFile(file);
+      setImportProgress(0);
+      const parsed = await parseImportedTemplateFile(file, setImportProgress);
       setImportedFile(file);
       setImportedTemplate(parsed);
+      setImportedBody(parsed.bodyTemplate);
+      setImportedFields(parsed.fields);
+      setPendingSourceFile(/\.(pdf|docx|jpe?g|png)$/i.test(file.name) ? file : null);
       setImportError(null);
       setImportedTemplateName(parsed.title || file.name.replace(/\.[^.]+$/, ''));
       setImportedTemplateDescription(parsed.description || 'Imported certificate template');
@@ -519,10 +549,25 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     } catch (error) {
       setImportedTemplate(null);
       setImportedFile(null);
+      setImportedBody('');
+      setImportedFields([]);
+      setPendingSourceFile(null);
       setImportError(error instanceof Error ? error.message : 'Unable to import template.');
     } finally {
       e.target.value = '';
     }
+  };
+
+  const addImportedCustomField = () => {
+    const label = customFieldLabel.trim();
+    if (!label) return;
+    const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'custom_field';
+    let key = baseKey;
+    let suffix = 2;
+    while (importedFields.some(field => field.key === key)) key = `${baseKey}_${suffix++}`;
+    setImportedFields(previous => [...previous, { key, label, confidence: 'review', required: false }]);
+    setImportedBody(previous => `${previous}${previous.endsWith('\n') || !previous ? '' : '\n'}{{${key}}}`);
+    setCustomFieldLabel('');
   };
 
   const applyImportedTemplate = () => {
@@ -530,15 +575,36 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
       return;
     }
 
+    const templateFields: CertificateTemplateField[] = importedFields.map(field => ({
+      key: field.key,
+      label: field.label,
+      required: field.required,
+      defaultValue: field.defaultValue,
+    }));
+    const now = new Date().toISOString();
     const nextTemplate: CertificateTemplate = {
-      ...template,
+      ...createBlankTemplate(isFocalPerson ? assignedBarangay : importedBarangay),
+      id: createTemplateId(),
       name: importedTemplateName.trim() || importedTemplate.title,
       description: importedTemplateDescription.trim() || importedTemplate.description,
       documentType: importedDocumentType || importedTemplate.documentType,
       barangay: importedBarangay || importedTemplate.barangay,
       documentTitle: importedTemplate.title,
-      bodyTemplate: importedTemplate.bodyTemplate,
-      updatedAt: new Date().toISOString(),
+      bodyTemplate: importedBody,
+      templateFields,
+      pageSize: importedTemplate.pageSize,
+      orientation: importedTemplate.orientation,
+      header: { ...createBlankTemplate(importedBarangay).header, ...importedTemplate.header },
+      logos: [],
+      signatories: importedTemplate.signatories,
+      watermark: { enabled: false, type: 'municipality', opacity: 0.12, position: 'center', size: 'large' },
+      receipt: { showReceiptBox: false, formatStyle: 'standard' },
+      reviewStatus: 'draft',
+      isActive: false,
+      sourceDocument: undefined,
+      templateVersions: [],
+      createdAt: now,
+      updatedAt: now,
     };
 
     setTemplate(nextTemplate);
@@ -719,6 +785,22 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     }));
   };
 
+  const addTemplateCustomField = () => {
+    const label = templateCustomFieldLabel.trim();
+    if (!label) return;
+    const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'custom_field';
+    const fields = template.templateFields || [];
+    let key = baseKey;
+    let suffix = 2;
+    while (fields.some(field => field.key === key)) key = `${baseKey}_${suffix++}`;
+    setTemplate({
+      ...template,
+      templateFields: [...fields, { key, label, required: false }],
+      bodyTemplate: `${template.bodyTemplate}${template.bodyTemplate.endsWith('\n') || !template.bodyTemplate ? '' : '\n'}{{${key}}}`,
+    });
+    setTemplateCustomFieldLabel('');
+  };
+
   // Save template
   const handleSave = async () => {
     if (isSaving) return;
@@ -735,12 +817,27 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
       return;
     }
     setIsSaving(true);
-    const updated = { ...template };
+    let updated = { ...template };
     try {
+      if (pendingSourceFile && !updated.sourceDocument?.storagePath) {
+        const source = await mediaApi.uploadCertificateTemplateSource(pendingSourceFile);
+        updated = {
+          ...updated,
+          sourceDocument: {
+            fileName: pendingSourceFile.name,
+            mimeType: pendingSourceFile.type,
+            storagePath: source.filePath,
+            fileSize: source.fileSize,
+            uploadedAt: new Date().toISOString(),
+          },
+        };
+        setTemplate(updated);
+      }
       const confirmedTemplate = await onSave(updated);
       templateLoadSequence.current++;
       setTemplate(JSON.parse(JSON.stringify(confirmedTemplate)));
       setAvailableTemplates(previous => [confirmedTemplate, ...previous.filter(item => item.id !== confirmedTemplate.id)]);
+      setPendingSourceFile(null);
       setSaveNotice('Template saved successfully.');
       setTimeout(() => setSaveNotice(null), 3000);
     } catch (error) {
@@ -764,12 +861,15 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     setIsExportingPdf(true);
     try {
       const safeName = template.name.trim().replace(/[^a-z0-9_-]+/gi, '-').replace(/^-|-$/g, '') || 'certificate-template';
+      const format = template.pageSize === 'Folio'
+        ? [215.9, 330.2] as [number, number]
+        : template.pageSize === 'Letter' ? 'letter' : 'a4';
       await downloadElementAsPdf(printRef.current, `${safeName}.pdf`, {
-        format: 'a4',
-        orientation: 'portrait',
+        format,
+        orientation: template.orientation,
         marginMm: 0,
       });
-      setSaveNotice('A4 PDF downloaded.');
+      setSaveNotice(`${template.pageSize} PDF downloaded.`);
       setTimeout(() => setSaveNotice(null), 3000);
     } catch (error) {
       setSaveNotice(error instanceof Error ? error.message : 'Unable to download the A4 PDF.');
@@ -831,7 +931,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>{isUploadingAsset ? 'Uploading image…' : isSaving ? translateInterfaceText("Saving…") : 'Save Template'}</span>
+            <span>{isUploadingAsset ? 'Uploading source…' : isSaving ? translateInterfaceText("Saving…") : template.reviewStatus === 'draft' ? 'Save Draft' : 'Save Template'}</span>
           </button>
 
           <button
@@ -956,14 +1056,16 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={openImportTemplateDialog}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Import Template</span>
-            </button>
+            {canImportTemplates && (
+              <button
+                type="button"
+                onClick={openImportTemplateDialog}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Certificate</span>
+              </button>
+            )}
 
             {/* Create New Template Button */}
             <button
@@ -1063,6 +1165,26 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 <h3 className="text-sm font-black text-slate-900">1. Document Information</h3>
                 <p className="text-xs text-stone-500">Configure template identity, barangay scope, and typography</p>
               </div>
+
+              {template.reviewStatus === 'draft' && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                  Imported template draft — verify wording, field mappings, signatories, and layout before enabling it for issuance.
+                </div>
+              )}
+              {!isFocalPerson && (
+                <label className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={template.isActive && template.reviewStatus !== 'draft'}
+                    onChange={event => setTemplate({
+                      ...template,
+                      isActive: event.target.checked,
+                      reviewStatus: event.target.checked ? 'approved' : 'draft',
+                    })}
+                  />
+                  Approved for certificate issuance
+                </label>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1523,6 +1645,87 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 <p className="text-xs text-stone-500">
                   Write the official body text in English, Bisaya, or Filipino with dynamic placeholders
                 </p>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800">Template field mappings</h4>
+                    <p className="text-[10px] text-stone-500">Select registry-backed values, edit labels/defaults, and mark required fields.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={templateCustomFieldLabel}
+                      onChange={event => setTemplateCustomFieldLabel(event.target.value)}
+                      placeholder="Custom field"
+                      className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-xs text-slate-900"
+                    />
+                    <button type="button" onClick={addTemplateCustomField} className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white">
+                      Add field
+                    </button>
+                  </div>
+                </div>
+                {(template.templateFields || []).length === 0 ? (
+                  <p className="text-[11px] text-stone-500">No custom mappings. Use the standard placeholders below or add a configurable field.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(template.templateFields || []).map((field, index) => (
+                      <div key={`${field.key}-${index}`} className="grid gap-2 rounded-lg border border-stone-200 bg-white p-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
+                        <input
+                          value={field.label}
+                          onChange={event => setTemplate({
+                            ...template,
+                            templateFields: template.templateFields?.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, label: event.target.value } : item),
+                          })}
+                          aria-label="Template field label"
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        />
+                        <select
+                          value={field.key}
+                          onChange={event => {
+                            const nextKey = event.target.value;
+                            setTemplate({
+                              ...template,
+                              bodyTemplate: template.bodyTemplate.replaceAll(`{{${field.key}}}`, `{{${nextKey}}}`),
+                              templateFields: template.templateFields?.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, key: nextKey } : item),
+                            });
+                          }}
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        >
+                          {CERTIFICATE_FIELD_OPTIONS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+                          {!CERTIFICATE_FIELD_OPTIONS.some(option => option.key === field.key) && (
+                            <option value={field.key}>{field.key} (custom)</option>
+                          )}
+                        </select>
+                        <input
+                          value={field.defaultValue || ''}
+                          onChange={event => setTemplate({
+                            ...template,
+                            templateFields: template.templateFields?.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, defaultValue: event.target.value } : item),
+                          })}
+                          placeholder="Optional default"
+                          aria-label="Template field default"
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        />
+                        <label className="flex items-center gap-1 text-[11px] text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={event => setTemplate({
+                              ...template,
+                              templateFields: template.templateFields?.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, required: event.target.checked } : item),
+                            })}
+                          />
+                          Required
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Placeholder helper chips */}
@@ -2131,11 +2334,11 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
 
       {isImportDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+          <div className="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-700 px-5 py-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Template import</p>
-                <h3 className="text-lg font-black text-white">Import Certificate Template</h3>
+                <h3 className="text-lg font-black text-white">Import Certificate</h3>
               </div>
               <button
                 type="button"
@@ -2151,7 +2354,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold text-slate-200">Accepted formats</p>
-                    <p className="text-[11px] text-slate-400">JSON, HTML, DOCX, PDF, PNG, JPG, WEBP</p>
+                    <p className="text-[11px] text-slate-400">PDF, DOCX, JPG/JPEG, PNG (also JSON/HTML template exports)</p>
                   </div>
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
                     up to 5 MB
@@ -2164,7 +2367,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     <p className="text-sm font-black text-white">Drag and drop or browse files</p>
                     <p className="mt-1 text-[11px] text-slate-400">Select a template export, HTML layout, or reference document.</p>
                   </div>
-                  <input type="file" accept=".json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp" onChange={handleImportTemplateFile} className="hidden" />
+                  <input type="file" accept=".json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg" onChange={handleImportTemplateFile} className="hidden" />
                   <span className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white"><InterfaceText source="Browse Files" /></span>
                 </label>
               </div>
@@ -2181,6 +2384,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                       onClick={() => {
                         setImportedFile(null);
                         setImportedTemplate(null);
+                        setImportedBody('');
+                        setImportedFields([]);
+                        setPendingSourceFile(null);
                         setImportError(null);
                       }}
                       className="rounded-lg border border-slate-600 px-2 py-1 font-bold text-slate-200 hover:bg-slate-800"
@@ -2192,6 +2398,12 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               {importError && (
                 <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
                   {<LocalizedFeedback value={importError} />}
+                </div>
+              )}
+
+              {importProgress > 0 && importProgress < 1 && (
+                <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+                  Extracting certificate text… {Math.round(importProgress * 100)}%
                 </div>
               )}
 
@@ -2251,11 +2463,119 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Imported content preview</p>
-                    <p className="line-clamp-5 whitespace-pre-wrap text-xs text-slate-200">
-                      {importedTemplate.bodyTemplate}
-                    </p>
+                  {importedTemplate.layoutHints && (
+                    <div className="flex flex-wrap gap-2 rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-[10px] text-slate-300">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Layout clues:</span>
+                      <span>{importedTemplate.pageSize} {importedTemplate.orientation}</span>
+                      <span>{importedTemplate.layoutHints.headings.length} heading candidate(s)</span>
+                      {importedTemplate.layoutHints.hasTables && <span>possible table</span>}
+                      {importedTemplate.layoutHints.hasImages && <span>image/logo candidate (not copied)</span>}
+                      {importedTemplate.layoutHints.hasSignatureArea && <span>signature-area text candidate</span>}
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Extracted wording — edit freely</p>
+                        <textarea
+                          value={importedBody}
+                          onChange={event => setImportedBody(event.target.value)}
+                          rows={14}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-100"
+                        />
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Detected field mapping</p>
+                            <p className="mt-1 text-[10px] text-slate-400">Review each mapping; fields without authorized data remain visibly unresolved.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              value={customFieldLabel}
+                              onChange={event => setCustomFieldLabel(event.target.value)}
+                              placeholder="Custom field label"
+                              className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                            />
+                            <button type="button" onClick={addImportedCustomField} className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white">
+                              Add field
+                            </button>
+                          </div>
+                        </div>
+                        {importedFields.length === 0 ? (
+                          <p className="py-2 text-xs text-amber-200">No labeled fields were confidently detected. Add custom fields and place their placeholders in the wording above.</p>
+                        ) : (
+                          <div className="max-h-64 space-y-2 overflow-auto">
+                            {importedFields.map((field, index) => (
+                              <div key={`${field.key}-${index}`} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
+                                <span className="text-xs text-slate-200">
+                                  {field.label}
+                                  {field.confidence === 'review' && <span className="ml-1 text-amber-300">Review</span>}
+                                </span>
+                                <select
+                                  value={field.key}
+                                  onChange={event => {
+                                    const nextKey = event.target.value;
+                                    setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                      ? { ...item, key: nextKey }
+                                      : item));
+                                    setImportedBody(previous => previous.replaceAll(`{{${field.key}}}`, `{{${nextKey}}}`));
+                                  }}
+                                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                                >
+                                  {CERTIFICATE_FIELD_OPTIONS.map(option => (
+                                    <option key={option.key} value={option.key}>{option.label}</option>
+                                  ))}
+                                  {importedFields
+                                    .filter(option => !CERTIFICATE_FIELD_OPTIONS.some(standard => standard.key === option.key))
+                                    .map(option => <option key={option.key} value={option.key}>{option.label} (custom)</option>)}
+                                </select>
+                                <input
+                                  value={field.defaultValue || ''}
+                                  onChange={event => setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                    ? { ...item, defaultValue: event.target.value }
+                                    : item))}
+                                  placeholder="Optional default"
+                                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                                />
+                                <label className="flex items-center gap-1 text-[11px] text-slate-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={event => setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                      ? { ...item, required: event.target.checked }
+                                      : item))}
+                                  />
+                                  Required
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900/80">
+                        <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Original source preview</p>
+                        {importedFile?.type === 'application/pdf' && importedSourcePreviewUrl ? (
+                          <iframe title="Imported certificate source" src={importedSourcePreviewUrl} className="h-72 w-full bg-white" />
+                        ) : importedFile?.type.startsWith('image/') && importedSourcePreviewUrl ? (
+                          <img src={importedSourcePreviewUrl} alt="Imported certificate source" className="max-h-72 w-full object-contain bg-white" />
+                        ) : (
+                          <p className="px-3 pb-3 text-xs text-slate-300">Original document preview is not supported by this browser. The extracted text is shown for review.</p>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-white p-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Editable template preview — not issued</p>
+                        <p className="whitespace-pre-wrap text-xs leading-5 text-stone-900">
+                          {replaceTemplatePlaceholders(importedBody, Object.fromEntries(
+                            importedFields.map(field => [field.key, field.defaultValue || '—']),
+                          ))}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {importedTemplate.warnings.length > 0 && (
@@ -2277,7 +2597,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
-                disabled={!importedTemplate}
+                disabled={!importedTemplate || !importedBody.trim()}
                 onClick={applyImportedTemplate}
                 className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
               >

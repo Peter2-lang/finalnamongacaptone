@@ -29,6 +29,52 @@ const LEGAL_DOCUMENT_CONTENT_TYPES: Record<string, { extensions: string[]; match
   'image/png': { extensions: ['png'], matches: file => file[0] === 0x89 && file.toString('ascii', 1, 4) === 'PNG' },
 };
 
+const CERTIFICATE_SOURCE_CONTENT_TYPES = {
+  'application/pdf': { extensions: ['pdf'], matches: (file: Buffer) => file.toString('ascii', 0, 5) === '%PDF-' },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+    extensions: ['docx'],
+    matches: (file: Buffer) => file[0] === 0x50 && file[1] === 0x4b && file[2] === 0x03 && file[3] === 0x04,
+  },
+  'image/jpeg': { extensions: ['jpg', 'jpeg'], matches: (file: Buffer) => file[0] === 0xff && file[1] === 0xd8 && file[2] === 0xff },
+  'image/png': { extensions: ['png'], matches: (file: Buffer) => file[0] === 0x89 && file.toString('ascii', 1, 4) === 'PNG' },
+};
+
+export function isCertificateTemplateSourcePath(filePath: string): boolean {
+  return /^shared\/certificate-imports\/[a-z0-9-]+-[a-z0-9._-]+$/i.test(filePath) && !filePath.includes('..');
+}
+
+export async function createCertificateTemplateSourceSignedUrl(
+  supabase: SupabaseClient,
+  filePath: string,
+): Promise<string> {
+  if (!isCertificateTemplateSourcePath(filePath)) throw new Error('The saved certificate source path is invalid.');
+  const signed = await supabase.storage.from('certificates').createSignedUrl(filePath, 60 * 60);
+  if (signed.error) throw new Error(`Unable to create a private certificate source preview URL: ${signed.error.message}`);
+  return signed.data.signedUrl;
+}
+
+export async function verifyDirectCertificateTemplateSource(
+  supabase: SupabaseClient,
+  filePath: string,
+  fileName: string,
+  mimeType: string,
+): Promise<LandingUploadResult> {
+  if (!isCertificateTemplateSourcePath(filePath)) throw new Error('The certificate source path is invalid.');
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  const type = CERTIFICATE_SOURCE_CONTENT_TYPES[mimeType as keyof typeof CERTIFICATE_SOURCE_CONTENT_TYPES];
+  if (!type || !type.extensions.includes(extension)) {
+    throw new Error('Choose a PDF, DOCX, JPEG, or PNG certificate with a matching file type.');
+  }
+  const result = await supabase.storage.from('certificates').download(filePath);
+  if (result.error) throw new Error('The uploaded certificate source could not be found in private Storage.');
+  const bytes = Buffer.from(await result.data.arrayBuffer());
+  if (!bytes.length || bytes.length > 5 * 1024 * 1024 || !type.matches(bytes)) {
+    throw new Error('The certificate source file is empty, too large, or does not match its declared format.');
+  }
+  const fileUrl = await createCertificateTemplateSourceSignedUrl(supabase, filePath);
+  return { filePath, fileUrl, fileSize: bytes.length };
+}
+
 function decodeImage(fileName: string, mimeType: string, base64Payload: string): Buffer {
   const match = base64Payload.match(/^data:([^;]+);base64,([A-Za-z0-9+/=\r\n]+)$/s);
   if (!match || match[1].toLowerCase() !== mimeType.toLowerCase()) {

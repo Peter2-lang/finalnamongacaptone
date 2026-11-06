@@ -188,16 +188,11 @@ async function upsertTemplate(
   if (!template.documentType?.trim()) {
     throw new Error('Each certificate template requires a certificate type.');
   }
-  const snapshot = { ...template, updatedAt: new Date().toISOString() };
-  const barangayName = typeof template.barangay === 'string' ? template.barangay.trim() : '';
-  if (!scope.isAdmin && (
-    scope.role !== 'focal' ||
-    !scope.assignedBarangay.trim() ||
-    !barangayName ||
-    barangayName.toLocaleLowerCase() !== scope.assignedBarangay.trim().toLocaleLowerCase()
-  )) {
-    throw new Error('Focal Persons can only create or manage templates for their assigned barangay.');
+  if (!scope.isAdmin) throw new Error('Only administrators can manage certificate templates.');
+  if (template.reviewStatus !== undefined && !['draft', 'approved'].includes(template.reviewStatus)) {
+    throw new Error('Certificate template review status must be draft or approved.');
   }
+  const barangayName = typeof template.barangay === 'string' ? template.barangay.trim() : '';
   const barangayResult = barangayName && barangayName.toLowerCase() !== 'all'
     ? await client.query(
       'SELECT id FROM public.barangays WHERE lower(name) = lower($1) LIMIT 1',
@@ -222,6 +217,12 @@ async function upsertTemplate(
     logoSettings.rightLogoStoragePath,
     logoSettings.watermarkStoragePath,
   ].filter((path): path is string => typeof path === 'string' && path.length > 0);
+  if (template.sourceDocument?.storagePath && (
+    template.sourceDocument.storagePath.includes('..') ||
+    !/^shared\/certificate-imports\/[a-z0-9-]+-[a-z0-9._-]+$/i.test(template.sourceDocument.storagePath)
+  )) {
+    throw new Error('The imported certificate source must reference a valid private Storage object.');
+  }
   for (const path of assetPaths) {
     if (
       path.includes('..') ||
@@ -229,15 +230,9 @@ async function upsertTemplate(
     ) {
       throw new Error('A certificate image must reference a valid Supabase Storage asset path.');
     }
-    if (!scope.isAdmin && path.startsWith('barangays/')) {
-      const expectedFolder = scope.assignedBarangay.trim().toLocaleLowerCase().replace(/[^a-z0-9 _-]/g, '_');
-      if (path.split('/')[1].toLocaleLowerCase() !== expectedFolder) {
-        throw new Error('Focal Persons can only attach certificate images from shared assets or their assigned barangay.');
-      }
-    }
   }
-  const existing = await client.query<{ barangay_id: string | null; updated_at: Date | string | null }>(
-    'SELECT barangay_id, updated_at FROM public.certificate_templates WHERE code = $1 FOR UPDATE',
+  const existing = await client.query<{ barangay_id: string | null; updated_at: Date | string | null; template_data: unknown }>(
+    'SELECT barangay_id, updated_at, template_data FROM public.certificate_templates WHERE code = $1 FOR UPDATE',
     [template.id]
   );
   if (existing.rows.length > 0) {
@@ -249,9 +244,36 @@ async function upsertTemplate(
       throw new Error('Certificate template changed in another session. Reload it before saving to avoid overwriting newer changes.');
     }
   }
-  if (!scope.isAdmin && existing.rows.length > 0 && existing.rows[0].barangay_id !== barangayId) {
-    throw new Error('Focal Persons cannot modify a shared template or a template belonging to another barangay.');
+  const previousData = objectValue(existing.rows[0]?.template_data);
+  const previousSnapshot = Object.fromEntries(
+    Object.entries(previousData).filter(([key]) => key !== 'templateVersions'),
+  ) as Omit<CertificateTemplate, 'templateVersions'>;
+  if (previousSnapshot.sourceDocument) {
+    previousSnapshot.sourceDocument = { ...previousSnapshot.sourceDocument, url: undefined };
   }
+  const priorVersions = Array.isArray(previousData.templateVersions)
+    ? previousData.templateVersions as CertificateTemplate['templateVersions']
+    : [];
+  const templateVersions = existing.rows.length
+    ? [
+      ...priorVersions,
+      {
+        version: priorVersions.reduce((max, entry) => Math.max(max, Number(entry.version) || 0), 0) + 1,
+        updatedAt: new Date().toISOString(),
+        updatedBy: scope.role,
+        snapshot: previousSnapshot,
+      },
+    ]
+    : [];
+  const snapshot = {
+    ...template,
+    isActive: template.reviewStatus === 'draft' ? false : template.isActive,
+    sourceDocument: template.sourceDocument
+      ? { ...template.sourceDocument, url: undefined }
+      : undefined,
+    templateVersions,
+    updatedAt: new Date().toISOString(),
+  };
   await client.query(
     `INSERT INTO public.certificate_templates
       (barangay_id, code, name, template_body, template_data, is_active, is_archived, updated_at)
@@ -264,7 +286,7 @@ async function upsertTemplate(
        is_active = EXCLUDED.is_active,
        is_archived = FALSE,
        updated_at = NOW()`,
-    [barangayId, template.id, template.name, template.bodyTemplate, JSON.stringify(snapshot), template.isActive !== false]
+    [barangayId, template.id, template.name, template.bodyTemplate, JSON.stringify(snapshot), snapshot.isActive !== false]
   );
   const saved = (await readStoredTemplates(client)).find(item => item.id === template.id);
   if (!saved) throw new Error('Database did not return the saved certificate template.');

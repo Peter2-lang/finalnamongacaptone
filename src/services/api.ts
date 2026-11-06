@@ -1,4 +1,4 @@
-import { uploadImageDirect } from './directUpload.ts';
+import { uploadCertificateTemplateSourceDirect, uploadImageDirect } from './directUpload.ts';
 import {
   Barangay,
   CertificateTemplate,
@@ -620,6 +620,10 @@ export const mediaApi = {
       throw new Error(data?.error || 'Unable to upload certificate image to private Supabase Storage.');
     }
     return data.data;
+  },
+
+  async uploadCertificateTemplateSource(file: File): Promise<{ filePath: string; fileUrl: string; fileSize: number }> {
+    return uploadCertificateTemplateSourceDirect(file);
   },
 
   async delete(id: string): Promise<boolean> {

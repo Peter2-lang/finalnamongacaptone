@@ -1,6 +1,7 @@
 export interface TemplateDataContext {
   resident_name?: string;
   farmer_name?: string;
+  farmer_address?: string;
   barangay?: string;
   municipality?: string;
   province?: string;
@@ -8,6 +9,10 @@ export interface TemplateDataContext {
   heads?: string | number;
   buyer_name?: string;
   buyer_address?: string;
+  swine_identification?: string;
+  certificate_number?: string;
+  punong_barangay?: string;
+  transport_origin?: string;
   destination?: string;
   purpose?: string;
   date_issued?: string;
@@ -27,24 +32,30 @@ export interface TemplateDataContext {
 }
 
 export const AVAILABLE_PLACEHOLDERS = [
-  { key: '{{resident_name}}', label: 'Resident / Farmer Name', sample: 'JUAN DELA CRUZ' },
+  { key: '{{resident_name}}', label: 'Resident / Farmer Name', sample: 'Selected farmer from registry' },
+  { key: '{{farmer_address}}', label: 'Farmer Address', sample: 'Registered farmer address' },
   { key: '{{barangay}}', label: 'Barangay Name', sample: 'Nava' },
   { key: '{{municipality}}', label: 'Municipality', sample: 'Hinunangan' },
   { key: '{{province}}', label: 'Province', sample: 'Southern Leyte' },
-  { key: '{{number_of_pigs}}', label: 'Number of Heads / Pigs', sample: '5' },
-  { key: '{{buyer_name}}', label: 'Buyer Name', sample: 'JOVELYN PADOLLO' },
-  { key: '{{destination}}', label: 'Destination / Buyer Address', sample: 'Pastrana, Leyte' },
+  { key: '{{number_of_pigs}}', label: 'Number of Heads / Pigs', sample: 'Count of selected registered swine' },
+  { key: '{{buyer_name}}', label: 'Buyer Name', sample: 'Entered for this transaction' },
+  { key: '{{buyer_address}}', label: 'Buyer Address', sample: 'Buyer address' },
+  { key: '{{destination}}', label: 'Destination / Buyer Address', sample: 'Entered for this transaction' },
   { key: '{{purpose}}', label: 'Purpose', sample: 'whatever legal purpose it may serve best' },
   { key: '{{date_issued}}', label: 'Date of Issuance', sample: 'September 22, 2026' },
-  { key: '{{or_number}}', label: 'Official Receipt (O.R.) Number', sample: 'OR-1675127' },
-  { key: '{{price_per_kilo}}', label: 'Price per Kilo / Amount', sample: '₱170.00 / kilo' },
-  { key: '{{amount_paid}}', label: 'Amount Paid (PHP)', sample: '100.00' },
+  { key: '{{certificate_number}}', label: 'Certificate Number', sample: 'Certificate number' },
+  { key: '{{swine_identification}}', label: 'Swine Identification', sample: 'Selected swine identification' },
+  { key: '{{punong_barangay}}', label: 'Punong Barangay', sample: 'Authorized signatory name' },
+  { key: '{{transport_origin}}', label: 'Transport Origin', sample: 'Registered barangay' },
+  { key: '{{or_number}}', label: 'Official Receipt (O.R.) Number', sample: 'Entered when applicable' },
+  { key: '{{price_per_kilo}}', label: 'Price per Kilo / Amount', sample: 'Entered for this transaction' },
+  { key: '{{amount_paid}}', label: 'Amount Paid (PHP)', sample: 'Entered when applicable' },
   { key: '{{animal_type}}', label: 'Animal Description', sample: 'market hogs' },
-  { key: '{{association_name}}', label: 'Association / Cooperative', sample: 'NUEVA ESPERANZA SLP ASS.' },
-  { key: '{{farmer_age_civil_status}}', label: 'Age / Civil Status (Bisaya)', sample: 'hingkod ang panu-igon' },
-  { key: '{{swine_age}}', label: 'Swine Age (e.g. 3 ka Buwan)', sample: 'TULO ( 3 ) ka Buwan' },
-  { key: '{{female_count}}', label: 'Female Head Count', sample: '3' },
-  { key: '{{male_count}}', label: 'Male Head Count', sample: '2' },
+  { key: '{{association_name}}', label: 'Association / Cooperative', sample: 'Configured registry detail' },
+  { key: '{{farmer_age_civil_status}}', label: 'Age / Civil Status (Bisaya)', sample: 'Configured registry detail' },
+  { key: '{{swine_age}}', label: 'Swine Age (e.g. 3 ka Buwan)', sample: 'Calculated from selected registry records' },
+  { key: '{{female_count}}', label: 'Female Head Count', sample: 'Calculated from selected registry records' },
+  { key: '{{male_count}}', label: 'Male Head Count', sample: 'Calculated from selected registry records' },
   { key: '{{color_description}}', label: 'Color / Breed Description', sample: 'Assorted (White / Cross)' },
   { key: '{{issued_at}}', label: 'Place of Issuance', sample: 'Barangay Nava, Hinunangan, Southern Leyte' },
 ];
@@ -65,6 +76,7 @@ export function replaceTemplatePlaceholders(
   const normalized: Record<string, string> = {
     resident_name: safeData.resident_name || safeData.farmer_name || '—',
     farmer_name: safeData.farmer_name || safeData.resident_name || '—',
+    farmer_address: safeData.farmer_address || '—',
     barangay: safeData.barangay || '—',
     municipality: safeData.municipality || 'Hinunangan',
     province: safeData.province || 'Southern Leyte',
@@ -72,6 +84,10 @@ export function replaceTemplatePlaceholders(
     heads: String(safeData.heads ?? safeData.number_of_pigs ?? '—'),
     buyer_name: safeData.buyer_name || '—',
     buyer_address: safeData.buyer_address || '—',
+    swine_identification: safeData.swine_identification || '—',
+    certificate_number: safeData.certificate_number || '—',
+    punong_barangay: safeData.punong_barangay || '—',
+    transport_origin: safeData.transport_origin || safeData.barangay || '—',
     destination: safeData.destination || '—',
     purpose: safeData.purpose || '—',
     date_issued: safeData.date_issued || safeData.issue_date || '—',

@@ -281,6 +281,20 @@ body {
     margin: 0;
   }
 
+  @page certificate-a4-portrait { size: A4 portrait; margin: 0; }
+  @page certificate-a4-landscape { size: A4 landscape; margin: 0; }
+  @page certificate-letter-portrait { size: letter portrait; margin: 0; }
+  @page certificate-letter-landscape { size: letter landscape; margin: 0; }
+  @page certificate-folio-portrait { size: 8.5in 13in; margin: 0; }
+  @page certificate-folio-landscape { size: 13in 8.5in; margin: 0; }
+
+  .certificate-page-a4-portrait { page: certificate-a4-portrait; }
+  .certificate-page-a4-landscape { page: certificate-a4-landscape; }
+  .certificate-page-letter-portrait { page: certificate-letter-portrait; }
+  .certificate-page-letter-landscape { page: certificate-letter-landscape; }
+  .certificate-page-folio-portrait { page: certificate-folio-portrait; }
+  .certificate-page-folio-landscape { page: certificate-folio-landscape; }
+
   @page swine-record {
     size: letter portrait;
     margin: 10mm;

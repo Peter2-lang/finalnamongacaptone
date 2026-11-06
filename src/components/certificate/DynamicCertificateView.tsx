@@ -114,6 +114,14 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
   const templateBarangay = template.barangay.toLowerCase() === 'all' ? '' : template.barangay;
   const rawBrgy = data.barangay || templateBarangay || '—';
   const brgyDisplay = rawBrgy.toUpperCase();
+  const isLandscape = template.orientation === 'landscape';
+  const pageDimensions = template.pageSize === 'Folio'
+    ? { width: 816, height: 1248 }
+    : template.pageSize === 'Letter'
+      ? { width: 816, height: 1056 }
+      : { width: 794, height: 1123 };
+  const pageWidth = isLandscape ? pageDimensions.height : pageDimensions.width;
+  const pageHeight = isLandscape ? pageDimensions.width : pageDimensions.height;
 
   // Separate and sort logos by position
   const visibleLogos = (template.logos || []).filter(l => l.visible);
@@ -123,6 +131,9 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
 
   // Parse rendered body text with replaced placeholders
   const fullContext: TemplateDataContext = {
+    ...Object.fromEntries((template.templateFields || [])
+      .filter(field => field.defaultValue)
+      .map(field => [field.key, field.defaultValue])),
     ...data,
     barangay: rawBrgy,
     municipality: data.municipality || 'Hinunangan',
@@ -220,9 +231,11 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
       ref={containerRef}
       id="printable-certificate-root"
       data-print-document={previewOnly ? 'certificate-template-preview' : 'certificate'}
-      className="printable-certificate-container mx-auto w-full max-w-[820px] overflow-hidden rounded-xl border border-stone-300 bg-white p-8 font-serif text-stone-900 shadow-xl relative select-text transition-all sm:p-12"
+      className={`printable-certificate-container certificate-page-${template.pageSize.toLowerCase()}-${template.orientation} mx-auto overflow-hidden rounded-xl border border-stone-300 bg-white p-8 font-serif text-stone-900 shadow-xl relative select-text transition-all sm:p-12`}
       style={{
-        minHeight: '1050px',
+        width: `${pageWidth}px`,
+        maxWidth: '100%',
+        minHeight: `${pageHeight}px`,
         backgroundColor: '#ffffff',
         color: '#000000',
         fontFamily: template.bodyFontFamily || 'serif',
