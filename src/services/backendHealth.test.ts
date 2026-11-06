@@ -18,8 +18,8 @@ test('concurrent health checks await one current request', async () => {
   assert.equal(first, second);
   assert.equal(requests, 1);
   finish(healthResponse());
-  assert.deepEqual(await first, { healthy: true, error: null });
-  assert.deepEqual(await second, { healthy: true, error: null });
+  assert.deepEqual(await first, { healthy: true, error: null, connectionFailure: false });
+  assert.deepEqual(await second, { healthy: true, error: null, connectionFailure: false });
 });
 
 test('HTTP failures report status without exposing response details', async () => {
@@ -48,7 +48,7 @@ test('a later successful check clears a previous failure', async () => {
   let calls = 0;
   const check = createBackendHealthCheck({ fetcher: async () => ++calls === 1 ? new Response('', { status: 503 }) : healthResponse() });
   assert.equal((await check()).healthy, false);
-  assert.deepEqual(await check(), { healthy: true, error: null });
+  assert.deepEqual(await check(), { healthy: true, error: null, connectionFailure: false });
   assert.equal(calls, 2);
 });
 
@@ -85,5 +85,38 @@ test('connected database with schema not ready remains unavailable for synchroni
     const result = await check();
     assert.equal(result.healthy, false);
     assert.match(result.error!, /schema check failed/);
+    assert.equal(result.connectionFailure, false);
   }
+});
+
+test('network failures are distinguished from authentication and schema failures', async () => {
+  const networkCheck = createBackendHealthCheck({ fetcher: async () => { throw new TypeError('Failed to fetch'); } });
+  assert.equal((await networkCheck()).connectionFailure, true);
+
+  const databaseAuthCheck = createBackendHealthCheck({
+    fetcher: async () => healthResponse('error', 'authentication_failed'),
+  });
+  assert.equal((await databaseAuthCheck()).connectionFailure, false);
+
+  const sessionFailure = createBackendHealthCheck({
+    fetcher: async () => Response.json({ error: 'Supabase could not verify your session right now.' }, { status: 503 }),
+  });
+  assert.equal((await sessionFailure()).connectionFailure, false);
+});
+
+test('lightweight authenticated connectivity response does not require schema probing', async () => {
+  let endpoint = '';
+  const check = createBackendHealthCheck({
+    endpoint: '/api/connectivity',
+    fetcher: async input => {
+      endpoint = String(input);
+      return Response.json({
+        connection_check: true,
+        service: 'hinunangan-swine-registry',
+        database: 'connected',
+      });
+    },
+  });
+  assert.deepEqual(await check(), { healthy: true, error: null, connectionFailure: false });
+  assert.equal(endpoint, '/api/connectivity');
 });

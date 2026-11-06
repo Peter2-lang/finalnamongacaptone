@@ -324,6 +324,40 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     });
   });
 
+  app.get('/api/connectivity', async (req, res) => {
+    if (!(req as any).authenticatedUser?.userId) {
+      return res.status(401).json({ success: false, error: 'An active authenticated session is required.' });
+    }
+
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT 1');
+      } finally {
+        client.release();
+      }
+      res.set('Cache-Control', 'no-store');
+      return res.json({
+        connection_check: true,
+        service: 'hinunangan-swine-registry',
+        database: 'connected',
+      });
+    } catch (error) {
+      const diagnostic = getDatabaseDiagnostic(error);
+      console.error('[CONNECTIVITY] authorized_database_probe_failed', {
+        kind: diagnostic.kind,
+        code: diagnostic.code,
+      });
+      res.set('Cache-Control', 'no-store');
+      return res.status(503).json({
+        connection_check: true,
+        service: 'hinunangan-swine-registry',
+        database: 'error',
+        database_error_kind: diagnostic.kind,
+      });
+    }
+  });
+
   // Regex patterns
   const PIG_ID_TAG_REGEX = /^HIN-\d{4}-\d{4,}$/;
 

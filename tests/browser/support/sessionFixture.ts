@@ -13,6 +13,7 @@ export async function fixture(page:Page,role:string,state:{records:any[]}={recor
   let data:any=[];
   if(path==='/api/swine-records')data=state.records;
   else if(path==='/api/auth/profile'||path==='/api/auth/superadmin-profile')data=profile;
+  else if(path==='/api/connectivity')return route.fulfill({json:{connection_check:true,service:'hinunangan-swine-registry',database:'connected'}});
   else if(path==='/api/config/master')data={published:DEFAULT_MASTER_CONFIG,draft:DEFAULT_MASTER_CONFIG};
   else if(path.includes('registry-schema'))data={version:1,sections:[]};
   else if(path==='/api/landing-cms/published'||path.includes('landing-cms/draft'))data=INITIAL_LANDING_CMS_CONFIG;

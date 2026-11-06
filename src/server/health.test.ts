@@ -22,6 +22,15 @@ await once(server, 'listening');
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 after(async () => { await new Promise<void>(resolve => server.close(() => resolve())); await pool.end(); });
 
+test('lightweight database connectivity check requires an authenticated application session', async () => {
+  const response = await fetch(base + '/api/connectivity');
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), {
+    success: false,
+    error: 'Your session has expired. Please sign in again.',
+  });
+});
+
 test('missing database configuration returns sanitized 503 JSON after cold start', async () => {
   const response = await fetch(base + '/api/health');
   assert.equal(response.status, 503);

@@ -12,9 +12,11 @@ import { storageService } from './storageService';
 import { SwineRecord, IssuedCertificate, MessageItem, Barangay } from '../types';
 
 export type SyncState = 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'SYNCED' | 'ERROR';
+export type CloudConnectionState = 'initializing' | 'connected' | 'disconnected' | 'offline';
 
 export interface SyncEngineStatus {
   state: SyncState;
+  connectionStatus: CloudConnectionState;
   isOnline: boolean;
   isBackendReachable: boolean;
   pendingCount: number;
@@ -24,11 +26,24 @@ export interface SyncEngineStatus {
 }
 
 export class OfflineSyncEngine {
-  private syncState: SyncState = 'ERROR';
+  private syncState: SyncState = 'ONLINE';
+  private connectionStatus: CloudConnectionState = 'initializing';
   private isBackendReachable: boolean = false;
   private healthFailures = 0;
   private nextHealthCheckAt = 0;
-  private readonly checkBackendHealth = createBackendHealthCheck();
+  private readonly checkBackendHealth = createBackendHealthCheck({
+    endpoint: '/api/connectivity',
+    fetcher: async (_input, init) => {
+      try {
+        const authorization = await requireSyncAuthorization();
+        const headers = new Headers(init?.headers);
+        for (const [name, value] of Object.entries(authorization.headers)) headers.set(name, value);
+        return fetch('/api/connectivity', { ...init, headers });
+      } catch {
+        return fetch('/api/health', init);
+      }
+    },
+  });
   private lastHealthError: string | null = null;
   private isSyncInProgress: boolean = false;
   private lastSyncedAt: string | null = null;
@@ -89,14 +104,18 @@ export class OfflineSyncEngine {
 
   public getStatus(): SyncEngineStatus {
     const isSimulated = storageService.getSimulatedOffline();
+    const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    const connectionStatus = !browserOnline || isSimulated ? 'offline' : this.connectionStatus;
     const { isOnline, state } = getConnectivityState({
-      browserOnline: typeof navigator === 'undefined' || navigator.onLine,
+      browserOnline,
       simulatedOffline: isSimulated, backendReachable: this.isBackendReachable,
+      connectionInitializing: connectionStatus === 'initializing',
       syncing: this.isSyncInProgress, state: this.syncState,
     });
 
     return {
       state,
+      connectionStatus,
       isOnline,
       isBackendReachable: this.isBackendReachable && !isSimulated,
       pendingCount: 0, // dynamic
@@ -124,6 +143,7 @@ export class OfflineSyncEngine {
 
   private setOfflineState(reason?: string) {
     this.syncState = 'OFFLINE';
+    this.connectionStatus = 'offline';
     this.isBackendReachable = false;
     if (reason === 'Browser offline event triggered') this.lastHealthError = 'Your browser is offline. Reconnect to the internet before synchronizing.';
     if (reason === 'Simulated offline active') this.lastHealthError = 'Offline simulation is enabled. End offline simulation in Sync settings.';
@@ -134,20 +154,39 @@ export class OfflineSyncEngine {
    * Health Ping to check actual backend reachability
    */
   public async pingBackend(): Promise<boolean> {
-    const result = storageService.getSimulatedOffline()
-      ? { healthy: false, error: 'Offline simulation is enabled. End offline simulation in Sync settings.' }
-      : typeof navigator !== 'undefined' && !navigator.onLine
-        ? { healthy: false, error: 'Your browser is offline. Reconnect to the internet before synchronizing.' }
-        : await this.checkBackendHealth();
+    if (storageService.getSimulatedOffline()) {
+      this.connectionStatus = 'offline';
+      this.isBackendReachable = false;
+      this.lastHealthError = 'Offline simulation is enabled. End offline simulation in Sync settings.';
+      return false;
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.connectionStatus = 'offline';
+      this.isBackendReachable = false;
+      this.lastHealthError = 'Your browser is offline. Reconnect to the internet before synchronizing.';
+      return false;
+    }
+
+    let result = await this.checkBackendHealth();
+    for (let attempt = 0; result.connectionFailure && attempt < 2; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+      if (typeof navigator !== 'undefined' && !navigator.onLine) break;
+      result = await this.checkBackendHealth();
+    }
+
     // A user may switch simulation on while the network request is still pending.
     const simulated = storageService.getSimulatedOffline();
     const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    this.connectionStatus = simulated || !browserOnline
+      ? 'offline'
+      : result.connectionFailure ? 'disconnected' : 'connected';
     this.isBackendReachable = result.healthy && !simulated && browserOnline;
     this.lastHealthError = simulated ? 'Offline simulation is enabled. End offline simulation in Sync settings.'
       : !browserOnline ? 'Your browser is offline. Reconnect to the internet before synchronizing.' : result.error;
-    this.healthFailures = this.isBackendReachable ? 0 : this.healthFailures + 1;
+    this.healthFailures = result.healthy ? 0 : this.healthFailures + 1;
     this.nextHealthCheckAt = Date.now() + Math.min(25000 * 2 ** Math.min(this.healthFailures, 4), 300000);
-    return this.isBackendReachable;
+    this.broadcastStatus();
+    return result.healthy && !simulated && browserOnline;
   }
 
   public async checkConnectivityAndAutoSync(triggerSource: string = 'manual'): Promise<void> {
@@ -161,7 +200,12 @@ export class OfflineSyncEngine {
         this.broadcastStatus(0);
       }
     } else {
-      this.setOfflineState(`Connectivity check failed from ${triggerSource}`);
+      if (this.connectionStatus === 'offline') {
+        this.setOfflineState(`Connectivity check failed from ${triggerSource}`);
+      } else {
+        this.syncState = this.connectionStatus === 'disconnected' ? 'OFFLINE' : 'ERROR';
+        this.broadcastStatus();
+      }
     }
   }
 
@@ -172,7 +216,7 @@ export class OfflineSyncEngine {
 
     const isReachable = await this.pingBackend();
     if (!isReachable) {
-      this.syncState = 'OFFLINE';
+      this.syncState = this.connectionStatus === 'disconnected' || this.connectionStatus === 'offline' ? 'OFFLINE' : 'ERROR';
       this.broadcastStatus();
       return { success: false, pushedCount: 0, pulledCount: 0, error: this.lastHealthError || 'The backend health check failed. Open /api/health to inspect the deployment.' };
     }
