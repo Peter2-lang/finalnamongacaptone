@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {answerAssistant,manilaPeriod,queryAssistantRegistry,sanitizeConversation,type Generate} from './assistantEngine';
+import {answerAssistant,manilaPeriod,queryAssistantRegistry,queryVerifiedLegalDocuments,sanitizeConversation,type Generate} from './assistantEngine';
 const now=new Date('2026-11-05T16:30:00Z');
 const row={id:'a',farmerId:'farmer-a',barangay:'Ambacon',registeredAt:'2026-11-05T16:01:00Z',readyToSell:true,status:'healthy',swineType:'grower',asfZone:'GREEN'};
 const rows=[row,{...row,id:'b',readyToSell:false},{...row,id:'c',barangay:'Canipaan'},{...row,id:'old',registeredAt:'2026-11-05T15:59:59Z',updatedAt:now.toISOString()},{...row,id:'archived',isArchived:true}];
@@ -41,6 +41,39 @@ test('tool failures are unavailable, never invented zero; provider errors propag
  let count=0; const generate:Generate=async request=>{if(!count++)return {functionCalls:[{name:'query_registry'}]};assert.match(JSON.stringify(request.contents),/unavailable/);return {text:'The count is temporarily unavailable.'}};
  const result=await answerAssistant({message:'How many new records today?'},{role:'guest'},{generate});assert.match(result.reply,/unavailable/);
  await assert.rejects(answerAssistant({message:'Explain in Bisaya.'},{role:'admin'},{generate:async()=>{throw new Error('provider down')}}),/provider down/);
+});
+
+test('legal retrieval returns verified source text and section references, never metadata-only records',async()=>{
+ let sql='';let values:string[]=[];
+ const result=await queryVerifiedLegalDocuments('transport checkpoint',(query,params)=> {
+  sql=query;values=params;
+  return Promise.resolve({rows:[
+   {document:{id:'verified',type:'municipal_eo',title:'Verified Checkpoint Order',officialNumber:'EO 2025-1',seriesYear:'2025',issuingAuthority:'Municipality',signatory:'',signatoryTitle:'',effectiveDate:'',shortSummary:'ASF checkpoint',legalBasis:[],keyArticles:[],setbackRules:[],penalties:[],sourceCompleteness:'excerpt',articles:[],fullText:'Transport inspection at checkpoint.'}},
+   {document:{id:'metadata',type:'municipal_eo',title:'Draft metadata only',officialNumber:'EO 2025-2',seriesYear:'2025',issuingAuthority:'Municipality',signatory:'',signatoryTitle:'',effectiveDate:'',shortSummary:'Transport checkpoint',legalBasis:[],keyArticles:[],setbackRules:[],penalties:[],sourceCompleteness:'metadata_only',articles:[]}},
+  ]});
+ });
+ assert.match(sql,/document->>'status' = 'verified'/);
+ assert.deepEqual(values,['%transport%','%checkpoint%']);
+ assert.equal(result.documents.length,1);
+ assert.equal(result.documents[0].title,'Verified Checkpoint Order');
+ assert.equal(result.documents[0].sections[0].reference,'Full text');
+ assert.match(result.documents[0].sections[0].text,/Transport inspection/);
+});
+
+test('legal chatbot answers receive verified excerpts and section references',async()=>{
+ let requestCount=0;let legalQuery='';
+ const generate:Generate=async request=>{
+  if(requestCount++===0)return {functionCalls:[{name:'search_verified_legal_documents',args:{query:'2025-59'}}]};
+  assert.match(JSON.stringify(request.contents),/Section 4 — Transport/);
+  assert.match(JSON.stringify(request.contents),/Verified Ordinance/);
+  return {text:'Verified Ordinance, Section 4 — Transport, requires inspection.'};
+ };
+ const answer=await answerAssistant({message:'What is Ordinance 2025-59?'},{role:'guest'},{
+  generate,
+  legalQuery:async query=>{legalQuery=query;return {documents:[{title:'Verified Ordinance',sections:[{reference:'Section 4 — Transport',text:'Inspection'}]}]};},
+ });
+ assert.equal(legalQuery,'2025-59');
+ assert.match(answer.reply,/Section 4/);
 });
 
 test('navigation tool only offers permitted pages and never executes a write',async()=>{

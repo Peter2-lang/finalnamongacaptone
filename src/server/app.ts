@@ -1,5 +1,6 @@
 import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
 import { answerAssistant, type Generate } from './assistantEngine.ts';
+import type { ASFRegulatoryDocument } from '../types.ts';
 import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
 import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
 import { persistSwineImportBatch } from '../db/swine.ts';
@@ -9,7 +10,7 @@ import { normalizeBiosecurityAudits, scopeBiosecurityItems } from './biosecurity
 import { CLOUD_ITEM_KEYS, mutateModuleItem, visibleModuleItems } from './moduleItems.ts';
 import { assertImmutableSwineIdentity, validateSwineMutation } from './swineMutationValidation.ts';
 import { resolveSwineReadFilters, agentMayReadSwine } from './swineReadScope.ts';
-import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
+import { hasVerifiableSourceAttachment, isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
 import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
 import { getDatabaseConnectionInfo, getDatabasePoolConfig } from '../db/poolConfig.ts';
@@ -48,7 +49,9 @@ import { DEFAULT_MASTER_CONFIG } from '../data/defaultMasterConfig.ts';
 import { INITIAL_LANDING_CMS_CONFIG } from '../data/initialLandingCmsData.ts';
 import {
   createCertificateAssetSignedUrl,
+  createLegalDocumentSignedUrl,
   verifyDirectImage,
+  verifyDirectLegalDocument,
   deleteLandingCmsAsset,
   uploadCertificateAsset,
   uploadLandingCmsAsset,
@@ -339,6 +342,64 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const isFocal = role === 'focal';
     const isAuthenticated = role !== 'guest';
     return { role, barangayId, assignedBarangay, userId, username, isSuperAdmin, isAdmin, isAgent, isFocal, isAuthenticated };
+  }
+
+  async function validateCertificateSwineSelection(
+    certificate: Record<string, any>,
+    user: ReturnType<typeof getUserSecurityContext>,
+    required: boolean,
+  ): Promise<string | null> {
+    const swineIds = certificate.swineIds;
+    if (!Array.isArray(swineIds) || swineIds.length === 0) {
+      return required ? 'Select at least one registered swine before issuing a certificate.' : null;
+    }
+    if (swineIds.length > 200 || swineIds.some(id => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) ||
+        new Set(swineIds).size !== swineIds.length) {
+      return 'The selected swine list is invalid.';
+    }
+    if (user.isFocal && !user.assignedBarangay.trim()) {
+      return 'Your account must be assigned to a barangay to issue certificates.';
+    }
+
+    const result = await pool.query<{
+      id: string;
+      farmerName: string;
+      farmerAddress: string | null;
+      barangay: string;
+      isArchived: boolean;
+    }>(
+      `SELECT sr.id, sr.farmer_name AS "farmerName", f.farm_address AS "farmerAddress",
+              b.name AS barangay, sr.is_archived AS "isArchived"
+       FROM public.swine_records sr
+       JOIN public.barangays b ON b.id = sr.barangay_id
+       LEFT JOIN public.farmers f ON f.id = sr.farmer_id
+       WHERE sr.id = ANY($1::uuid[])`,
+      [swineIds],
+    );
+    if (result.rows.length !== swineIds.length || result.rows.some(row => row.isArchived)) {
+      return 'One or more selected swine are unavailable or archived.';
+    }
+    const first = result.rows[0];
+    if (result.rows.some(row =>
+      row.farmerName.trim().toLowerCase() !== first.farmerName.trim().toLowerCase() ||
+      row.barangay.trim().toLowerCase() !== first.barangay.trim().toLowerCase()
+    )) {
+      return 'A certificate may include only swine belonging to one farmer in one barangay.';
+    }
+    if (certificate.farmerName?.trim().toLowerCase() !== first.farmerName.trim().toLowerCase()) {
+      return 'The selected swine do not belong to the displayed farmer.';
+    }
+    if (user.isFocal && first.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
+      return 'Only swine from your assigned barangay may be included in a certificate.';
+    }
+    if (certificate.barangay?.trim().toLowerCase() !== first.barangay.trim().toLowerCase()) {
+      return 'The certificate barangay must match the selected swine records.';
+    }
+    if (Number(certificate.numberOfHeads) !== swineIds.length) {
+      return 'The certificate head count must match the number of selected swine.';
+    }
+    certificate.farmerAddress = first.farmerAddress || certificate.farmerAddress || '';
+    return null;
   }
 
   async function signTemplateAssetUrls(template: Awaited<ReturnType<typeof getCertificateTemplates>>[number], user: ReturnType<typeof getUserSecurityContext>) {
@@ -1136,7 +1197,41 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
 
   app.post('/api/storage/upload-url', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const { target, fileName, mimeType } = req.body || {};
+    const { target, fileName, mimeType, documentId } = req.body || {};
+    if (target === 'legal-document') {
+      if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can upload legal documents.' });
+      if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+      const legalTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+      ];
+      const extension = typeof fileName === 'string' ? fileName.split('.').pop()?.toLowerCase() : '';
+      const extensionsByType: Record<string, string[]> = {
+        'application/pdf': ['pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+        'image/jpeg': ['jpg', 'jpeg'],
+        'image/png': ['png'],
+      };
+      if (typeof documentId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(documentId) ||
+          typeof fileName !== 'string' || !extensionsByType[mimeType]?.includes(extension || '') ||
+          !legalTypes.includes(mimeType)) {
+        return res.status(400).json({ success: false, error: 'Choose a PDF, DOCX, JPEG, or PNG file and a valid legal document.' });
+      }
+      try {
+        const existing = await pool.query('SELECT id FROM public.legal_documents WHERE id = $1', [documentId]);
+        if (!existing.rows.length) return res.status(404).json({ success: false, error: 'Save the legal document record before uploading an attachment.' });
+        const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'legal-document';
+        const filePath = `legal-documents/${documentId}/${randomUUID()}-${safeFileName}`;
+        const signed = await supabaseAdminClient.storage.from('documents').createSignedUploadUrl(filePath);
+        if (signed.error) throw signed.error;
+        return res.json({ success: true, bucket: 'documents', filePath, token: signed.data.token });
+      } catch (error) {
+        console.error('[legal-documents] unable to prepare upload', error);
+        return res.status(503).json({ success: false, error: 'Unable to prepare a private legal document upload.' });
+      }
+    }
     if (!user.isAdmin && !(target === 'certificate' && user.isFocal && user.assignedBarangay)) return res.status(403).json({ success: false, error: 'Upload permission denied.' });
     if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
     if (!['certificate', 'landing', 'media'].includes(target) || typeof fileName !== 'string' || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mimeType)) return res.status(400).json({ success: false, error: 'Choose a supported image and upload target.' });
@@ -2103,6 +2198,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const user = getUserSecurityContext(req);
     const cert = req.body;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can issue certificates.' });
+    }
     if (!cert || (!cert.controlNumber && !cert.certificateNo)) {
       return res.status(400).json({ success: false, error: 'Invalid certificate payload' });
     }
@@ -2114,6 +2212,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     }
 
     try {
+      const selectionError = await validateCertificateSwineSelection(cert, user, true);
+      if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
+        .json({ success: false, error: selectionError });
       const saved = await upsertCertificate({
         ...cert,
         metadata: {
@@ -2164,6 +2265,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const { id } = req.params;
     const cert = req.body;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can update certificates.' });
+    }
     if (!cert) {
       return res.status(400).json({ success: false, error: 'Certificate data is required.' });
     }
@@ -2188,9 +2292,14 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
         cert.issuingBarangay = user.assignedBarangay;
       }
 
+      const candidate = { ...existing, ...cert };
+      const selectionError = await validateCertificateSwineSelection(candidate, user, false);
+      if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
+        .json({ success: false, error: selectionError });
+
       const updated = await upsertCertificate({
         ...existing,
-        ...cert,
+        ...candidate,
         id: existing.id || id,
         controlNumber: existing.controlNumber || cert.controlNumber || id,
         metadata: {
@@ -2214,6 +2323,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const user = getUserSecurityContext(req);
     const { controlNumber } = req.params;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can archive certificates.' });
+    }
     try {
       if (!user.isAdmin) {
         const existing = await getCertificateByIdOrControlNumber(controlNumber);
@@ -2942,10 +3054,115 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   app.get('/api/legal-documents', async (_req, res) => {
     try {
       const result = await pool.query('SELECT document FROM legal_documents ORDER BY updated_at DESC, id');
-      const documents = result.rows.map(row => row.document);
+      const user = getUserSecurityContext(_req);
+      const allDocuments = result.rows.map(row => row.document as ASFRegulatoryDocument);
+      const documents = user.isAdmin
+        ? allDocuments
+        : allDocuments.filter(document => document.status === 'verified' && !document.isArchived);
       return res.json({ success: true, count: documents.length, data: documents });
     } catch {
       return res.status(503).json({ success: false, error: 'Legal documents database unavailable.' });
+    }
+  });
+
+  app.post('/api/legal-documents/:id/attachments', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can upload legal document attachments.' });
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+    const { id } = req.params;
+    const { filePath, fileName, mimeType } = req.body || {};
+    if (typeof filePath !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') {
+      return res.status(400).json({ success: false, error: 'Uploaded file metadata is required.' });
+    }
+
+    let verifiedFile: Awaited<ReturnType<typeof verifyDirectLegalDocument>>;
+    try {
+      verifiedFile = await verifyDirectLegalDocument(supabaseAdminClient, filePath, fileName, mimeType, id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify uploaded legal document.';
+      return res.status(/choose|contents|non-empty|larger|outside|invalid/i.test(message) ? 400 : 503)
+        .json({ success: false, error: message });
+    }
+
+    try {
+      const result = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      const existing = result.rows[0]?.document;
+      if (!existing) {
+        await supabaseAdminClient.storage.from('documents').remove([filePath]);
+        return res.status(404).json({ success: false, error: 'Legal document not found.' });
+      }
+      const previousAttachments = Array.isArray(existing.sourceDocuments) ? existing.sourceDocuments : [];
+      const version = previousAttachments.reduce((max, attachment) => Math.max(max, Number(attachment.version) || 0), 0) + 1;
+      const attachment = {
+        id: randomUUID(),
+        name: fileName,
+        originalFileName: fileName,
+        storagePath: filePath,
+        fileType: mimeType,
+        fileSize: verifiedFile.fileSize,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: user.username,
+        version,
+        checksum: '',
+        isCurrent: true,
+        url: '',
+      };
+      const updated: ASFRegulatoryDocument = {
+        ...existing,
+        status: existing.status === 'verified' || existing.status === 'active' ? 'for_verification' : existing.status || 'for_verification',
+        sourceCompleteness: existing.status === 'verified' || existing.status === 'active'
+          ? 'metadata_only'
+          : existing.sourceCompleteness || 'metadata_only',
+        sourceDocuments: [
+          ...previousAttachments.map(item => ({ ...item, isCurrent: false })),
+          attachment,
+        ],
+      };
+      const saved = await mutateLegalDocument(pool, 'update', id, updated, user);
+      if (!saved) throw new Error('Legal document changed before the attachment could be saved.');
+      const savedDocument = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      if (!savedDocument.rows[0]?.document) throw new Error('Saved document attachment could not be reloaded.');
+      return res.status(201).json({
+        success: true,
+        data: {
+          document: savedDocument.rows[0].document,
+          attachment: { ...attachment, url: verifiedFile.fileUrl },
+        },
+      });
+    } catch (error) {
+      const cleanup = await supabaseAdminClient.storage.from('documents').remove([filePath]);
+      if (cleanup.error) console.error('[legal-documents] unable to clean up failed upload', cleanup.error.message);
+      console.error('[legal-documents] attachment metadata save failed', error);
+      return res.status(503).json({ success: false, error: 'Unable to save legal document attachment metadata.' });
+    }
+  });
+
+  app.get('/api/legal-documents/:id/attachments/:attachmentId/url', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+    try {
+      const result = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [req.params.id],
+      );
+      const document = result.rows[0]?.document;
+      if (!document) return res.status(404).json({ success: false, error: 'Legal document not found.' });
+      if (!user.isAdmin && (document.status !== 'verified' || document.isArchived)) {
+        return res.status(403).json({ success: false, error: 'Only verified legal documents are available to this account.' });
+      }
+      const attachment = (document.sourceDocuments || []).find(item => item.id === req.params.attachmentId);
+      if (!attachment?.storagePath) return res.status(404).json({ success: false, error: 'Document attachment not found.' });
+      const url = await createLegalDocumentSignedUrl(supabaseAdminClient, attachment.storagePath, document.id);
+      return res.json({ success: true, data: { url } });
+    } catch (error) {
+      console.error('[legal-documents] unable to sign attachment', error);
+      return res.status(503).json({ success: false, error: 'Unable to open legal document attachment.' });
     }
   });
 
@@ -2967,11 +3184,38 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     if (operation !== 'delete' && (!isLegalDocument(req.body) || (operation === 'update' && req.body.id !== req.params.id))) {
       res.status(400).json({ success: false, error: 'A valid document with matching ID, title, official number, type and articles is required.' }); return;
     }
+    if (operation !== 'delete' && req.body.status === 'verified') {
+      if (!hasVerifiableSourceAttachment(req.body)) {
+        res.status(400).json({ success: false, error: 'A verified legal document requires a current uploaded source and an explicit complete or excerpt classification.' });
+        return;
+      }
+      if (!supabaseAdminClient) {
+        res.status(503).json({ success: false, error: 'Supabase Storage is unavailable; the legal source could not be verified.' });
+        return;
+      }
+      const attachment = req.body.sourceDocuments.find((item: { isCurrent?: boolean }) => item.isCurrent === true);
+      try {
+        await createLegalDocumentSignedUrl(supabaseAdminClient, attachment.storagePath, req.body.id);
+      } catch (error) {
+        console.error('[legal-documents] verification source unavailable', error);
+        res.status(503).json({ success: false, error: 'The current legal source file is unavailable in private Supabase Storage.' });
+        return;
+      }
+    }
     const id = operation === 'create' ? req.body.id : req.params.id;
     try {
       const found = await mutateLegalDocument(pool, operation, id, operation === 'delete' ? undefined : req.body, user);
       if (!found) { res.status(404).json({ success: false, error: 'Legal document not found.' }); return; }
-      res.status(operation === 'create' ? 201 : 200).json({ success: true, data: operation === 'delete' ? null : req.body });
+      if (operation === 'delete') {
+        res.status(200).json({ success: true, data: null });
+        return;
+      }
+      const saved = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      if (!saved.rows[0]?.document) throw new Error('Saved legal document could not be reloaded.');
+      res.status(operation === 'create' ? 201 : 200).json({ success: true, data: saved.rows[0].document });
     } catch (error) {
       const conflict = getDatabaseErrorCode(error) === '23505';
       res.status(conflict ? 409 : 503).json({ success: false, error: conflict ? 'A document with this ID already exists.' : 'Unable to save legal document.' });
@@ -3231,8 +3475,16 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
             payload.barangay = user.assignedBarangay;
             payload.farmerBarangay = user.assignedBarangay;
           }
+          const selectionError = await validateCertificateSwineSelection(payload, user, true);
+          if (selectionError) throw new Error(selectionError);
           const savedCert = await upsertCertificate({
             ...payload,
+            metadata: {
+              ...(payload.metadata || {}),
+              ...payload,
+              createdBy: user.userId,
+              createdByRole: user.role,
+            },
             id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
           });
           results.push({ clientOperationId, entityId, serverEntityId: savedCert.id, success: true });

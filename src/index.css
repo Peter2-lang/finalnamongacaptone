@@ -258,9 +258,12 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 10mm 12mm !important;
     border: none !important;
     box-shadow: none !important;
+  }
+
+  .printable-report-sheet {
+    padding: 10mm 12mm !important;
   }
 
   @page {
@@ -269,12 +272,12 @@ body {
   }
 
   @page certificate {
-    size: letter portrait;
+    size: A4 portrait;
     margin: 0;
   }
 
   @page certificate-template-preview {
-    size: letter portrait;
+    size: A4 portrait;
     margin: 0;
   }
 
@@ -456,7 +459,6 @@ body {
 
   body[data-print-target="certificate"] .printable-certificate-container {
     min-height: 0 !important;
-    padding: 10mm !important;
     border-radius: 0 !important;
   }
 }

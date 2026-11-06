@@ -1,5 +1,5 @@
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FileText,
   Download,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ASFRegulatoryDocument, LegalSourceAttachment } from '../../types';
 import { printDocument } from '../../utils/printUtils';
+import { storageService } from '../../services/storageService';
 
 interface LegalDocumentOriginalViewerModalProps {
   isOpen: boolean;
@@ -32,10 +33,29 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
   const [currentPage, setCurrentPage] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [viewMode, setViewMode] = useState<'extracted' | 'source_preview' | 'side_by_side'>('side_by_side');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
+  const attachment = initialAttachment || document?.sourceDocuments?.find(item => item.isCurrent) || document?.sourceDocuments?.[0];
+
+  useEffect(() => {
+    let active = true;
+    setAttachmentUrl('');
+    setAttachmentError('');
+    if (!isOpen || !document || !attachment) return () => { active = false; };
+    if (attachment.storagePath) {
+      storageService.getLegalDocumentAttachmentUrl(document.id, attachment.id).then(url => {
+        if (active) setAttachmentUrl(url);
+      }).catch(error => {
+        if (active) setAttachmentError(error instanceof Error ? error.message : 'Unable to open this legal source.');
+      });
+    } else if (attachment.url && attachment.url !== '/icon.svg') {
+      setAttachmentUrl(attachment.url);
+    }
+    return () => { active = false; };
+  }, [isOpen, document?.id, attachment?.id, attachment?.storagePath, attachment?.url]);
 
   if (!isOpen || !document) return null;
 
-  const attachment = initialAttachment || document.sourceDocuments?.[0];
   const totalPages = document.articles?.reduce(
     (max, a) => Math.max(max, ...a.sections.map(s => Number(s.scannedPageRef) || 1)),
     1
@@ -59,18 +79,15 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
   };
 
   const handleDownload = () => {
-    if (attachment?.url) {
+    if (attachmentUrl) {
       const a = window.document.createElement('a');
-      a.href = attachment.url;
+      a.href = attachmentUrl;
       a.download = attachment.name || `${document.officialNumber}_original.pdf`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       a.click();
     } else {
-      const blob = new Blob([document.fullText || document.title], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = window.document.createElement('a');
-      a.href = url;
-      a.download = `${document.officialNumber}_text.txt`;
-      a.click();
+      window.alert(attachmentError || 'No original source attachment is available for download.');
     }
   };
 
@@ -209,39 +226,26 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between">
                   <span>Source Document / Scanned Page {currentPage}</span>
                   <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
-                    Official Primary Record
+                    {document.status === 'verified' ? 'Verified Source Attachment' : 'Source Not Verified'}
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center bg-slate-900/5">
-                  {attachment?.url && attachment.url.startsWith('data:image') ? (
+                  {attachmentUrl && /^image\/(jpeg|png)$/i.test(attachment?.fileType || '') ? (
                     <img
-                      src={attachment.url}
+                      src={attachmentUrl}
                       alt="Scanned original page"
                       style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
                       className="max-h-[600px] w-auto shadow-md rounded border border-slate-300 transition-transform"
                     />
+                  ) : attachmentUrl && attachment?.fileType === 'application/pdf' ? (
+                    <iframe title={`Original ${document.officialNumber}`} src={attachmentUrl} className="h-full min-h-[480px] w-full bg-white" />
+                  ) : attachmentUrl ? (
+                    <div className="p-6 text-center text-sm text-slate-700">
+                      DOCX source is stored securely. Use Download to open the original document.
+                    </div>
                   ) : (
-                    <div
-                      style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-                      className="w-full max-w-xl rounded-lg bg-white p-6 shadow-md border border-slate-200 font-serif text-xs leading-relaxed transition-transform"
-                    >
-                      <div className="text-center font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200 uppercase"><InterfaceText source="Republic of the Philippines" /><br /><InterfaceText source="Province of Southern Leyte" /><br />
-                        {document.jurisdiction || translateInterfaceText("Municipality of Hinunangan")}<br />
-                        <span className="text-emerald-800 text-sm mt-1 block">
-                          {document.type}{" "}<InterfaceText source="No." />{" "}{document.officialNumber}
-                        </span>
-                      </div>
-                      <p className="font-bold text-slate-800 mb-3 text-center">{document.title}</p>
-                      <div className="space-y-3 text-slate-700">
-                        {pageSections.map((sec, idx) => (
-                          <div key={idx} className="border-l-2 border-emerald-500 pl-3 py-1">
-                            <span className="font-bold text-slate-900 block">
-                              {sec.sectionNumber} - {sec.sectionTitle}
-                            </span>
-                            <p className="mt-1 text-slate-600 whitespace-pre-wrap">{sec.content}</p>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="p-6 text-center text-sm text-slate-500">
+                      {attachmentError || 'No original source file has been uploaded.'}
                     </div>
                   )}
                 </div>

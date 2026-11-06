@@ -6,11 +6,26 @@ import type { ASFRegulatoryDocument } from '../types.ts';
 
 export function isLegalDocument(value: unknown): value is ASFRegulatoryDocument {
   if (!value || typeof value !== 'object') return false;
+  const document = value as Partial<ASFRegulatoryDocument>;
+  const validStatuses = new Set(['draft', 'for_verification', 'verified', 'active', 'superseded', 'amended', 'archived', 'repealed']);
+  const validCompleteness = new Set(['complete', 'excerpt', 'metadata_only']);
   return 'id' in value && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 200 &&
     'title' in value && typeof value.title === 'string' && value.title.trim().length > 0 &&
     'officialNumber' in value && typeof value.officialNumber === 'string' &&
     'type' in value && typeof value.type === 'string' &&
-    'articles' in value && Array.isArray(value.articles);
+    'articles' in value && Array.isArray(value.articles) &&
+    (document.status === undefined || validStatuses.has(document.status)) &&
+    (document.sourceCompleteness === undefined || validCompleteness.has(document.sourceCompleteness));
+}
+
+export function hasVerifiableSourceAttachment(document: ASFRegulatoryDocument): boolean {
+  if (document.sourceCompleteness !== 'complete' && document.sourceCompleteness !== 'excerpt') return false;
+  const attachment = document.sourceDocuments?.find(item => item.isCurrent === true);
+  return Boolean(
+    attachment?.storagePath &&
+    !attachment.storagePath.includes('..') &&
+    attachment.storagePath.startsWith(`legal-documents/${document.id}/`),
+  );
 }
 
 export async function mutateLegalDocument(
@@ -29,7 +44,21 @@ export async function mutateLegalDocument(
       await client.query('DELETE FROM legal_documents WHERE id = $1', [id]);
     } else if (document) {
       // Audit identity is never taken from client-provided document history.
-      const clean = { ...document, auditLogs: old?.auditLogs || [] };
+      const versionHistory = old
+        ? [
+            ...(old.versionHistory || []),
+            {
+              version: (old.versionHistory || []).reduce((max, entry) => Math.max(max, Number(entry.version) || 0), 0) + 1,
+              updatedAt: new Date().toISOString(),
+              updatedBy: actor.username,
+              changeSummary: `Updated by ${actor.role}`,
+              documentSnapshot: Object.fromEntries(
+                Object.entries(old).filter(([key]) => key !== 'auditLogs' && key !== 'versionHistory'),
+              ),
+            },
+          ]
+        : (document.versionHistory || []);
+      const clean = { ...document, auditLogs: old?.auditLogs || [], versionHistory };
       if (operation === 'create') {
         await client.query('INSERT INTO legal_documents (id, document) VALUES ($1, $2)', [id, JSON.stringify(clean)]);
       } else {

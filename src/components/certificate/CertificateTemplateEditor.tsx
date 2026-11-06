@@ -19,6 +19,7 @@ import {
   Layers,
   Printer,
   Download,
+  Copy,
   PenTool,
   Building2,
   FileCheck,
@@ -36,6 +37,7 @@ import {
   CertificateWatermarkConfig,
 } from '../../types';
 import { printDocument } from '../../utils/printUtils';
+import { downloadElementAsPdf } from '../../utils/pdfUtils';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import { DOCUMENT_TYPE_OPTIONS } from '../../data/certificateTemplates';
 import { AVAILABLE_PLACEHOLDERS } from '../../utils/templateReplacer';
@@ -65,8 +67,12 @@ const createBlankTemplate = (barangay = 'All'): CertificateTemplate => {
     documentType: 'Barangay Certification',
     documentTitle: 'BARANGAY CERTIFICATION',
     titleFont: 'serif_bold',
+    bodyFontFamily: 'serif',
+    bodyFontSizePt: 12,
+    pageMarginMm: 14,
+    paragraphSpacingPx: 16,
     language: 'english',
-    pageSize: 'Folio',
+    pageSize: 'A4',
     orientation: 'portrait',
     header: {
       countryText: 'Republic of the Philippines',
@@ -259,6 +265,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [templateLoadError, setTemplateLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const templateLoadSequence = useRef(0);
   const [isUploadingAsset, setIsUploadingAsset] = useState(false);
 
@@ -391,8 +398,12 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
       documentType: 'Barangay Certification',
       documentTitle: 'BARANGAY CERTIFICATION',
       titleFont: 'serif_bold',
+      bodyFontFamily: 'serif',
+      bodyFontSizePt: 12,
+      pageMarginMm: 14,
+      paragraphSpacingPx: 16,
       language: 'english',
-      pageSize: 'Folio',
+      pageSize: 'A4',
       orientation: 'portrait',
       header: {
         countryText: 'Republic of the Philippines',
@@ -673,25 +684,6 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     setTemplate(prev => ({ ...prev, signatories: list }));
   };
 
-  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>, sigId: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsUploadingAsset(true);
-      const asset = await mediaApi.uploadCertificateAsset(file);
-      handleUpdateSignatory(sigId, {
-        signatureImageUrl: asset.fileUrl,
-        signatureStoragePath: asset.filePath,
-        showSignatureImage: true,
-      });
-      setSaveNotice(null);
-    } catch (error) {
-      setSaveNotice(error instanceof Error ? error.message : 'Unable to upload certificate signature.');
-    } finally {
-      setIsUploadingAsset(false);
-    }
-  };
-
   // ==========================================
   // 3. WATERMARK HANDLER
   // ==========================================
@@ -767,6 +759,38 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!printRef.current || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const safeName = template.name.trim().replace(/[^a-z0-9_-]+/gi, '-').replace(/^-|-$/g, '') || 'certificate-template';
+      await downloadElementAsPdf(printRef.current, `${safeName}.pdf`, {
+        format: 'a4',
+        orientation: 'portrait',
+        marginMm: 0,
+      });
+      setSaveNotice('A4 PDF downloaded.');
+      setTimeout(() => setSaveNotice(null), 3000);
+    } catch (error) {
+      setSaveNotice(error instanceof Error ? error.message : 'Unable to download the A4 PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleDuplicateTemplate = () => {
+    const now = new Date().toISOString();
+    const duplicate: CertificateTemplate = {
+      ...JSON.parse(JSON.stringify(template)) as CertificateTemplate,
+      id: createTemplateId(),
+      name: `${template.name.trim() || 'Certificate template'} (Copy)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTemplate(duplicate);
+    setSaveNotice('Duplicate draft created. Save Template to persist it.');
+  };
+
   return (
     <div className="bg-white text-slate-900 rounded-2xl shadow-xl border border-stone-200 overflow-hidden">
       {/* Toast Notification */}
@@ -812,11 +836,30 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
 
           <button
             type="button"
+            onClick={handleDuplicateTemplate}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Duplicate Template</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleDownloadPdf()}
+            disabled={isExportingPdf}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-60"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isExportingPdf ? 'Preparing PDF…' : 'Download A4 PDF'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handlePrint}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            <span><InterfaceText source="Print Document" /></span>
+            <span>Print Preview</span>
           </button>
 
           {onClose && (
@@ -1101,6 +1144,70 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     <option value="serif_bold">Serif Bold with Border Box (Tuburan Style)</option>
                     <option value="sans_bold">Modern Sans-Serif Bold</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Body Font Family</label>
+                  <select
+                    value={template.bodyFontFamily || 'serif'}
+                    onChange={e =>
+                      setTemplate({
+                        ...template,
+                        bodyFontFamily: e.target.value as CertificateTemplate['bodyFontFamily'],
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Arial">Arial</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Body Font Size ({template.bodyFontSizePt || 12} pt)
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="16"
+                    step="1"
+                    value={template.bodyFontSizePt || 12}
+                    onChange={e => setTemplate({ ...template, bodyFontSizePt: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Page Margins ({template.pageMarginMm ?? 14} mm)
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="25"
+                    step="1"
+                    value={template.pageMarginMm ?? 14}
+                    onChange={e => setTemplate({ ...template, pageMarginMm: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Paragraph Spacing ({template.paragraphSpacingPx ?? 16} px)
+                  </label>
+                  <input
+                    type="range"
+                    min="4"
+                    max="28"
+                    step="2"
+                    value={template.paragraphSpacingPx ?? 16}
+                    onChange={e => setTemplate({ ...template, paragraphSpacingPx: Number(e.target.value) })}
+                    className="w-full"
+                  />
                 </div>
 
                 <div>
@@ -1582,36 +1689,13 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         />
                       </div>
 
-                      {/* Digital Signature Upload */}
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          DIGITAL SIGNATURE
+                          SIGNATURE
                         </label>
-                        <div className="flex items-center gap-2">
-                          <label className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-lg text-[11px] flex items-center gap-1 transition cursor-pointer border border-stone-300">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload PNG</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={e => handleSignatureUpload(e, sig.id)}
-                              className="hidden"
-                            />
-                          </label>
-                          {sig.signatureImageUrl && (
-                            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-700 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={sig.showSignatureImage !== false}
-                                onChange={e =>
-                                  handleUpdateSignatory(sig.id, { showSignatureImage: e.target.checked })
-                                }
-                                className="rounded text-blue-600"
-                              />
-                              <span>Show Signature</span>
-                            </label>
-                          )}
-                        </div>
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                          Leave this area blank for the authorized signatory to sign by hand. Uploaded signature images are not printed as approval.
+                        </p>
                       </div>
                     </div>
 
@@ -1905,7 +1989,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <Printer className="w-3.5 h-3.5 text-amber-400" />
-                <span><InterfaceText source="Print Document" /></span>
+                <span>Print Preview</span>
               </button>
             </div>
           </div>

@@ -35,7 +35,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { storageService } from '../../services/storageService';
-import { ASFRegulatoryDocument, Barangay, UserAccount } from '../../types';
+import { ASFRegulatoryDocument, Barangay, LegalSourceAttachment, UserAccount } from '../../types';
 import { LegalDocumentComboBox } from './LegalDocumentComboBox';
 import { LegalLocationalTable } from './LegalLocationalTable';
 import { LegalDocumentPrintView } from './LegalDocumentPrintView';
@@ -62,11 +62,14 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   const [selectedDocId, setSelectedDocId] = useState<string>(
     regulations[0]?.id || 'mo-hinunangan-2025-59'
   );
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'ordinance' | 'resolution' | 'national_reference' | 'archived'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<
+    'all' | 'ordinance' | 'resolution' | 'provincial_ordinance' | 'executive_order' | 'national_reference' | 'archived'
+  >('all');
   const [activeDocTab, setActiveDocTab] = useState<
     'articles' | 'locational_standards' | 'task_force' | 'penalties' | 'compliance_checker' | 'attachments' | 'history'
   >('articles');
   const [searchTerm, setSearchTerm] = useState('');
+  const [documentSearchTerm, setDocumentSearchTerm] = useState('');
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [documentError, setDocumentError] = useState<string | null>(null);
@@ -80,6 +83,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   const [isSmartImportOpen, setIsSmartImportOpen] = useState(false);
   const [isImportHistoryOpen, setIsImportHistoryOpen] = useState(false);
   const [isOriginalViewerOpen, setIsOriginalViewerOpen] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<LegalSourceAttachment | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -92,6 +96,10 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   }, []);
 
   const isAdmin = (currentUser?.role === 'admin' || currentUser?.role === 'super_admin');
+  const visibleRegulations = useMemo(
+    () => isAdmin ? regulations : regulations.filter(document => document.status === 'verified' && !document.isArchived),
+    [isAdmin, regulations],
+  );
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -100,34 +108,34 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
 
   // Filtered documents list by category
   const filteredDocs = useMemo(() => {
-    return regulations.filter(doc => {
-      if (categoryFilter === 'archived') {
-        return doc.status === 'archived' || doc.isArchived;
-      }
-      if (doc.status === 'archived' || doc.isArchived) {
-        return false;
-      }
-      if (categoryFilter === 'ordinance') {
-        return doc.category === 'ordinance' || doc.type.includes('ordinance');
-      }
-      if (categoryFilter === 'resolution') {
-        return doc.category === 'resolution' || doc.type.includes('resolution');
-      }
-      if (categoryFilter === 'national_reference') {
-        return doc.category === 'national_reference' || doc.type.includes('administrative_order') || doc.type.includes('reference');
-      }
-      return true;
+    return visibleRegulations.filter(doc => {
+      const archived = doc.status === 'archived' || doc.isArchived;
+      if (categoryFilter === 'archived' ? !archived : archived) return false;
+      const matchesCategory =
+        categoryFilter === 'all' || categoryFilter === 'archived' ||
+        (categoryFilter === 'ordinance' && doc.type === 'municipal_ordinance') ||
+        (categoryFilter === 'resolution' && doc.type === 'resolution') ||
+        (categoryFilter === 'provincial_ordinance' && doc.type === 'provincial_ordinance') ||
+        (categoryFilter === 'executive_order' && doc.type === 'municipal_eo') ||
+        (categoryFilter === 'national_reference' &&
+          (doc.category === 'national_reference' || doc.type.includes('administrative_order') || doc.type.includes('reference')));
+      const query = documentSearchTerm.trim().toLowerCase();
+      const matchesSearch = !query ||
+        [doc.title, doc.officialNumber, doc.seriesYear, doc.type, doc.category]
+          .some(value => value?.toLowerCase().includes(query));
+      return matchesCategory && matchesSearch;
     });
-  }, [regulations, categoryFilter]);
+  }, [visibleRegulations, categoryFilter, documentSearchTerm]);
 
   // Ensure valid selected document
   const selectedDoc = useMemo(() => {
     return (
-      regulations.find(r => r.id === selectedDocId) ||
+      filteredDocs.find(r => r.id === selectedDocId) ||
       filteredDocs[0] ||
-      regulations[0]
+      visibleRegulations.find(r => r.id === selectedDocId) ||
+      visibleRegulations[0]
     );
-  }, [regulations, selectedDocId, filteredDocs]);
+  }, [visibleRegulations, selectedDocId, filteredDocs]);
 
   // Filtered articles/sections within selected document
   const filteredArticles = useMemo(() => {
@@ -193,7 +201,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
     try {
     await storageService.restoreAsfRegulation(doc.id, currentUser?.name || currentUser?.username || 'Admin');
     setRegulations(storageService.getAsfRegulations());
-    showToast(`Restored "${doc.officialNumber}" to active status.`);
+    showToast(`Restored "${doc.officialNumber}" for official verification.`);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to save legal document.');
     }
@@ -309,7 +317,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
           {/* Combo Box */}
           <div className="flex-1 min-w-0">
             <LegalDocumentComboBox
-              documents={regulations}
+              documents={filteredDocs}
               selectedId={selectedDoc?.id || ''}
               onSelect={id => {
                 setSelectedDocId(id);
@@ -323,9 +331,19 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
             <Search className="w-3.5 h-3.5 absolute left-3.5 top-3 text-stone-400" />
             <input
               type="text"
+              value={documentSearchTerm}
+              onChange={e => setDocumentSearchTerm(e.target.value)}
+              placeholder="Search title, number, year, category..."
+              className="w-full pl-9 pr-3 py-2 text-xs bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600"
+            />
+          </div>
+          <div className="relative lg:w-72">
+            <Search className="w-3.5 h-3.5 absolute left-3.5 top-3 text-stone-400" />
+            <input
+              type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search sections, keywords..."
+              placeholder="Search sections and provisions..."
               className="w-full pl-9 pr-3 py-2 text-xs bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600"
             />
           </div>
@@ -345,7 +363,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
-            All Active ({regulations.filter(r => !r.isArchived && r.status !== 'archived').length})
+            All Documents ({visibleRegulations.filter(r => !r.isArchived && r.status !== 'archived').length})
           </button>
 
           <button
@@ -357,8 +375,8 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" /> Ordinances (
-            {regulations.filter(r => (r.category === 'ordinance' || r.type.includes('ordinance')) && !r.isArchived && r.status !== 'archived').length})
+            <FileText className="w-3.5 h-3.5" /> Municipal Ordinances (
+            {visibleRegulations.filter(r => r.type === 'municipal_ordinance' && !r.isArchived && r.status !== 'archived').length})
           </button>
 
           <button
@@ -371,7 +389,33 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
             }`}
           >
             <ScrollText className="w-3.5 h-3.5" /> Resolutions (
-            {regulations.filter(r => (r.category === 'resolution' || r.type.includes('resolution')) && !r.isArchived && r.status !== 'archived').length})
+            {visibleRegulations.filter(r => (r.category === 'resolution' || r.type.includes('resolution')) && !r.isArchived && r.status !== 'archived').length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('provincial_ordinance')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 ${
+              categoryFilter === 'provincial_ordinance'
+                ? 'bg-emerald-800 text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            Provincial ASF Ordinances (
+            {visibleRegulations.filter(r => r.type === 'provincial_ordinance' && !r.isArchived && r.status !== 'archived').length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('executive_order')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 ${
+              categoryFilter === 'executive_order'
+                ? 'bg-emerald-800 text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            Municipal ASF Executive Orders (
+            {visibleRegulations.filter(r => r.type === 'municipal_eo' && !r.isArchived && r.status !== 'archived').length})
           </button>
 
           <button
@@ -384,7 +428,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5" /> National References (
-            {regulations.filter(r => (r.category === 'national_reference' || r.type.includes('order')) && !r.isArchived && r.status !== 'archived').length})
+            {visibleRegulations.filter(r => (r.category === 'national_reference' || r.type.includes('order')) && !r.isArchived && r.status !== 'archived').length})
           </button>
 
           <button
@@ -397,7 +441,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
             }`}
           >
             <Archive className="w-3.5 h-3.5" /> Archived (
-            {regulations.filter(r => r.isArchived || r.status === 'archived').length})
+            {visibleRegulations.filter(r => r.isArchived || r.status === 'archived').length})
           </button>
         </div>
       </div>
@@ -416,19 +460,36 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                   <span className="text-xs bg-white/15 text-emerald-100 px-2.5 py-0.5 rounded-md font-semibold">
                     {selectedDoc.seriesYear}
                   </span>
-                  {selectedDoc.status === 'archived' ? (
-                    <span className="text-xs bg-amber-500/90 text-amber-950 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <Archive className="w-3 h-3" /><InterfaceText source="Archived" /></span>
-                  ) : (
-                    <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <Check className="w-3 h-3 text-emerald-400" /> Active Enacted Law
-                    </span>
-                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-md font-bold flex items-center gap-1 ${
+                    selectedDoc.status === 'verified'
+                      ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'
+                      : 'bg-amber-400/90 text-amber-950'
+                  }`}>
+                    {selectedDoc.status === 'verified' ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    {selectedDoc.status === 'verified'
+                      ? 'Verified Official Document'
+                      : selectedDoc.status === 'for_verification'
+                        ? 'For Verification — Not Enforceable'
+                        : selectedDoc.status === 'draft'
+                          ? 'Draft / Pending Official Verification'
+                          : selectedDoc.status === 'superseded'
+                            ? 'Superseded'
+                            : selectedDoc.status === 'archived' || selectedDoc.isArchived
+                              ? 'Archived'
+                              : 'Legacy Status — Verification Required'}
+                  </span>
                 </div>
 
                 <h3 className="text-base sm:text-lg font-bold mt-2.5 leading-snug">
                   {selectedDoc.title}
                 </h3>
+                {selectedDoc.sourceCompleteness && selectedDoc.sourceCompleteness !== 'complete' && (
+                  <p className="mt-2 max-w-3xl rounded-lg border border-amber-300/50 bg-amber-950/40 p-2 text-xs text-amber-100">
+                    {selectedDoc.sourceCompleteness === 'excerpt'
+                      ? 'Source is an incomplete excerpt; do not treat it as the complete ordinance.'
+                      : 'Original source is unavailable or incomplete. The record is not verified and must not be treated as enforceable law.'}
+                  </p>
+                )}
 
                 {selectedDoc.knownAs && (
                   <p className="text-xs text-emerald-300 font-semibold mt-1"><InterfaceText source="Known as: “" />{selectedDoc.knownAs}&rdquo;
@@ -463,7 +524,10 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
               <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setIsOriginalViewerOpen(true)}
+                  onClick={() => {
+                    setSelectedAttachment(null);
+                    setIsOriginalViewerOpen(true);
+                  }}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 hover:text-white rounded-xl text-xs font-bold transition border border-emerald-500/30"
                   title="Inspect Original Scanned Document / Source Split View"
                 >
@@ -885,39 +949,39 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                       Scanned true copies of the signed ordinance, Sangguniang Bayan minutes, and posting certifications.
                     </p>
                   </div>
-                  <div className="pt-2">
+                  {isAdmin && <div className="pt-2">
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 rounded-xl text-xs font-bold cursor-pointer transition shadow-2xs">
-                      <Upload className="w-3.5 h-3.5 text-emerald-700" /> Upload Scanned Document (PDF / Scan)
+                      <Upload className="w-3.5 h-3.5 text-emerald-700" /> Upload / Replace Source (PDF, DOCX, JPG, PNG)
                       <input
                         type="file"
                         className="hidden"
-                        accept=".pdf,image/*"
-                        onChange={e => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            const newAttachment = {
-                              id: `att-${Date.now()}`,
-                              name: file.name,
-                              url: URL.createObjectURL(file),
-                              uploadedAt: new Date().toISOString().split('T')[0],
-                              fileSize: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-                            };
-                            const updated = {
-                              ...selectedDoc,
-                              sourceDocuments: [...(selectedDoc.sourceDocuments || []), newAttachment],
-                            };
-                            handleSaveDoc(updated, `Uploaded scan file: ${file.name}`);
+                        accept=".pdf,.docx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+                        onChange={async e => {
+                          const input = e.currentTarget;
+                          const file = input.files?.[0];
+                          if (!file || !selectedDoc) return;
+                          try {
+                            await storageService.uploadLegalDocumentAttachment(selectedDoc.id, file);
+                            const documents = storageService.getAsfRegulations();
+                            setRegulations(documents);
+                            showToast(`Uploaded versioned source attachment "${file.name}".`);
+                          } catch (error) {
+                            showToast(error instanceof Error ? error.message : 'Unable to upload legal document attachment.');
+                          } finally {
+                            input.value = '';
                           }
                         }}
                       />
                     </label>
-                  </div>
+                  </div>}
                 </div>
 
                 {/* Scanned files list */}
                 <div className="space-y-3">
-                  {selectedDoc.sourceDocuments && selectedDoc.sourceDocuments.length > 0 ? (
-                    selectedDoc.sourceDocuments.map(docFile => (
+                  {selectedDoc.sourceDocuments?.filter(docFile => docFile.storagePath || (docFile.url && docFile.url !== '/icon.svg')).length ? (
+                    selectedDoc.sourceDocuments
+                      .filter(docFile => docFile.storagePath || (docFile.url && docFile.url !== '/icon.svg'))
+                      .map(docFile => (
                       <div
                         key={docFile.id}
                         className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex items-center justify-between gap-3"
@@ -929,7 +993,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                           <div>
                             <h5 className="text-xs font-bold text-stone-900">{docFile.name}</h5>
                             <p className="text-[11px] text-stone-400">
-                              Uploaded on {docFile.uploadedAt} • {docFile.fileSize || 'PDF Document'}
+                              Version {docFile.version || 1} • Uploaded by {docFile.uploadedBy || 'Administrator'} • {docFile.uploadedAt}
                             </p>
                           </div>
                         </div>
@@ -937,7 +1001,10 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setIsPrintViewOpen(true)}
+                            onClick={() => {
+                              setSelectedAttachment(docFile);
+                              setIsOriginalViewerOpen(true);
+                            }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg transition"
                           >
                             <Eye className="w-3.5 h-3.5" /><InterfaceText source="View" /></button>
@@ -1097,6 +1164,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
         isOpen={isOriginalViewerOpen}
         onClose={() => setIsOriginalViewerOpen(false)}
         document={selectedDoc}
+        initialAttachment={selectedAttachment}
       />
     </div>
   );

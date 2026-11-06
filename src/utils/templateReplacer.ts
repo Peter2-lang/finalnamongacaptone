@@ -63,30 +63,34 @@ export function replaceTemplatePlaceholders(
 
   // Normalized map
   const normalized: Record<string, string> = {
-    resident_name: safeData.resident_name || safeData.farmer_name || 'JUAN DELA CRUZ',
-    farmer_name: safeData.farmer_name || safeData.resident_name || 'JUAN DELA CRUZ',
-    barangay: safeData.barangay || 'Nava',
+    resident_name: safeData.resident_name || safeData.farmer_name || '—',
+    farmer_name: safeData.farmer_name || safeData.resident_name || '—',
+    barangay: safeData.barangay || '—',
     municipality: safeData.municipality || 'Hinunangan',
     province: safeData.province || 'Southern Leyte',
-    number_of_pigs: String(safeData.number_of_pigs ?? safeData.heads ?? '1'),
-    heads: String(safeData.heads ?? safeData.number_of_pigs ?? '1'),
-    buyer_name: safeData.buyer_name || 'LOCAL TRADER',
-    buyer_address: safeData.buyer_address || safeData.destination || 'Hinunangan',
-    destination: safeData.destination || safeData.buyer_address || 'Hinunangan, Southern Leyte',
-    purpose: safeData.purpose || 'whatever legal purpose it may serve best',
-    date_issued: safeData.date_issued || safeData.issue_date || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    issue_date: safeData.issue_date || safeData.date_issued || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    or_number: safeData.or_number || 'OR-1675127',
-    price_per_kilo: String(safeData.price_per_kilo || '₱170.00 / kilo'),
-    amount_paid: String(safeData.amount_paid || '100.00'),
-    animal_type: safeData.animal_type || 'pigs / swine',
-    farmer_age_civil_status: safeData.farmer_age_civil_status || 'hingkod ang panu-igon',
-    association_name: safeData.association_name || safeData.resident_name || safeData.farmer_name || '',
-    swine_age: safeData.swine_age || 'TULO ( 3 ) ka Buwan',
-    female_count: String(safeData.female_count ?? '0'),
-    male_count: String(safeData.male_count ?? '0'),
-    color_description: safeData.color_description || 'Assorted (White / Landrace Cross)',
-    issued_at: safeData.issued_at || `Barangay ${safeData.barangay || 'Nava'}, Hinunangan, Southern Leyte`,
+    number_of_pigs: String(safeData.number_of_pigs ?? safeData.heads ?? '—'),
+    heads: String(safeData.heads ?? safeData.number_of_pigs ?? '—'),
+    buyer_name: safeData.buyer_name || '—',
+    buyer_address: safeData.buyer_address || '—',
+    destination: safeData.destination || '—',
+    purpose: safeData.purpose || '—',
+    date_issued: safeData.date_issued || safeData.issue_date || '—',
+    issue_date: safeData.issue_date || safeData.date_issued || '—',
+    or_number: safeData.or_number || '—',
+    price_per_kilo: String(safeData.price_per_kilo ?? '—'),
+    amount_paid: String(safeData.amount_paid ?? '—'),
+    animal_type: safeData.animal_type || '—',
+    farmer_age_civil_status: safeData.farmer_age_civil_status || '—',
+    association_name: safeData.association_name || '—',
+    swine_age: safeData.swine_age || '—',
+    female_count: String(safeData.female_count ?? '—'),
+    male_count: String(safeData.male_count ?? '—'),
+    color_description: safeData.color_description || '—',
+    issued_at: safeData.issued_at || (
+      safeData.barangay
+        ? `Barangay ${safeData.barangay}, Hinunangan, Southern Leyte`
+        : '—'
+    ),
   };
 
   // Replace case-insensitively with regex

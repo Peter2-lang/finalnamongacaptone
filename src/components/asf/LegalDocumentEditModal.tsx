@@ -14,7 +14,7 @@ import {
   Layers,
   HelpCircle,
 } from 'lucide-react';
-import { ASFRegulatoryDocument, LegalArticle, LegalArticleSection, LegalDocumentCategory } from '../../types';
+import { ASFRegulatoryDocument, LegalArticle, LegalArticleSection, LegalDocumentCategory, LegalDocumentStatus } from '../../types';
 
 interface LegalDocumentEditModalProps {
   isOpen: boolean;
@@ -53,6 +53,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
   const [effectiveDate, setEffectiveDate] = useState('');
   const [shortSummary, setShortSummary] = useState('');
   const [legalBasisText, setLegalBasisText] = useState('');
+  const [documentStatus, setDocumentStatus] = useState<LegalDocumentStatus>('draft');
+  const [sourceCompleteness, setSourceCompleteness] = useState<'complete' | 'excerpt' | 'metadata_only'>('metadata_only');
 
   // Articles state
   const [articles, setArticles] = useState<LegalArticle[]>([]);
@@ -90,6 +92,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       setEffectiveDate(documentToEdit.effectiveDate || '');
       setShortSummary(documentToEdit.shortSummary || '');
       setLegalBasisText((documentToEdit.legalBasis || []).join('\n'));
+      setDocumentStatus(documentToEdit.status || 'for_verification');
+      setSourceCompleteness(documentToEdit.sourceCompleteness || 'metadata_only');
       setArticles(documentToEdit.articles || []);
       setKeyArticles(documentToEdit.keyArticles || []);
       setSetbackRules(documentToEdit.setbackRules || []);
@@ -101,68 +105,26 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       setId(newId);
       setType('municipal_ordinance');
       setCategory('ordinance');
-      setOfficialNumber('Municipal Ordinance No. 2026-');
-      setSeriesYear('Series of 2026');
+      setOfficialNumber('');
+      setSeriesYear('');
       setTitle('');
       setKnownAs('');
       setJurisdiction('Municipality of Hinunangan, Southern Leyte');
       setIssuingAuthority('Sangguniang Bayan of Hinunangan, Southern Leyte');
       setAuthor('');
       setSignatory('');
-      setSignatoryTitle('Municipal Mayor');
-      setDateEnacted(new Date().toISOString().split('T')[0]);
+      setSignatoryTitle('');
+      setDateEnacted('');
       setEffectiveDate('');
       setShortSummary('');
-      setLegalBasisText('Republic Act No. 7160 (Local Government Code of 1991)\nRepublic Act No. 8485 (Animal Welfare Act)');
-      setArticles([
-        {
-          id: 'art-1',
-          articleNumber: 'ARTICLE I',
-          articleTitle: 'TITLE AND DECLARATION OF POLICY',
-          sections: [
-            {
-              id: 'sec-1',
-              sectionNumber: 'SECTION 1',
-              sectionTitle: 'TITLE',
-              content: 'This Ordinance shall be known and cited as the "..."',
-              mandateCategory: 'mandatory',
-            },
-          ],
-        },
-      ]);
+      setLegalBasisText('');
+      setArticles([]);
       setKeyArticles([]);
-      setSetbackRules([
-        {
-          target: 'Potable Water Source / Riverbank',
-          minimumDistance: 25,
-          statutoryBasis: 'Environmental Protection Buffer',
-          rationale: 'Protects municipal water sources.',
-        },
-        {
-          target: 'Residential Built-Up Areas',
-          minimumDistance: 50,
-          statutoryBasis: 'Sanitation Buffer',
-          rationale: 'Odor and fly mitigation.',
-        },
-      ]);
-      setPenalties([
-        {
-          offenseTier: 'First Offense',
-          finePhp: 1000,
-          punitiveActions: 'Written warning and 7-day compliance notice.',
-        },
-        {
-          offenseTier: 'Second Offense',
-          finePhp: 1500,
-          punitiveActions: 'Temporary suspension of clearance.',
-        },
-        {
-          offenseTier: 'Third Offense',
-          finePhp: 2500,
-          punitiveActions: 'Revocation of permit and pen closure.',
-        },
-      ]);
-      setChangeSummary('Initial document creation and entry into system.');
+      setSetbackRules([]);
+      setPenalties([]);
+      setDocumentStatus('draft');
+      setSourceCompleteness('metadata_only');
+      setChangeSummary('');
     }
   }, [documentToEdit, isOpen]);
 
@@ -232,6 +194,11 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       alert('Please fill in both the Document Title and Official Number.');
       return;
     }
+    if (documentStatus === 'verified' &&
+        (sourceCompleteness === 'metadata_only' || !documentToEdit?.sourceDocuments?.some(attachment => attachment.storagePath))) {
+      alert('Upload and review an original source attachment before marking this document verified.');
+      return;
+    }
 
     const legalBasisArray = legalBasisText
       .split('\n')
@@ -273,7 +240,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       keyArticles: compiledKeyArticles,
       setbackRules,
       penalties,
-      status: documentToEdit?.status || 'active',
+      status: documentStatus,
+      sourceCompleteness,
     };
 
     try {
@@ -361,7 +329,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                       const val = e.target.value;
                       setType(val);
                       if (val === 'resolution') setCategory('resolution');
-                      else if (val === 'administrative_order') setCategory('national_reference');
+                      else if (val === 'administrative_order' || val === 'legal_reference') setCategory('national_reference');
+                      else if (val === 'municipal_eo') setCategory('executive_order');
                       else setCategory('ordinance');
                     }}
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl focus:ring-2 focus:ring-emerald-600"
@@ -419,6 +388,36 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <label className="block font-bold text-stone-700 mb-1">Verification Status</label>
+                  <select
+                    value={documentStatus}
+                    onChange={e => setDocumentStatus(e.target.value as LegalDocumentStatus)}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="for_verification">For Verification</option>
+                    <option value="verified">Verified</option>
+                    <option value="superseded">Superseded</option>
+                    <option value="archived">Archived</option>
+                    <option value="repealed">Repealed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Source Completeness</label>
+                  <select
+                    value={sourceCompleteness}
+                    onChange={e => setSourceCompleteness(e.target.value as 'complete' | 'excerpt' | 'metadata_only')}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl"
+                  >
+                    <option value="metadata_only">Original content not provided</option>
+                    <option value="excerpt">Incomplete excerpt / reference pages</option>
+                    <option value="complete">Complete source document</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <label className="block font-bold text-stone-700 mb-1">Short Title / Known As</label>
                   <input
                     type="text"
@@ -446,7 +445,6 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                   <label className="block font-bold text-stone-700 mb-1">Signatory / Approver</label>
                   <input
                     type="text"
-                    required
                     value={signatory}
                     onChange={e => setSignatory(e.target.value)}
                     placeholder="e.g. Hon. Reynaldo C. Fontenilla"

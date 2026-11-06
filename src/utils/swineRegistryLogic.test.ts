@@ -182,7 +182,7 @@ const futureDateResult = validateSwineRecordForSave(
 assert(!futureDateResult.isValid, 'Future birth date in save validation is rejected');
 assert(!!futureDateResult.errors.birthDate, 'birthDate error field is set');
 
-// Breeding boar in RED zone without acknowledgment
+// Automatically inferred biosecurity advisories do not block registry creation.
 const unackBoarResult = validateSwineRecordForSave(
   {
     ...validSwine,
@@ -192,8 +192,7 @@ const unackBoarResult = validateSwineRecordForSave(
   },
   []
 );
-assert(!unackBoarResult.isValid, 'Unacknowledged boar in RED zone is rejected');
-assert(!!unackBoarResult.errors.biosecurityWarning, 'biosecurityWarning error field is set');
+assert(unackBoarResult.isValid, 'Unacknowledged boar in RED zone remains registrable');
 
 // Breeding boar in RED zone with acknowledgment
 const ackBoarResult = validateSwineRecordForSave(

@@ -86,7 +86,9 @@ const mapTemplate = (row: CertificateTemplateRow): CertificateTemplate => {
       templateData.titleFont === 'sans_bold' ? templateData.titleFont : 'serif_bold',
     language: templateData.language === 'bisaya' || templateData.language === 'filipino' ||
       templateData.language === 'custom' ? templateData.language : 'english',
-    pageSize: templateData.pageSize === 'A4' || templateData.pageSize === 'Letter' ? templateData.pageSize : 'Folio',
+    pageSize: templateData.pageSize === 'A4' || templateData.pageSize === 'Letter' || templateData.pageSize === 'Folio'
+      ? templateData.pageSize
+      : 'A4',
     orientation: templateData.orientation === 'landscape' ? 'landscape' : 'portrait',
     header: {
       countryText: typeof header.countryText === 'string' ? header.countryText : 'Republic of the Philippines',
