@@ -1,5 +1,6 @@
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { useLanguage } from '../../context/LanguageContext';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -211,6 +212,8 @@ export const SwineForm: React.FC<SwineFormProps> = ({
     );
   });
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showDiscardChangesConfirm, setShowDiscardChangesConfirm] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -2591,6 +2594,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
 
       const saved = await storageService.saveSwineRecordCloud(newRecord, Boolean(initialData));
       saveCompletedRef.current = true;
+      setHasUnsavedChanges(false);
       onSuccess(saved);
     } catch (err: any) {
       if (uploadedPhotoPath) {
@@ -2617,6 +2621,14 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       submissionInProgressRef.current = false;
       setIsSubmitting(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      setShowDiscardChangesConfirm(true);
+      return;
+    }
+    onCancel?.();
   };
 
   return (
@@ -2726,6 +2738,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       <form
         noValidate
         onSubmit={handleSubmit}
+        onChange={() => setHasUnsavedChanges(true)}
         className="space-y-6"
       >
         {hasAttemptedSubmit && Object.keys(registryFieldErrors).length > 0 && (
@@ -2931,7 +2944,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
           {onCancel && (
             <button
               type="button"
-              onClick={onCancel}
+              onClick={handleCancel}
               disabled={isSubmitting}
               className="px-5 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs transition cursor-pointer"
             ><InterfaceText source="Cancel" /></button>
@@ -2951,8 +2964,8 @@ export const SwineForm: React.FC<SwineFormProps> = ({
               {isSubmitting
                 ? translateInterfaceText("Saving...")
                 : initialData
-                ? translateInterfaceText("Update Swine Record")
-                : 'Save Swine to Registry'}
+                ? 'Save Changes'
+                : 'Save Record'}
             </span>
           </button>
         </div>
@@ -2965,6 +2978,18 @@ export const SwineForm: React.FC<SwineFormProps> = ({
         currentAgeWeeks={ageWeeks}
         currentWeightKg={weightKg}
         onApplyStage={handleApplyMatrixValues}
+      />
+      <ConfirmDialog
+        open={showDiscardChangesConfirm}
+        title="Discard unsaved changes?"
+        message="Your form changes have not been saved. Discard them and return to the registry?"
+        confirmLabel="Discard Changes"
+        variant="danger"
+        onClose={() => setShowDiscardChangesConfirm(false)}
+        onConfirm={() => {
+          setHasUnsavedChanges(false);
+          onCancel?.();
+        }}
       />
     </div>
   );

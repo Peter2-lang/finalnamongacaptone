@@ -53,6 +53,7 @@ import { FooterTab } from './landing/tabs/FooterTab';
 import { ThemeAppearanceTab } from './landing/tabs/ThemeAppearanceTab';
 import { PageBuilderTab } from './landing/tabs/PageBuilderTab';
 import { LegalDocumentsTab } from './landing/tabs/LegalDocumentsTab';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 export type CmsTabId =
   | 'general'
@@ -136,6 +137,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
 
   // Modal for reset confirmation
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isRestoreDefaultsConfirmOpen, setIsRestoreDefaultsConfirmOpen] = useState(false);
 
   // Check if draft has unsaved differences compared to published
   const hasUnsavedChanges = JSON.stringify(config) !== JSON.stringify(publishedConfig);
@@ -185,24 +187,30 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
       setPublishedConfig(pub);
       showToast('Draft changes discarded. Reverted to published state.', 'info');
       setIsResetConfirmOpen(false);
+      return true;
     } catch (err) {
       console.error('Reset draft failed:', err);
       showToast(err instanceof Error ? err.message : 'Unable to reset landing page draft.', 'info');
+      return false;
     }
   };
 
   const handleRestoreDefaults = async () => {
-    if (window.confirm('Restore all landing page settings to factory defaults? This will reset all photos and custom text.')) {
-      try {
-        const defaults = await landingCmsService.restoreDefaults();
-        setPublishedConfig(defaults);
-        setConfig(defaults);
-        showToast('Restored all landing page settings to system defaults.', 'info');
-        if (onRefresh) onRefresh();
-      } catch (err) {
-        console.error('Restore defaults failed:', err);
-        showToast(err instanceof Error ? err.message : 'Unable to restore landing page defaults.', 'info');
-      }
+    setIsRestoreDefaultsConfirmOpen(true);
+  };
+
+  const confirmRestoreDefaults = async () => {
+    try {
+      const defaults = await landingCmsService.restoreDefaults();
+      setPublishedConfig(defaults);
+      setConfig(defaults);
+      showToast('Restored all landing page settings to system defaults.', 'info');
+      if (onRefresh) onRefresh();
+      return true;
+    } catch (err) {
+      console.error('Restore defaults failed:', err);
+      showToast(err instanceof Error ? err.message : 'Unable to restore landing page defaults.', 'info');
+      return false;
     }
   };
 
@@ -262,6 +270,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
   };
 
   return (
+    <>
     <div className="w-full py-6 px-3 sm:px-6 space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
@@ -616,45 +625,26 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
         )}
       </div>
 
-      {/* Discard / Reset Confirmation Modal */}
-      {isResetConfirmOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-stone-900 text-sm">Discard Unpublished Changes?</h3>
-                <p className="text-stone-500 text-xs mt-0.5">
-                  Your local draft will be reverted to match the currently published website version.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900">
-              Any unsaved changes made in this session will be permanently discarded.
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsResetConfirmOpen(false)}
-                className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs cursor-pointer"
-              >
-                Keep Editing
-              </button>
-              <button
-                type="button"
-                onClick={handleResetDraft}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer shadow-sm"
-              >
-                Discard & Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={isResetConfirmOpen}
+        title="Discard unpublished changes?"
+        message="Your local draft will be reverted to the currently published website version. Unsaved changes will be lost."
+        confirmLabel="Discard & Reset"
+        cancelLabel="Keep Editing"
+        variant="danger"
+        onClose={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleResetDraft}
+      />
+      <ConfirmDialog
+        open={isRestoreDefaultsConfirmOpen}
+        title="Restore landing page defaults?"
+        message="This replaces all landing page settings, photos, and custom text with the factory defaults."
+        confirmLabel="Restore Defaults"
+        variant="danger"
+        onClose={() => setIsRestoreDefaultsConfirmOpen(false)}
+        onConfirm={confirmRestoreDefaults}
+      />
     </div>
+    </>
   );
 };

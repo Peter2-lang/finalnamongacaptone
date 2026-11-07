@@ -1,5 +1,5 @@
 import { InterfaceText } from '../../i18n/interfaceText';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
   RefreshCw,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useLanguage } from '../../context/LanguageContext';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface SyncCenterModalProps {
   isOpen: boolean;
@@ -47,6 +48,23 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
   const { t } = useLanguage();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  const [confirmClearQueue, setConfirmClearQueue] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    requestAnimationFrame(() => closeRef.current?.focus());
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -77,13 +95,21 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
     }
   };
 
-  const handleClear = async () => {
-    if (window.confirm('Are you sure you want to clear the pending offline queue? Un-synced offline records will not be uploaded to the server.')) {
+  const handleClear = () => {
+    setConfirmClearQueue(true);
+  };
+
+  const confirmClear = async () => {
+    try {
       await clearQueue();
+      setSyncFeedback({ success: true, message: 'Pending queue cleared.' });
+      return true;
+    } catch (error) {
       setSyncFeedback({
-        success: true,
-        message: 'Pending queue cleared.',
+        success: false,
+        message: error instanceof Error ? error.message : 'Unable to clear pending queue.',
       });
+      return false;
     }
   };
 
@@ -98,16 +124,17 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-2 sm:p-4">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="sync-center-title" className="relative my-auto w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100dvh-16px)] sm:max-h-[calc(100dvh-32px)] animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 text-white p-5 flex items-center justify-between border-b border-emerald-700/50">
+        <div className="sticky top-0 z-10 shrink-0 bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 text-white p-5 flex items-center justify-between border-b border-emerald-700/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-700/80 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shadow-inner">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              <h2 id="sync-center-title" className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
                 {t('sync_center_title')}
               </h2>
               <p className="text-xs text-emerald-200/80 line-clamp-1">
@@ -116,7 +143,10 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
             </div>
           </div>
           <button
+            ref={closeRef}
+            type="button"
             onClick={onClose}
+            aria-label="Close sync center"
             className="text-emerald-200 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -310,7 +340,7 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between gap-3">
+        <div className="sticky bottom-0 z-10 shrink-0 bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between gap-3">
           <div className="text-xs text-slate-500 hidden sm:block">
             IndexedDB v2 + Cloud SQL Resilient Engine
           </div>
@@ -331,5 +361,15 @@ export const SyncCenterModal: React.FC<SyncCenterModalProps> = ({
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmClearQueue}
+      title="Clear pending offline changes?"
+      message="Unsynchronized changes will be removed and will not be uploaded to the server."
+      confirmLabel="Clear Queue"
+      variant="danger"
+      onClose={() => setConfirmClearQueue(false)}
+      onConfirm={confirmClear}
+    />
+    </>
   );
 };

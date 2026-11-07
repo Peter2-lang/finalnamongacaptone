@@ -44,6 +44,7 @@ import { LegalDocumentEditModal } from './LegalDocumentEditModal';
 import { LegalSmartImportModal } from './LegalSmartImportModal';
 import { LegalImportHistoryModal } from './LegalImportHistoryModal';
 import { LegalDocumentOriginalViewerModal } from './LegalDocumentOriginalViewerModal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface ASFOrdinanceModuleProps {
   barangays?: Barangay[];
@@ -74,6 +75,7 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [confirmResetSeeds, setConfirmResetSeeds] = useState(false);
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -225,16 +227,19 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
 
   const handleResetToOfficialSeeds = async () => {
     try {
-    if (window.confirm('Reset all Legal Decrees to official municipal & provincial enacted versions (MO 2025-59, Res 376-2026, PO 2023-144)?')) {
       const reset = await storageService.resetAsfRegulations();
       setRegulations(reset);
       setSelectedDocId(reset[0]?.id || '');
       showToast('Successfully restored official statutory documents.');
+      return true;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to restore official documents.');
+      return false;
     }
-    } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to restore official documents.'); }
   };
 
   return (
+    <>
     <div className="space-y-6">
       {isLoadingDocuments && <p role="status">Loading legal documents…</p>}
       {documentError && <p role="alert" className="p-3 bg-red-50 text-red-700 rounded-lg">{<LocalizedFeedback value={documentError} />}</p>}
@@ -1167,5 +1172,15 @@ export const ASFOrdinanceModule: React.FC<ASFOrdinanceModuleProps> = ({
         initialAttachment={selectedAttachment}
       />
     </div>
+    <ConfirmDialog
+      open={confirmResetSeeds}
+      title="Restore official legal documents?"
+      message="Replace the current legal decree library with the official municipal and provincial seed documents."
+      confirmLabel="Restore Official Documents"
+      variant="danger"
+      onClose={() => setConfirmResetSeeds(false)}
+      onConfirm={handleResetToOfficialSeeds}
+    />
+    </>
   );
 };

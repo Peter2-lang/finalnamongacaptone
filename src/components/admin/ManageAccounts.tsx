@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Users, Plus, Edit, Trash2, Save, X, Key, Shield, UserCheck, Search, Eye, EyeOff } from 'lucide-react';
 import { Barangay, UserAccount, UserRole } from '../../types';
 import { accountsApi } from '../../services/api';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface ManageAccountsProps {
   users: UserAccount[];
@@ -40,6 +41,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [resetError, setResetError] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const startEdit = (u: UserAccount) => {
     if (u.role === 'super_admin' && currentUser?.role !== 'super_admin') {
@@ -169,13 +171,18 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
       alert('Only a Super Admin can delete or modify a Super Admin account.');
       return;
     }
-    if (window.confirm(`Are you sure you want to remove account "${accName}"?`)) {
-      try {
-        await accountsApi.delete(id);
-        onAccountDelete(id);
-      } catch (error) {
-        setSaveError(error instanceof Error ? error.message : 'Unable to delete account from database.');
-      }
+    setDeleteTarget({ id, name: accName });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return false;
+    try {
+      await accountsApi.delete(deleteTarget.id);
+      onAccountDelete(deleteTarget.id);
+      return true;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to delete account from database.');
+      return false;
     }
   };
 
@@ -191,6 +198,7 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
   );
 
   return (
+    <>
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
       {/* Header */}
       {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
@@ -540,5 +548,15 @@ export const ManageAccounts: React.FC<ManageAccountsProps> = ({ users, barangays
         )}
       </div>
     </div>
+    <ConfirmDialog
+      open={Boolean(deleteTarget)}
+      title="Remove user account?"
+      message={deleteTarget ? `Remove account "${deleteTarget.name}"? This action cannot be undone.` : ''}
+      confirmLabel="Remove Account"
+      variant="danger"
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={confirmDelete}
+    />
+    </>
   );
 };

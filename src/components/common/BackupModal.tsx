@@ -1,8 +1,9 @@
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText } from '../../i18n/interfaceText';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Database, Download, Upload, RefreshCw, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { storageService } from '../../services/storageService';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface BackupModalProps {
   isOpen: boolean;
@@ -13,6 +14,23 @@ interface BackupModalProps {
 export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDataRestored }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    requestAnimationFrame(() => closeRef.current?.focus());
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -58,7 +76,12 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
   };
 
   const handleResetDefaults = () => {
-    if (window.confirm('Reset all records to initial Hinunangan capstone demo data? Any custom records will be replaced.')) {
+    setConfirmReset(true);
+  };
+
+  const confirmResetDefaults = async () => {
+    setIsResetting(true);
+    try {
       storageService.resetToDefaults();
       setSuccessMessage('System restored to clean Hinunangan demo state!');
       onDataRestored();
@@ -66,28 +89,35 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
         setSuccessMessage(null);
         onClose();
       }, 1500);
+      return true;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to reset local records.');
+      return false;
+    } finally {
+      setIsResetting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-stone-200 overflow-hidden my-6">
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="backup-modal-title" className="my-auto flex max-h-[calc(100dvh-16px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-32px)]">
         {/* Header */}
-        <div className="bg-stone-900 text-white p-5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between bg-stone-900 p-5 text-white">
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-emerald-400" />
             <div>
-              <h3 className="font-bold text-sm">Offline Database Backup & Restore</h3>
+              <h3 id="backup-modal-title" className="font-bold text-sm">Offline Database Backup & Restore</h3>
               <p className="text-[11px] text-stone-400">Manage local storage, offline data export & resets</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-white cursor-pointer">
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close backup and restore" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 hover:bg-white/10 hover:text-white cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 text-xs">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4 text-xs sm:p-6">
           {successMessage && (
             <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -143,13 +173,24 @@ export const BackupModal: React.FC<BackupModalProps> = ({ isOpen, onClose, onDat
         </div>
 
         {/* Footer */}
-        <div className="bg-stone-50 p-4 border-t border-stone-200 flex justify-end">
+        <div className="sticky bottom-0 z-10 shrink-0 bg-stone-50 p-4 border-t border-stone-200 flex justify-end">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-semibold text-xs cursor-pointer"
           ><InterfaceText source="Close" /></button>
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmReset}
+      title="Reset demonstration data?"
+      message="This replaces local custom records with the initial Hinunangan demo dataset. This does not reset production database records."
+      confirmLabel={isResetting ? 'Resetting…' : 'Reset Local Data'}
+      variant="danger"
+      onClose={() => setConfirmReset(false)}
+      onConfirm={confirmResetDefaults}
+    />
+    </>
   );
 };

@@ -3,6 +3,7 @@ import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLab
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import {csvCell, escapeHtml} from '../../utils/exportEncoding';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   ArrowUpDown,
@@ -14,6 +15,7 @@ import {
   CheckCircle,
   FileSpreadsheet,
   FileText,
+  FileDown,
   CheckCircle2,
   Plus,
   Sparkles,
@@ -66,6 +68,7 @@ import {
   matchRecordSearch,
 } from '../../utils/registryFieldUtils';
 import { printDocument } from '../../utils/printUtils';
+import { downloadElementAsPdf } from '../../utils/pdfUtils';
 import {
   calculateSwineAge,
   formatDobDisplay,
@@ -169,12 +172,162 @@ type SwineRecordAction =
   | 'farmer'
   | 'map'
   | 'print'
+  | 'pdf'
   | 'certificate'
   | 'edit'
   | 'ready'
   | 'sold'
   | 'archive'
   | 'delete';
+
+interface RecordActionOption {
+  action: SwineRecordAction;
+  label: string;
+  destructive?: boolean;
+}
+
+const recordActionIcons: Record<SwineRecordAction, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  view: Eye,
+  farmer: User,
+  map: MapPin,
+  print: Printer,
+  pdf: FileDown,
+  certificate: FileText,
+  edit: Edit,
+  ready: CheckCircle,
+  sold: ShoppingBag,
+  archive: Archive,
+  delete: Trash2,
+};
+
+const RecordActionMenu: React.FC<{
+  label: string;
+  actions: RecordActionOption[];
+  onAction: (action: SwineRecordAction) => void;
+  disabled?: boolean;
+}> = ({ label, actions, onAction, disabled = false }) => {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const bounds = triggerRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const width = Math.min(288, window.innerWidth - 24);
+      const maxHeight = Math.min(480, window.innerHeight - 24);
+      const estimatedHeight = Math.min(actions.length * 44 + 12, maxHeight);
+      const opensAbove = bounds.bottom + estimatedHeight + 8 > window.innerHeight;
+      setPosition({
+        position: 'fixed',
+        zIndex: 100,
+        width,
+        maxHeight,
+        overflowY: 'auto',
+        left: Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12)),
+        top: opensAbove
+          ? Math.max(12, bounds.top - estimatedHeight - 8)
+          : bounds.bottom + 4,
+      });
+    };
+    const onOutsidePointer = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) ||
+          (triggerRef.current?.contains(event.target) ?? false) ||
+          (menuRef.current?.contains(event.target) ?? false)) return;
+      closeMenu();
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+        triggerRef.current?.focus();
+      }
+    };
+    updatePosition();
+    document.addEventListener('pointerdown', onOutsidePointer);
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    requestAnimationFrame(() => menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus());
+    return () => {
+      document.removeEventListener('pointerdown', onOutsidePointer);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, actions.length]);
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = items.length - 1;
+    if (nextIndex !== null) {
+      event.preventDefault();
+      items[nextIndex]?.focus();
+    } else if (event.key === 'Tab') {
+      closeMenu();
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-50"
+      >
+        <MoreVertical className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden xl:inline">Actions</span>
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={label}
+          style={position}
+          onKeyDown={handleMenuKeyDown}
+          className="rounded-xl border border-stone-200 bg-white p-1.5 shadow-2xl"
+        >
+          {actions.map(item => {
+            const Icon = recordActionIcons[item.action];
+            return (
+              <button
+                key={item.action}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeMenu();
+                  triggerRef.current?.focus();
+                  onAction(item.action);
+                }}
+                className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium focus-visible:outline-2 focus-visible:outline-emerald-700 ${
+                  item.destructive
+                    ? 'text-red-700 hover:bg-red-50 focus:bg-red-50'
+                    : 'text-stone-800 hover:bg-emerald-50 focus:bg-emerald-50'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
 
 const getFarmerGroupKey = (record: SwineRecord): string => {
   if (record.farmerId) return `farmer:${record.farmerId}`;
@@ -237,6 +390,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
   // Modals & Selection
   const [viewingRecord, setViewingRecord] = useState<SwineRecord | null>(null);
+  const viewingRecordCloseRef = useRef<HTMLButtonElement>(null);
   const [expandedFarmerKey, setExpandedFarmerKey] = useState<string | null>(null);
   const [archiveConfirmRecord, setArchiveConfirmRecord] = useState<SwineRecord | null>(null);
   const [restoreConfirmRecord, setRestoreConfirmRecord] = useState<SwineRecord | null>(null);
@@ -245,6 +399,9 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   const [isSavingRecordAction, setIsSavingRecordAction] = useState(false);
   const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState('');
   const [printSingleRecord, setPrintSingleRecord] = useState<SwineRecord | null>(null);
+  const printPreviewCloseRef = useRef<HTMLButtonElement>(null);
+  const [pendingPdfRecordId, setPendingPdfRecordId] = useState<string | null>(null);
+  const [isDownloadingRecordPdf, setIsDownloadingRecordPdf] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [bulkActionNotice, setBulkActionNotice] = useState<string>('');
@@ -263,26 +420,45 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   const [dbError, setDbError] = useState<string | null>(null);
   const [refreshNotice, setRefreshNotice] = useState<string>('');
   const moreActionsRef = useRef<HTMLDetailsElement>(null);
-  const [mobileActionMenuRecordId, setMobileActionMenuRecordId] = useState<string | null>(null);
-  const mobileActionTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!viewingRecord) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setViewingRecord(null);
+    };
+    document.addEventListener('keydown', onEscape);
+    requestAnimationFrame(() => viewingRecordCloseRef.current?.focus());
+    return () => {
+      document.removeEventListener('keydown', onEscape);
+      previousFocus?.focus();
+    };
+  }, [viewingRecord]);
+
+  useEffect(() => {
+    if (!printSingleRecord) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPrintSingleRecord(null);
+    };
+    document.addEventListener('keydown', onEscape);
+    requestAnimationFrame(() => printPreviewCloseRef.current?.focus());
+    return () => {
+      document.removeEventListener('keydown', onEscape);
+      previousFocus?.focus();
+    };
+  }, [printSingleRecord]);
 
   useEffect(() => {
     const closeMenuOnOutsideClick = (event: PointerEvent) => {
       if (moreActionsRef.current && !moreActionsRef.current.contains(event.target as Node)) {
         moreActionsRef.current.open = false;
       }
-      if (!(event.target instanceof Element) || !event.target.closest('[data-record-actions]')) {
-        setMobileActionMenuRecordId(null);
-      }
     };
     const closeMenuOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && moreActionsRef.current?.open) {
         moreActionsRef.current.open = false;
         moreActionsRef.current.querySelector('summary')?.focus();
-      }
-      if (event.key === 'Escape' && mobileActionMenuRecordId) {
-        setMobileActionMenuRecordId(null);
-        mobileActionTriggerRef.current?.focus();
       }
     };
 
@@ -292,7 +468,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       document.removeEventListener('pointerdown', closeMenuOnOutsideClick);
       document.removeEventListener('keydown', closeMenuOnEscape);
     };
-  }, [mobileActionMenuRecordId]);
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('records-view-active');
@@ -387,6 +563,49 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       window.alert(message);
     }
   };
+
+  const requestRecordPdfDownload = (record: SwineRecord) => {
+    setPrintSingleRecord(record);
+    setPendingPdfRecordId(record.id);
+  };
+
+  useEffect(() => {
+    if (!printSingleRecord || pendingPdfRecordId !== printSingleRecord.id) return;
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      void (async () => {
+        setIsDownloadingRecordPdf(true);
+        try {
+          const element = document.querySelector<HTMLElement>('[data-print-document="swine-record"]');
+          if (!element) throw new Error('The swine record preview is not ready for PDF export.');
+          const tag = printSingleRecord.pigIdTag || printSingleRecord.earTagNo || printSingleRecord.id;
+          const safeTag = tag.replace(/[^a-z0-9_-]+/gi, '_');
+          await downloadElementAsPdf(element, `Swine_Record_${safeTag}.pdf`, {
+            format: 'letter',
+            orientation: 'portrait',
+            marginMm: 10,
+          });
+          if (!cancelled) setRecordActionNotice({ message: 'Swine record PDF downloaded.', success: true });
+        } catch (error) {
+          if (!cancelled) {
+            setRecordActionNotice({
+              message: error instanceof Error ? error.message : 'Unable to download the swine record PDF.',
+              success: false,
+            });
+          }
+        } finally {
+          if (!cancelled) {
+            setIsDownloadingRecordPdf(false);
+            setPendingPdfRecordId(null);
+          }
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [printSingleRecord, pendingPdfRecordId]);
 
   // Logo customization for Official Print Report
   const [reportLeftLogo, setReportLeftLogo] = useState<string>('/icon.svg');
@@ -1020,6 +1239,36 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     else setArchiveConfirmRecord(record);
   };
 
+  const getRecordActionOptions = (
+    record: SwineRecord,
+    farmerKey: string
+  ): RecordActionOption[] => record.isArchived
+    ? [
+        { action: 'view', label: 'View Details' },
+        { action: 'print', label: 'Print Record' },
+        { action: 'pdf', label: 'Download PDF' },
+        ...(canRestoreRecords ? [{ action: 'archive' as const, label: 'Restore Record' }] : []),
+        ...(canPermanentlyDelete
+          ? [{ action: 'delete' as const, label: 'Permanently Delete', destructive: true }]
+          : []),
+      ]
+    : [
+        { action: 'view', label: 'View Details' },
+        ...(farmerKey ? [{ action: 'farmer' as const, label: 'View Farmer’s Swine' }] : []),
+        ...(currentRole !== 'agent' ? [{ action: 'edit' as const, label: 'Edit Record' }] : []),
+        ...(onViewOnMap ? [{ action: 'map' as const, label: 'View on GIS Map' }] : []),
+        { action: 'print', label: 'Print Record' },
+        { action: 'pdf', label: 'Download PDF' },
+        { action: 'certificate', label: 'Generate Certificate' },
+        ...(currentRole !== 'agent' && record.status !== 'sold'
+          ? [
+              { action: 'ready' as const, label: record.readyToSell ? 'Remove Ready to Sell' : 'Mark Ready to Sell' },
+              { action: 'sold' as const, label: 'Mark as Sold' },
+            ]
+          : []),
+        ...(canArchiveRecords ? [{ action: 'archive' as const, label: 'Archive Record' }] : []),
+      ];
+
   const performRecordAction = (
     action: SwineRecordAction,
     swine: SwineRecord,
@@ -1038,6 +1287,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     }
     else if (action === 'map' && onViewOnMap) onViewOnMap(swine);
     else if (action === 'print') setPrintSingleRecord(swine);
+    else if (action === 'pdf') requestRecordPdfDownload(swine);
     else if (action === 'certificate') onIssueCertificate(swine);
     else if (action === 'edit' && currentRole !== 'agent') onEditSwine(swine);
     else if (action === 'ready' && currentRole !== 'agent' && swine.status !== 'sold') handleToggleSell(swine);
@@ -1047,7 +1297,6 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       setPermanentDeleteConfirmation('');
       setPermanentDeleteConfirmRecord(swine);
     }
-    setMobileActionMenuRecordId(null);
   };
 
   const renderExpandedFarmerRow = (farmerKey: string, rowId: string) => {
@@ -1117,50 +1366,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       </p>
                     </div>
                     <div className="flex items-center gap-2 sm:ml-auto">
-                      <label className="sr-only" htmlFor={`farmer-record-actions-${record.id}`}>
-                        Actions for {record.computedPigId || record.pigIdTag || record.earTagNo}
-                      </label>
-                      <select
-                        id={`farmer-record-actions-${record.id}`}
-                        defaultValue=""
-                        onChange={event => {
-                          const action = event.currentTarget.value;
-                          event.currentTarget.selectedIndex = 0;
-                          if (action === 'view') setViewingRecord(record);
-                          else if (action === 'map' && onViewOnMap) onViewOnMap(record);
-                          else if (action === 'print') setPrintSingleRecord(record);
-                          else if (action === 'certificate') onIssueCertificate(record);
-                          else if (action === 'edit' && currentRole !== 'agent') onEditSwine(record);
-                          else if (action === 'ready' && currentRole !== 'agent' && record.status !== 'sold') handleToggleSell(record);
-                          else if (action === 'sold' && currentRole !== 'agent' && record.status !== 'sold') handleMarkSold(record);
-                          else if (action === 'archive' && (record.isArchived ? canRestoreRecords : canArchiveRecords)) handleToggleArchive(record);
-                          else if (action === 'delete' && canPermanentlyDelete && record.isArchived) {
-                            setPermanentDeleteConfirmation('');
-                            setPermanentDeleteConfirmRecord(record);
-                          }
-                        }}
-                        className="min-h-11 w-full max-w-44 rounded-lg border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-800 focus-visible:outline-2 focus-visible:outline-emerald-700"
-                      >
-                        <option value="" disabled>Record actions</option>
-                        <optgroup label="Record">
-                          <option value="view">View details</option>
-                          {!showArchived && currentRole !== 'agent' && <option value="edit">Edit record</option>}
-                        </optgroup>
-                        <optgroup label="Documents">
-                          <option value="print">Print swine record</option>
-                          {!showArchived && <option value="certificate">Generate certificate</option>}
-                        </optgroup>
-                        {!showArchived && onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
-                        {!showArchived && currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
-                          {record.status !== 'sold' && <>
-                            <option value="ready">{record.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
-                            <option value="sold">Mark as sold</option>
-                          </>}
-                          {canArchiveRecords && <option value="archive">Archive record</option>}
-                        </optgroup>}
-                        {showArchived && canRestoreRecords && <optgroup label="Record Archives"><option value="archive">Restore record</option></optgroup>}
-                        {showArchived && canPermanentlyDelete && <optgroup label="Destructive"><option value="delete">Permanently delete record</option></optgroup>}
-                      </select>
+                      <RecordActionMenu
+                        label={`Actions for ${record.computedPigId || record.pigIdTag || record.earTagNo}`}
+                        actions={getRecordActionOptions(record, farmerKey)}
+                        onAction={action => performRecordAction(action, record, farmerKey)}
+                        disabled={isSavingRecordAction}
+                      />
                     </div>
                   </div>
                   {customDynamicColumns.length > 0 && (
@@ -1425,6 +1636,25 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         </div>
 
         <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+          {currentRole !== 'agent' && <button
+            type="button"
+            aria-pressed={showArchived}
+            onClick={() => {
+              setShowArchived(value => !value);
+              setCurrentPage(1);
+            }}
+            className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition sm:w-auto ${
+              showArchived
+                ? 'border-amber-400 bg-amber-100 text-amber-950'
+                : 'border-stone-300 bg-white text-stone-700 hover:bg-amber-50'
+            }`}
+          >
+            <Archive className="h-4 w-4" />
+            <span>Record Archives</span>
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px]">
+              {swineList.filter(record => record.isArchived).length}
+            </span>
+          </button>}
           {currentRole !== 'agent' && (
             <button
               type="button"
@@ -2184,7 +2414,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           </div>
         ) : paginatedRecords.length === 0 ? (
           <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center text-sm text-stone-600">
-            No swine records match the current filters.
+            {showArchived ? 'No archived swine records match the current filters.' : 'No swine records match the current filters.'}
           </div>
         ) : paginatedRecords.map(swine => {
           const farmerKey = getFarmerGroupKey(swine);
@@ -2198,30 +2428,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             : swine.computedIsReady
               ? t('records_ready_to_sell', 'Ready to Sell')
               : getStatusLabel(swine.status || 'active');
-          const menuActions: { action: SwineRecordAction; label: string; destructive?: boolean }[] = showArchived
-            ? [
-                { action: 'view', label: 'View Details' },
-                { action: 'print', label: 'Print Swine Record' },
-                ...(canRestoreRecords ? [{ action: 'archive' as const, label: 'Restore Record' }] : []),
-                ...(canPermanentlyDelete
-                  ? [{ action: 'delete' as const, label: 'Permanently Delete', destructive: true }]
-                  : []),
-              ]
-            : [
-                { action: 'view', label: 'View Details' },
-                ...(farmerKey ? [{ action: 'farmer' as const, label: 'View Farmer’s Swine' }] : []),
-                ...(currentRole !== 'agent' ? [{ action: 'edit' as const, label: 'Edit Record' }] : []),
-                ...(onViewOnMap ? [{ action: 'map' as const, label: 'View on GIS Map' }] : []),
-                { action: 'print', label: 'Print Swine Record' },
-                { action: 'certificate', label: 'Generate Certificate' },
-                ...(currentRole !== 'agent' && swine.status !== 'sold'
-                  ? [
-                      { action: 'ready' as const, label: swine.readyToSell ? 'Remove Ready to Sell' : 'Mark Ready to Sell' },
-                      { action: 'sold' as const, label: 'Mark as Sold' },
-                    ]
-                  : []),
-                ...(canArchiveRecords ? [{ action: 'archive' as const, label: 'Archive Record' }] : []),
-              ];
+          const menuActions = getRecordActionOptions(swine, farmerKey);
 
           return (
             <article
@@ -2256,46 +2463,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     <span className="mt-1 inline-flex min-h-6 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold text-emerald-800">
                       <CheckCircle2 className="h-3 w-3" /><InterfaceText source="Synced" /></span>
                   )}
-                  <div className="relative" data-record-actions>
-                    <button
-                      ref={mobileActionMenuRecordId === swine.id ? mobileActionTriggerRef : undefined}
-                      type="button"
-                      onClick={() => setMobileActionMenuRecordId(current => current === swine.id ? null : swine.id)}
-                      aria-label={`Actions for ${swine.computedPigId || swine.pigIdTag || swine.earTagNo}`}
-                      aria-haspopup="menu"
-                      aria-expanded={mobileActionMenuRecordId === swine.id}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-700 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-emerald-700"
-                    >
-                      <MoreVertical className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                    {mobileActionMenuRecordId === swine.id && (
-                      <div
-                        role="menu"
-                        aria-label={`Record actions for ${swine.computedPigId || swine.pigIdTag || swine.earTagNo}`}
-                        className="absolute right-0 top-full z-50 mt-1 max-h-[min(65vh,28rem)] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl"
-                      >
-                        {menuActions.map(item => (
-                          <React.Fragment key={item.action}>
-                            {(item.action === 'map' || item.action === 'print' || item.action === 'ready' || item.action === 'archive' || item.action === 'delete') && (
-                              <div className="my-1 border-t border-stone-100" role="separator" />
-                            )}
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => performRecordAction(item.action, swine, farmerKey)}
-                              className={`flex min-h-11 w-full items-center rounded-lg px-3 text-left text-sm font-medium focus-visible:outline-2 focus-visible:outline-emerald-700 ${
-                                item.destructive
-                                  ? 'text-red-700 hover:bg-red-50'
-                                  : 'text-stone-800 hover:bg-stone-100'
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <RecordActionMenu
+                    label={`Actions for ${swine.computedPigId || swine.pigIdTag || swine.earTagNo}`}
+                    actions={menuActions}
+                    onAction={action => performRecordAction(action, swine, farmerKey)}
+                    disabled={isSavingRecordAction}
+                  />
                 </div>
               </div>
 
@@ -3096,49 +3269,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     <td className={`sticky right-0 z-20 min-w-[132px] border-l border-stone-200 px-3 py-3 text-right shadow-2xs ${
                       isSelected ? 'bg-amber-50 group-hover:bg-amber-100' : 'bg-white group-hover:bg-emerald-50'
                     }`}>
-                      <select
-                        defaultValue=""
-                        aria-label={`Actions for ${swine.computedPigId || swine.pigIdTag || swine.earTagNo}`}
-                        onChange={event => {
-                          const action = event.currentTarget.value;
-                          event.currentTarget.selectedIndex = 0;
-                          if (action === 'view') setViewingRecord(swine);
-                          else if (action === 'farmer') setExpandedFarmerKey(farmerKey);
-                          else if (action === 'map' && onViewOnMap) onViewOnMap(swine);
-                          else if (action === 'print') setPrintSingleRecord(swine);
-                          else if (action === 'certificate') onIssueCertificate(swine);
-                          else if (action === 'edit' && currentRole !== 'agent') onEditSwine(swine);
-                          else if (action === 'ready' && currentRole !== 'agent' && swine.status !== 'sold') handleToggleSell(swine);
-                          else if (action === 'sold' && currentRole !== 'agent' && swine.status !== 'sold') handleMarkSold(swine);
-                          else if (action === 'archive' && (swine.isArchived ? canRestoreRecords : canArchiveRecords)) handleToggleArchive(swine);
-                          else if (action === 'delete' && canPermanentlyDelete && swine.isArchived) {
-                            setPermanentDeleteConfirmation('');
-                            setPermanentDeleteConfirmRecord(swine);
-                          }
-                        }}
-                        className="min-h-11 w-full max-w-36 rounded-lg border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-800 focus-visible:outline-2 focus-visible:outline-emerald-700"
-                      >
-                        <option value="" disabled>{translateInterfaceText("Actions")}</option>
-                        <optgroup label="Record">
-                          <option value="view">View details</option>
-                          {!showArchived && <option value="farmer">View farmer&apos;s swine</option>}
-                          {!showArchived && currentRole !== 'agent' && <option value="edit">Edit record</option>}
-                        </optgroup>
-                        {!showArchived && onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
-                        <optgroup label="Documents">
-                          <option value="print">Print swine record</option>
-                          {!showArchived && <option value="certificate">Generate certificate</option>}
-                        </optgroup>
-                        {!showArchived && currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
-                          {swine.status !== 'sold' && <>
-                            <option value="ready">{swine.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
-                            <option value="sold">Mark as sold</option>
-                          </>}
-                          {canArchiveRecords && <option value="archive">Archive record</option>}
-                        </optgroup>}
-                        {showArchived && canRestoreRecords && <optgroup label="Record Archives"><option value="archive">Restore record</option></optgroup>}
-                        {showArchived && canPermanentlyDelete && <optgroup label="Destructive"><option value="delete">Permanently delete record</option></optgroup>}
-                      </select>
+                      <RecordActionMenu
+                        label={`Actions for ${swine.computedPigId || swine.pigIdTag || swine.earTagNo}`}
+                        actions={getRecordActionOptions(swine, farmerKey)}
+                        onAction={action => performRecordAction(action, swine, farmerKey)}
+                        disabled={isSavingRecordAction}
+                      />
                     </td>
                     </tr>
                     {isFarmerExpanded
@@ -3219,10 +3355,15 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
       {/* ===================== VIEW DETAILS MODAL ===================== */}
       {viewingRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden my-6 border border-stone-200 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="swine-details-title"
+            className="my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl animate-fadeIn sm:max-h-[calc(100dvh-2rem)]"
+          >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white p-6 flex items-center justify-between">
+            <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 p-4 text-white sm:p-6">
               <div className="flex items-center gap-3">
                 <img
                   src={viewingRecord.photoUrl || '/icon.svg'}
@@ -3244,14 +3385,16 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       {viewingRecord.readyToSell ? 'READY FOR SALE' : viewingRecord.status.toUpperCase()}
                     </span>
                   </div>
-                  <h3 className="text-sm font-bold text-white mt-1">
+                  <h3 id="swine-details-title" className="text-sm font-bold text-white mt-1">
                     {viewingRecord.farmerName}{" "}<InterfaceText source="• Brgy." />{" "}{viewingRecord.barangay}
                   </h3>
                 </div>
               </div>
               <button
+                ref={viewingRecordCloseRef}
                 type="button"
                 onClick={() => setViewingRecord(null)}
+                aria-label="Close record details"
                 className="text-white/70 hover:text-white p-2 rounded-xl hover:bg-white/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -3259,7 +3402,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto text-xs text-stone-800">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-xs text-stone-800 sm:space-y-6 sm:p-6">
               {/* Biosecurity Warning Banner if applicable */}
               {shouldShowASFWarning(
                 viewingRecord.swineType,
@@ -3386,6 +3529,14 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       {viewingRecord.readyToSell ? '🌟 Ready for Market Sale' : viewingRecord.status.toUpperCase()}
                     </span>
                   </div>
+                  <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">GPS Location</span>
+                    <span className="font-semibold text-stone-900 block mt-0.5">
+                      {Number.isFinite(viewingRecord.latitude) && Number.isFinite(viewingRecord.longitude)
+                        ? `${viewingRecord.latitude}, ${viewingRecord.longitude}`
+                        : 'Not recorded'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -3428,7 +3579,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="bg-stone-100 px-6 py-3.5 border-t border-stone-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-stone-200 bg-stone-100 px-4 py-3.5 sm:px-6">
               <span className="text-[11px] text-stone-500">
                 Registered on {new Date(viewingRecord.registeredAt).toLocaleString()} by {viewingRecord.registeredBy || 'DA Extension Worker'}
               </span>
@@ -3458,6 +3609,19 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
                 >
                   <Printer className="w-3.5 h-3.5" /> Print Record
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isDownloadingRecordPdf}
+                  onClick={() => {
+                    const record = viewingRecord;
+                    setViewingRecord(null);
+                    requestRecordPdfDownload(record);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-emerald-700 bg-white text-emerald-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs disabled:opacity-50"
+                >
+                  <FileDown className="w-3.5 h-3.5" /> Download PDF
                 </button>
 
                 {currentRole !== 'agent' && !viewingRecord.isArchived && (
@@ -3496,8 +3660,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <div className="w-full max-w-md space-y-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800"><Archive className="h-6 w-6" /></div>
             <div className="text-center">
-              <h3 id="archive-record-title" className="font-black text-stone-900">Archive this swine record?</h3>
-              <p className="mt-1 text-xs text-stone-600">The record and its history will be preserved and removed from active counts.</p>
+              <h3 id="archive-record-title" className="font-black text-stone-900">Archive Swine Record?</h3>
+              <p className="mt-1 text-xs text-stone-600">Are you sure you want to archive this swine record? It will be removed from the active list but can be restored later.</p>
             </div>
             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3 text-center">
               <p className="font-mono text-sm font-black text-stone-900">{archiveConfirmRecord.pigIdTag || archiveConfirmRecord.earTagNo || archiveConfirmRecord.id}</p>
@@ -3506,7 +3670,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
             <div className="flex gap-3">
               <button type="button" disabled={isSavingRecordAction} onClick={() => setArchiveConfirmRecord(null)} className="flex-1 rounded-xl border border-stone-300 py-2 text-xs font-bold text-stone-700 disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmArchive} className="flex-1 rounded-xl bg-amber-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Archive record'}</button>
+              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmArchive} className="flex-1 rounded-xl bg-amber-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Archive Record'}</button>
             </div>
           </div>
         </div>
@@ -3517,7 +3681,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <div className="w-full max-w-md space-y-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800"><ArchiveRestore className="h-6 w-6" /></div>
             <div className="text-center">
-              <h3 id="restore-record-title" className="font-black text-stone-900">Restore this swine record?</h3>
+              <h3 id="restore-record-title" className="font-black text-stone-900">Restore Swine Record?</h3>
               <p className="mt-1 text-xs text-stone-600">It will return to active records and current dashboard/GIS data.</p>
             </div>
             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3 text-center">
@@ -3527,7 +3691,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
             <div className="flex gap-3">
               <button type="button" disabled={isSavingRecordAction} onClick={() => setRestoreConfirmRecord(null)} className="flex-1 rounded-xl border border-stone-300 py-2 text-xs font-bold text-stone-700 disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmRestore} className="flex-1 rounded-xl bg-emerald-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Restore record'}</button>
+              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmRestore} className="flex-1 rounded-xl bg-emerald-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Restore Record'}</button>
             </div>
           </div>
         </div>
@@ -3652,13 +3816,20 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
       {/* ===================== PRINT SINGLE SWINE RECORD MODAL ===================== */}
       {printSingleRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-stone-200 overflow-hidden my-6 animate-fadeIn">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="swine-print-title"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-2 backdrop-blur-xs sm:p-4"
+        >
+          <div className="my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl animate-fadeIn sm:max-h-[calc(100dvh-2rem)]">
             {/* Action Bar */}
             <div className="bg-stone-900 text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Printer className="w-4 h-4 text-emerald-400" />
-                <span className="font-bold text-xs">Official Individual Swine Record Sheet</span>
+                <span id="swine-print-title" className="font-bold text-xs">
+                  Official Swine Record · {printSingleRecord.pigIdTag || printSingleRecord.earTagNo || printSingleRecord.id}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -3669,8 +3840,10 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   <Printer className="w-3.5 h-3.5" /> Print Now
                 </button>
                 <button
+                  ref={printPreviewCloseRef}
                   type="button"
                   onClick={() => setPrintSingleRecord(null)}
+                  aria-label="Close print preview"
                   className="text-stone-400 hover:text-white p-1 rounded cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -3679,7 +3852,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
 
             {/* Document Body */}
-            <div data-print-document="swine-record" className="p-8 space-y-6 text-xs text-stone-800 printable-document bg-white">
+            <div data-print-document="swine-record" className="printable-document min-h-0 flex-1 space-y-6 overflow-y-auto bg-white p-5 text-xs text-stone-800 sm:p-8">
               {/* Header */}
               <div className="text-center border-b-2 border-emerald-800 pb-4">
                 <div className="flex items-center justify-between gap-4 mb-2">
@@ -3733,6 +3906,24 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 <div>
                   <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Barangay" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">Brgy. {printSingleRecord.barangay}</span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Registration Date</span>
+                  <span className="font-bold text-stone-900 block mt-0.5">
+                    {Number.isNaN(new Date(printSingleRecord.registeredAt).getTime())
+                      ? 'Not recorded'
+                      : new Date(printSingleRecord.registeredAt).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase">GPS Location</span>
+                  <span className="font-bold text-stone-900 block mt-0.5">
+                    {Number.isFinite(printSingleRecord.latitude) && Number.isFinite(printSingleRecord.longitude)
+                      ? `${printSingleRecord.latitude}, ${printSingleRecord.longitude}`
+                      : 'Not recorded'}
+                  </span>
                 </div>
 
                 <div>
@@ -3820,7 +4011,6 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </span>
                 </div>
               </div>
-
               {/* Signatures Footer */}
               <div className="pt-8 grid grid-cols-2 gap-8 text-center">
                 <div>
@@ -3840,7 +4030,36 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </p>
                 </div>
               </div>
-            </div>
+              </div>
+              <div className="no-print sticky bottom-0 z-10 flex shrink-0 flex-wrap justify-end gap-2 border-t border-stone-200 bg-stone-100 p-3 sm:p-4">
+                <button
+                  type="button"
+                  onClick={() => setPrintSingleRecord(null)}
+                  className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 text-xs font-bold text-stone-700 hover:bg-stone-50"
+                >Close</button>
+                {!printSingleRecord.isArchived && currentRole !== 'agent' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const record = printSingleRecord;
+                      setPrintSingleRecord(null);
+                      onEditSwine(record);
+                    }}
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 text-xs font-bold text-stone-700 hover:bg-stone-50"
+                  ><Edit className="h-4 w-4" /> Edit</button>
+                )}
+                <button
+                  type="button"
+                  disabled={isDownloadingRecordPdf}
+                  onClick={() => requestRecordPdfDownload(printSingleRecord)}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-emerald-700 bg-white px-4 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
+                ><FileDown className="h-4 w-4" />{isDownloadingRecordPdf ? 'Preparing PDF…' : 'Download PDF'}</button>
+                <button
+                  type="button"
+                  onClick={() => triggerScopedPrint('swine-record')}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-600"
+                ><Printer className="h-4 w-4" /> Print</button>
+              </div>
           </div>
         </div>
       )}

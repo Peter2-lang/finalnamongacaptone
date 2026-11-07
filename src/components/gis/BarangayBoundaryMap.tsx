@@ -21,6 +21,7 @@ import {
   generateDefaultBoundary,
 } from '../../utils/gisMeasure';
 import { HINUNANGAN_BARANGAY_BOUNDARIES } from '../../data/hinunanganBoundariesGeoJSON';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface BarangayBoundaryMapProps {
   centerLat: number;
@@ -57,6 +58,7 @@ export const BarangayBoundaryMap: React.FC<BarangayBoundaryMapProps> = ({
 
   // Active Tool Mode
   const [toolMode, setToolMode] = useState<'boundary' | 'center' | 'ruler'>('boundary');
+  const [confirmClearBoundary, setConfirmClearBoundary] = useState(false);
   const [basemap, setBasemap] = useState<'street' | 'satellite' | 'topo'>('street');
   const [showBuffer, setShowBuffer] = useState(true);
   const [rulerPoints, setRulerPoints] = useState<[number, number][]>([]);
@@ -302,9 +304,7 @@ export const BarangayBoundaryMap: React.FC<BarangayBoundaryMapProps> = ({
   };
 
   const handleClearBoundary = () => {
-    if (window.confirm('Clear all plotted boundary points for this barangay?')) {
-      onPolygonChange([]);
-    }
+    setConfirmClearBoundary(true);
   };
 
   const handleAutoGenerateBoundary = () => {
@@ -354,6 +354,7 @@ export const BarangayBoundaryMap: React.FC<BarangayBoundaryMapProps> = ({
   };
 
   return (
+    <>
     <div className="space-y-3">
       {/* Top Map Toolbar & Basemap Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
@@ -602,5 +603,15 @@ export const BarangayBoundaryMap: React.FC<BarangayBoundaryMapProps> = ({
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmClearBoundary}
+      title="Clear boundary points?"
+      message={`Remove all plotted boundary points for ${barangayName}? This only changes the unsaved boundary draft.`}
+      confirmLabel="Clear Points"
+      variant="danger"
+      onClose={() => setConfirmClearBoundary(false)}
+      onConfirm={() => onPolygonChange([])}
+    />
+    </>
   );
 };

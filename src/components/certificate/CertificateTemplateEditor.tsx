@@ -47,6 +47,7 @@ import { replaceTemplatePlaceholders } from '../../utils/templateReplacer';
 import { DynamicCertificateView } from './DynamicCertificateView';
 import { mediaApi, moduleDataApi } from '../../services/api';
 import { filterCertificateTemplates } from '../../utils/certificateTemplateFilters';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useCertificateTemplateSync } from '../../hooks/useCertificateTemplateSync';
 import { CERTIFICATE_FIELD_OPTIONS, extractCertificate } from '../../services/certificateImportService';
 import type { CertificateFieldSuggestion } from '../../services/certificateImportService';
@@ -287,6 +288,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   >('header_logos');
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isDiscardImportConfirmOpen, setIsDiscardImportConfirmOpen] = useState(false);
   const [importedTemplate, setImportedTemplate] = useState<ImportedTemplateMetadata | null>(null);
   const [importedFile, setImportedFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -714,11 +716,11 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
   };
 
   const requestCloseImportDialog = () => {
-    if ((importedFile || importedTemplateName.trim() || importedBody.trim()) &&
-        !window.confirm('Discard this unsaved certificate import?')) {
-      return;
+    if (importedFile || importedTemplateName.trim() || importedBody.trim()) {
+      setIsDiscardImportConfirmOpen(true);
+    } else {
+      setIsImportDialogOpen(false);
     }
-    setIsImportDialogOpen(false);
   };
 
   // ==========================================
@@ -2771,6 +2773,18 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
           </section>
         </div>, document.body)
       )}
+      <ConfirmDialog
+        open={isDiscardImportConfirmOpen}
+        title="Discard this certificate import?"
+        message="The selected file and any unsaved import details will be discarded."
+        confirmLabel="Discard Import"
+        variant="danger"
+        onClose={() => setIsDiscardImportConfirmOpen(false)}
+        onConfirm={() => {
+          setIsDiscardImportConfirmOpen(false);
+          setIsImportDialogOpen(false);
+        }}
+      />
     </div>
   );
 };

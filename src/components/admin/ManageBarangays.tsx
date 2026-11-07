@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Barangay } from '../../types';
 import { barangaysApi } from '../../services/api';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { BarangayBoundaryMap } from '../gis/BarangayBoundaryMap';
 import { HINUNANGAN_BARANGAY_BOUNDARIES } from '../../data/hinunanganBoundariesGeoJSON';
 import {
@@ -46,6 +47,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
   const [boundaryPolygon, setBoundaryPolygon] = useState<[number, number][]>([]);
   const [surveillanceRadiusMeters, setSurveillanceRadiusMeters] = useState(500);
   const [saveError, setSaveError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const startEdit = (b: Barangay) => {
     setIsEditing(b);
@@ -142,13 +144,18 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
   };
 
   const handleDelete = async (id: string, bgName: string) => {
-    if (window.confirm(`Are you sure you want to delete Barangay "${bgName}" from Hinunangan registry?`)) {
-      try {
-        await barangaysApi.deactivate(id);
-        await onRefresh();
-      } catch (error) {
-        setSaveError(error instanceof Error ? error.message : 'Unable to deactivate barangay.');
-      }
+    setDeleteTarget({ id, name: bgName });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return false;
+    try {
+      await barangaysApi.deactivate(deleteTarget.id);
+      await onRefresh();
+      return true;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to deactivate barangay.');
+      return false;
     }
   };
 
@@ -159,6 +166,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
   );
 
   return (
+    <>
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
       {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
       {/* Header */}
@@ -447,5 +455,15 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={Boolean(deleteTarget)}
+      title="Remove barangay from registry?"
+      message={deleteTarget ? `Deactivate Barangay "${deleteTarget.name}"? Existing related records will not be deleted.` : ''}
+      confirmLabel="Deactivate Barangay"
+      variant="danger"
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={confirmDelete}
+    />
+    </>
   );
 };

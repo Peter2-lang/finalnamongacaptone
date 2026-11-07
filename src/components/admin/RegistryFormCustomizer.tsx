@@ -53,6 +53,7 @@ import {
 import { storageService } from '../../services/storageService';
 import { INITIAL_REGISTRY_FORM_SCHEMA } from '../../data/initialFormSchema';
 import { toFieldKey } from '../../utils/registryFieldUtils';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import {
   generateFieldValue,
   AUTOGEN_PRESETS,
@@ -155,6 +156,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
 
   // Confirmation Modal & Feedback State
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isFullPreviewOpen, setIsFullPreviewOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [draggedFieldIndex, setDraggedFieldIndex] = useState<number | null>(null);
@@ -571,16 +573,20 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
 
   // Reset to Default Form
   const handleResetDefault = async () => {
-    if (window.confirm('Reset all registration form fields to official DA default template?')) {
-      try {
-        const reset = await storageService.resetRegistryFormSchema();
-        setSchema(reset);
-        setActiveSectionId(reset.sections[0]?.id || 'sec_farm');
-        showToast('Form reset to official DA Hinunangan default schema.');
-        if (onRefresh) onRefresh();
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Unable to reset the registry form.');
-      }
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetDefault = async () => {
+    try {
+      const reset = await storageService.resetRegistryFormSchema();
+      setSchema(reset);
+      setActiveSectionId(reset.sections[0]?.id || 'sec_farm');
+      showToast('Form reset to official DA Hinunangan default schema.');
+      if (onRefresh) onRefresh();
+      return true;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to reset the registry form.');
+      return false;
     }
   };
 
@@ -599,6 +605,7 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
   };
 
   return (
+    <>
     <div className="py-6 px-4 sm:px-6 max-w-7xl mx-auto space-y-6">
       {/* Toast Feedback */}
       {toastMessage && (
@@ -1962,5 +1969,15 @@ export const RegistryFormCustomizer: React.FC<RegistryFormCustomizerProps> = ({
         </div>
       )}
     </div>
+    <ConfirmDialog
+      open={isResetConfirmOpen}
+      title="Reset registration form?"
+      message="Restore the official DA default template? Current custom fields and layout will be replaced."
+      confirmLabel="Reset Form"
+      variant="danger"
+      onClose={() => setIsResetConfirmOpen(false)}
+      onConfirm={confirmResetDefault}
+    />
+    </>
   );
 };

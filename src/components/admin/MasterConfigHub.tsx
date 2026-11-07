@@ -1,4 +1,5 @@
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import {
   Palette,
@@ -98,6 +99,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [publishSummary, setPublishSummary] = useState('Updated appearance and layout parameters');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [versionToRestore, setVersionToRestore] = useState<number | null>(null);
   const [resetTarget, setResetTarget] = useState<'current_role' | 'all'>('current_role');
 
   // Preview Mode
@@ -331,16 +333,25 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
   };
 
   const handleRestoreVersion = async (vNum: number) => {
-    if (window.confirm(`Are you sure you want to rollback the entire system to Version v${vNum}?`)) {
-      try { await masterConfigService.restoreVersion(vNum, 'Super Admin'); }
-      catch (error) { window.alert(error instanceof Error ? error.message : 'Unable to restore configuration.'); return; }
+    setVersionToRestore(vNum);
+  };
+
+  const confirmRestoreVersion = async () => {
+    if (versionToRestore === null) return false;
+    try {
+      await masterConfigService.restoreVersion(versionToRestore, 'Super Admin');
       setDraftConfig(masterConfigService.getDraftConfig());
       setPublishedConfig(masterConfigService.getConfig());
       if (onRefresh) onRefresh();
+      return true;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to restore configuration.');
+      return false;
     }
   };
 
   return (
+    <>
     <div className="w-full space-y-6 pb-20">
       {/* ─────────────────────────────────────────────────────────────
           TOP CONTROL BAR & PUBLISH FLOW HEADER
@@ -1472,6 +1483,15 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
         </div>
       )}
     </div>
+    <ConfirmDialog
+      open={versionToRestore !== null}
+      title="Roll back system configuration?"
+      message={`Restore the entire system to version v${versionToRestore ?? ''}? The current configuration will be replaced.`}
+      confirmLabel="Restore Version"
+      variant="danger"
+      onClose={() => setVersionToRestore(null)}
+      onConfirm={confirmRestoreVersion}
+    />
+    </>
   );
 };
-
