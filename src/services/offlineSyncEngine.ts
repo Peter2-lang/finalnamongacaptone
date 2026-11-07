@@ -12,7 +12,7 @@ import { storageService } from './storageService';
 import { SwineRecord, IssuedCertificate, MessageItem, Barangay } from '../types';
 
 export type SyncState = 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'SYNCED' | 'ERROR';
-export type CloudConnectionState = 'initializing' | 'connected' | 'disconnected' | 'offline';
+export type CloudConnectionState = 'initializing' | 'checking' | 'connected' | 'disconnected' | 'offline';
 
 export interface SyncEngineStatus {
   state: SyncState;
@@ -154,6 +154,8 @@ export class OfflineSyncEngine {
    * Health Ping to check actual backend reachability
    */
   public async pingBackend(): Promise<boolean> {
+    this.connectionStatus = 'checking';
+    this.lastHealthError = null;
     if (storageService.getSimulatedOffline()) {
       this.connectionStatus = 'offline';
       this.isBackendReachable = false;

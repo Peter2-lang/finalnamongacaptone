@@ -46,7 +46,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
               : pendingQueueCount > 0
               ? `${pendingQueueCount} change${pendingQueueCount === 1 ? '' : 's'} waiting to sync with the cloud.`
               : 'Connecting to the cloud database.';
-  const shouldShowBanner = connectionStatus !== 'initializing' && (
+  const shouldShowBanner = !['initializing', 'checking'].includes(connectionStatus) && (
     connectionStatus !== 'connected' || pendingQueueCount > 0 || Boolean(visibleError) || Boolean(syncSuccess)
   );
 

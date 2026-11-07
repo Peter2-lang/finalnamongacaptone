@@ -7,7 +7,11 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   validateBrowserSupabaseConfig({ ...loadEnv(mode, process.cwd(), ''), ...process.env });
+  const buildStamp = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || `${Date.now()}`;
   return {
+    define: {
+      __APP_BUILD_ID__: JSON.stringify(buildStamp),
+    },
     plugins: [
       react(),
       tailwindcss(),

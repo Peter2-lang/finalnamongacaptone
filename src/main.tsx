@@ -5,9 +5,15 @@ import { LanguageProvider } from './context/LanguageContext';
 import { OfflineProvider } from './context/OfflineContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { registerDynamicImportRecovery } from './utils/chunkLoadRecovery';
+import { initializeBuildTracking, wasBuildUpdated, markBuildReloaded, APP_BUILD_ID } from './utils/buildMetadata';
 import './index.css';
 
+initializeBuildTracking();
 registerDynamicImportRecovery();
+if (wasBuildUpdated() && markBuildReloaded()) {
+  console.info('Detected a newer application build. Reloading once to load the current shell.', APP_BUILD_ID);
+  window.location.reload();
+}
 // Retire authenticated responses cached by older service-worker releases.
 if ('caches' in window) {
   void caches.delete('api-runtime-cache').catch(() => { /* Cache storage may be unavailable in private mode. */ });

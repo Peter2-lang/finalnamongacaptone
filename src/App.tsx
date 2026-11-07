@@ -16,6 +16,7 @@ import { accountsApi, authApi, barangaysApi } from './services/api';
 import { landingCmsService } from './services/landingCmsService';
 import { BackgroundPhotoConfig } from './types/landingCms';
 import { Barangay, FarmerSelection, LandingPageConfig, SwineRecord, UserAccount, UserRole } from './types';
+import { INITIAL_LANDING_CONFIG } from './data/initialData';
 import { useRoleTheme } from './hooks/useRoleTheme';
 import { supabase } from './lib/supabase';
 import { isDynamicImportFailure } from './utils/chunkLoadRecovery';
@@ -177,7 +178,8 @@ export default function App() {
 
   const [swineList, setSwineList] = useState<SwineRecord[]>(() => storageService.getSwineRecords());
   const [barangays, setBarangays] = useState<Barangay[]>([]);
-  const [landingConfig, setLandingConfig] = useState<LandingPageConfig>(() => storageService.getLandingConfig());
+  const [landingConfig, setLandingConfig] = useState<LandingPageConfig>(() => ({ ...INITIAL_LANDING_CONFIG }));
+  const [landingConfigReady, setLandingConfigReady] = useState(false);
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState<string | null>(null);
@@ -362,7 +364,11 @@ export default function App() {
   }, [currentUser?.role]);
 
   const refreshAllData = async () => {
-    setLandingConfig(storageService.getLandingConfig());
+    setLandingConfig({
+      ...INITIAL_LANDING_CONFIG,
+      ...storageService.getLandingConfig(),
+      socialPosts: storageService.getLandingConfig().socialPosts || INITIAL_LANDING_CONFIG.socialPosts,
+    });
     // Anonymous landing pages must not request protected registry endpoints.
     if (!currentUser) {
       setSwineList([]);
@@ -422,6 +428,38 @@ export default function App() {
     const alerts = storageService.getMarketingAlerts().filter(a => a.isActive);
     setActiveAlertsCount(alerts.length);
   };
+
+  useEffect(() => {
+    let active = true;
+    const syncLandingConfig = async () => {
+      try {
+        const next = await landingCmsService.loadPublishedConfig();
+        const nextConfig = next as any;
+        if (active) {
+          setLandingConfig({
+            ...INITIAL_LANDING_CONFIG,
+            ...nextConfig,
+            socialPosts: Array.isArray(nextConfig.socialPosts) ? nextConfig.socialPosts : INITIAL_LANDING_CONFIG.socialPosts,
+            headerTitle: nextConfig.headerTitle || INITIAL_LANDING_CONFIG.headerTitle,
+            headerSubtitle: nextConfig.headerSubtitle || INITIAL_LANDING_CONFIG.headerSubtitle,
+            welcomeMessage: nextConfig.welcomeMessage || INITIAL_LANDING_CONFIG.welcomeMessage,
+            heroBannerUrl: nextConfig.heroBannerUrl || INITIAL_LANDING_CONFIG.heroBannerUrl,
+          });
+        }
+      } catch (error) {
+        console.warn('Using the current published landing config while the latest CMS payload loads.', error);
+      } finally {
+        if (active) {
+          setLandingConfigReady(true);
+        }
+      }
+    };
+
+    void syncLandingConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     refreshAllData();
@@ -695,6 +733,31 @@ export default function App() {
     return (
       <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-200 text-sm" role="status">
         {sessionRestoreError ? <div>{t('session_unavailable','Session verification is temporarily unavailable. Please retry.')} <button type="button" onClick={()=>setSessionAttempt(attempt=>attempt+1)} className="underline">{t('ui.Retry','Retry')}</button></div> : t('session_restoring', 'Restoring secure session...')}
+      </div>
+    );
+  }
+
+  if (currentRole === 'landing' && !landingConfigReady) {
+    return (
+      <div className="min-h-screen bg-stone-100 text-stone-900">
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+          <div className="animate-pulse rounded-3xl border border-stone-200 bg-white/80 shadow-sm">
+            <div className="h-20 w-full rounded-t-3xl bg-stone-200" />
+            <div className="grid gap-6 p-6 md:grid-cols-[1.2fr_0.8fr] md:p-10">
+              <div className="space-y-4">
+                <div className="h-5 w-32 rounded-full bg-stone-200" />
+                <div className="h-14 w-3/4 rounded-xl bg-stone-200" />
+                <div className="h-4 w-full rounded bg-stone-200" />
+                <div className="h-4 w-5/6 rounded bg-stone-200" />
+                <div className="flex gap-3 pt-4">
+                  <div className="h-12 w-36 rounded-lg bg-stone-200" />
+                  <div className="h-12 w-28 rounded-lg bg-stone-200" />
+                </div>
+              </div>
+              <div className="h-80 rounded-2xl bg-stone-200" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
