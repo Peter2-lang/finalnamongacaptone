@@ -41,10 +41,12 @@ test('four role profiles authorize scoped reads through the real middleware',asy
 });
 test('agent writes and focal administrative and cross-barangay operations are denied',async()=>{
  role='admin';assert.equal((await request('/api/settings','PUT',{key:'api_configuration',value:{}})).status,403);
+ assert.equal((await request('/api/swine-records/record','DELETE')).status,403,'admin needs an explicit permanent-delete grant');
  role='agent';
  for(const [path,method,body] of [['/api/swine-records','POST',{}],['/api/swine-records/record','PUT',{}],['/api/swine-records/record','DELETE',undefined],['/api/swine-records/import','POST',{records:[{}]}],['/api/messages','POST',{body:'Unauthorized broadcast'}]] as const){
   assert.equal((await request(path,method,body)).status,403,`${method} ${path}`);
  }
+ assert.equal((await request('/api/swine-records/record/archive','PATCH',{isArchived:true})).status,403,'agent archive');
  role='focal';
  assert.equal((await request('/api/swine-records?barangay=Bugho')).status,403);
  assert.equal((await request('/api/barangays','POST',{})).status,403);

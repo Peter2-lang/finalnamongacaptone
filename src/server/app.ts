@@ -3,13 +3,14 @@ import { answerAssistant, type Generate } from './assistantEngine.ts';
 import type { ASFRegulatoryDocument } from '../types.ts';
 import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
 import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
-import { persistSwineImportBatch } from '../db/swine.ts';
+import { persistSwineImportBatch, permanentlyDeleteArchivedSwineRecord, SwinePermanentDeleteError, wasSwinePermanentlyDeleted } from '../db/swine.ts';
 import { farmerIdentity } from '../utils/farmerIdentity.ts';
 import { authorizeMessagePayload } from './messageAuthorization.ts';
 import { normalizeBiosecurityAudits, scopeBiosecurityItems } from './biosecurityValidation.ts';
 import { CLOUD_ITEM_KEYS, mutateModuleItem, visibleModuleItems } from './moduleItems.ts';
 import { assertImmutableSwineIdentity, validateSwineMutation } from './swineMutationValidation.ts';
 import { resolveSwineReadFilters, agentMayReadSwine } from './swineReadScope.ts';
+import { canArchiveSwineRecord, canPermanentlyDeleteSwineRecord } from './swineArchivePermissions.ts';
 import { hasVerifiableSourceAttachment, isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
 import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
@@ -20,10 +21,9 @@ import { HINUNANGAN_BARANGAYS } from '../data/barangays.ts';
 import {
   getAllSwineRecords,
   getSwineRecordById,
+  setSwineArchiveStatus,
   upsertSwineRecord,
   batchUpsertSwineRecords,
-  deleteSwineRecordById,
-  deleteSwineRecordsByIds,
   getNextAuthoritativePigIdTag,
 } from '../db/swine.ts';
 import { archiveCertificateByControlNumber, getAllCertificates, getCertificateByIdOrControlNumber, upsertCertificate } from '../db/certificates.ts';
@@ -377,7 +377,19 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const isAgent = role === 'agent';
     const isFocal = role === 'focal';
     const isAuthenticated = role !== 'guest';
-    return { role, barangayId, assignedBarangay, userId, username, isSuperAdmin, isAdmin, isAgent, isFocal, isAuthenticated };
+    return {
+      role,
+      barangayId,
+      assignedBarangay,
+      userId,
+      username,
+      permissions: authenticatedUser?.permissions || [],
+      isSuperAdmin,
+      isAdmin,
+      isAgent,
+      isFocal,
+      isAuthenticated,
+    };
   }
 
   async function validateCertificateSwineSelection(
@@ -1556,6 +1568,10 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     if (!record || typeof record !== 'object') {
       return res.status(400).json({ success: false, error: 'Invalid record payload' });
     }
+    if (record.isArchived === true) {
+      return res.status(400).json({ success: false, error: 'New records must be active. Use the authorized archive action after registration.' });
+    }
+    record.isArchived = false;
 
     const { farmerContact, pigIdTag, earTagNo, birthDate } = record;
     if (!record.farmerName?.trim() || (!user.isFocal && !record.barangay?.trim())) {
@@ -1714,6 +1730,9 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       if (!existing) {
         return res.status(404).json({ success: false, error: 'Swine record not found.' });
       }
+      if (Object.hasOwn(record, 'isArchived') && record.isArchived !== existing.isArchived) {
+        return res.status(400).json({ success: false, error: 'Use the authorized archive or restore action to change archive status.' });
+      }
 
       if (user.isFocal) {
         if (existing.barangay && existing.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
@@ -1798,21 +1817,63 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   app.patch('/api/swine-records/:id/sell', handleToggleSell);
   app.patch('/api/swine/:id/sell', handleToggleSell);
 
-  // Delete Swine Record API (Admin only)
+  const handleSetSwineArchiveStatus = async (req: express.Request, res: express.Response) => {
+    const user = getUserSecurityContext(req);
+    const { id } = req.params;
+    const { isArchived } = req.body || {};
+    if (user.isAgent || !user.isAuthenticated) {
+      return res.status(403).json({ success: false, error: 'Your role cannot archive or restore swine records.' });
+    }
+    if (user.isFocal && !user.assignedBarangay) {
+      return res.status(403).json({ success: false, error: 'Your account has no assigned barangay.' });
+    }
+    if (typeof isArchived !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'isArchived must be a boolean.' });
+    }
+
+    try {
+      const existing = await getSwineRecordById(id);
+      if (!existing) return res.status(404).json({ success: false, error: 'Swine record not found.' });
+      if (!canArchiveSwineRecord(user, existing, isArchived)) {
+        return res.status(403).json({ success: false, error: 'You are not authorized to archive or restore this record.' });
+      }
+
+      const saved = await setSwineArchiveStatus(existing.id, isArchived);
+      if (!saved) return res.status(404).json({ success: false, error: 'Swine record no longer exists.' });
+      return res.json({ success: true, data: saved, record: saved });
+    } catch (err: any) {
+      console.error('Error changing swine archive status:', err);
+      return res.status(500).json({ success: false, error: 'Unable to save the swine archive status.' });
+    }
+  };
+
+  app.patch('/api/swine-records/:id/archive', handleSetSwineArchiveStatus);
+  app.patch('/api/swine/:id/archive', handleSetSwineArchiveStatus);
+
+  // Permanent deletion is only available for archived records with an explicit grant.
   const handleDeleteSwine = async (req: express.Request, res: express.Response) => {
     const user = getUserSecurityContext(req);
-    if (!user.isAdmin) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Only administrators can delete swine records.' });
+    if (!canPermanentlyDeleteSwineRecord(user)) {
+      return res.status(403).json({ success: false, error: 'Permanent deletion requires an explicit administrator permission.' });
     }
     const { id } = req.params;
     try {
-      await deleteSwineRecordById(id);
+      await permanentlyDeleteArchivedSwineRecord(id, user.userId);
       return res.json({ success: true, message: 'Swine record deleted successfully.' });
     } catch (err: any) {
+      if (err instanceof SwinePermanentDeleteError) {
+        return res.status(err.status).json({ success: false, error: err.message });
+      }
+      if (err?.code === '23503') {
+        return res.status(409).json({
+          success: false,
+          error: 'The database rejected deletion because a retained relationship or audit actor reference would be invalid.',
+        });
+      }
       console.error('Error deleting swine record:', err);
       return res.status(500).json({
         success: false,
-        error: 'Unable to connect to the Swine Registry database. Please check the backend connection.',
+        error: 'Unable to safely delete the archived swine record or write its audit event.',
       });
     }
   };
@@ -1820,26 +1881,12 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   app.delete('/api/swine-records/:id', handleDeleteSwine);
   app.delete('/api/swine/:id', handleDeleteSwine);
 
-  // Bulk Delete Swine Records API (Admin only)
-  const handleBulkDeleteSwine = async (req: express.Request, res: express.Response) => {
-    const user = getUserSecurityContext(req);
-    if (!user.isAdmin) {
-      return res.status(403).json({ success: false, error: 'Access Denied: Only administrators can delete swine records.' });
-    }
-    const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or empty IDs list.' });
-    }
-    try {
-      const deletedCount = await deleteSwineRecordsByIds(ids);
-      return res.json({ success: true, deletedCount });
-    } catch (err: any) {
-      console.error('Error bulk deleting swine records:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Unable to connect to the Swine Registry database. Please check the backend connection.',
-      });
-    }
+  // Bulk hard deletion is intentionally disabled; records must be individually confirmed.
+  const handleBulkDeleteSwine = async (_req: express.Request, res: express.Response) => {
+    return res.status(410).json({
+      success: false,
+      error: 'Bulk permanent deletion is disabled. Archive records or permanently delete one archived record at a time.',
+    });
   };
 
   app.post('/api/swine-records/bulk-delete', handleBulkDeleteSwine);
@@ -3474,14 +3521,24 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
               results.push({ clientOperationId, entityId, success: false, error: 'Invalid swine record payload.' });
               continue;
             }
+            if (payload.isArchived === true) {
+              results.push({ clientOperationId, entityId, success: false, error: 'Offline creates cannot create archived records.' });
+              continue;
+            }
             if (user.isFocal && payload.barangay && payload.barangay.trim().toLowerCase() !== user.assignedBarangay.toLowerCase()) {
               results.push({ clientOperationId, entityId, success: false, error: 'Record is outside your assigned barangay.' });
               continue;
             }
-            const replay = await getSwineRecordById(uuidForSyncOperation(`${user.userId}:${clientOperationId}`));
+            const authoritativeId = uuidForSyncOperation(`${user.userId}:${clientOperationId}`);
+            const replay = await getSwineRecordById(authoritativeId);
             if (replay) {
               resolvedSwineIds.set(originalEntityId, replay.id);
               results.push({ clientOperationId, entityId, serverEntityId: replay.id, serverPigId: replay.pigIdTag, success: true });
+              continue;
+            }
+            if (await wasSwinePermanentlyDeleted(authoritativeId)) {
+              resolvedSwineIds.set(originalEntityId, authoritativeId);
+              results.push({ clientOperationId, entityId, serverEntityId: authoritativeId, success: true });
               continue;
             }
             let tag = (payload.pigIdTag || payload.earTagNo || '').trim();
@@ -3498,7 +3555,7 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
 
             const cleanRecord = {
               ...payload,
-              id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
+              id: authoritativeId,
               pigIdTag: tag,
               earTagNo: tag,
               registeredBy: payload.registeredBy || user.username,
@@ -3515,9 +3572,23 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
             });
           } else if (operation === 'update') {
             const existing = await getSwineRecordById(entityId);
-            if (!existing || (user.isFocal && existing.barangay.toLowerCase() !== user.assignedBarangay.toLowerCase()) ||
+            if (!existing) {
+              results.push({ clientOperationId, entityId, success: true });
+              continue;
+            }
+            if ((user.isFocal && existing.barangay.toLowerCase() !== user.assignedBarangay.toLowerCase()) ||
                 (user.isFocal && payload?.barangay && payload.barangay.toLowerCase() !== user.assignedBarangay.toLowerCase())) {
               results.push({ clientOperationId, entityId, success: false, error: 'Record is outside your assigned barangay or no longer exists.' });
+              continue;
+            }
+            if (payload && typeof payload === 'object' &&
+                Object.hasOwn(payload, 'isArchived') && payload.isArchived !== existing.isArchived) {
+              results.push({
+                clientOperationId,
+                entityId,
+                success: false,
+                error: 'Use an authorized archive or restore operation to change archive status.',
+              });
               continue;
             }
             const patch = entityId !== originalEntityId
@@ -3538,24 +3609,54 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
               success: true,
             });
           } else if (operation === 'delete') {
-            if (user.isAdmin) {
-              await deleteSwineRecordById(entityId);
+            const existing = await getSwineRecordById(entityId);
+            if (!existing) {
               results.push({ clientOperationId, entityId, success: true });
-            } else {
+              continue;
+            }
+            if (!canArchiveSwineRecord(user, existing, true)) {
               results.push({
                 clientOperationId,
                 entityId,
                 success: false,
-                error: 'Only administrators can delete swine records.',
+                error: 'The queued removal was not synchronized because this account cannot archive the record.',
               });
+              continue;
             }
-          } else if (operation === 'sell' || operation === 'archive') {
+            const archived = existing.isArchived ? existing : await setSwineArchiveStatus(existing.id, true);
+            if (!archived) {
+              results.push({ clientOperationId, entityId, success: false, error: 'Record no longer exists.' });
+              continue;
+            }
+            results.push({ clientOperationId, entityId, serverEntityId: archived.id, success: true });
+          } else if (operation === 'archive') {
+            const existing = await getSwineRecordById(entityId);
+            if (!existing) {
+              results.push({ clientOperationId, entityId, success: true });
+              continue;
+            }
+            if (typeof payload?.isArchived !== 'boolean') {
+              results.push({ clientOperationId, entityId, success: false, error: 'Archive state is invalid.' });
+              continue;
+            }
+            if (!canArchiveSwineRecord(user, existing, payload.isArchived)) {
+              results.push({ clientOperationId, entityId, success: false, error: 'You are not authorized to archive or restore this record.' });
+              continue;
+            }
+            const updated = await setSwineArchiveStatus(existing.id, payload.isArchived);
+            if (!updated) {
+              results.push({ clientOperationId, entityId, success: false, error: 'Record no longer exists.' });
+              continue;
+            }
+            results.push({ clientOperationId, entityId, serverEntityId: updated.id, success: true });
+          } else if (operation === 'sell') {
             const existing = await getSwineRecordById(entityId);
             if (existing && (!user.isFocal || existing.barangay.toLowerCase() === user.assignedBarangay.toLowerCase())) {
               assertImmutableSwineIdentity(existing,payload||{});
               const updated = {
                 ...existing,
-                ...(operation==='sell'?{readyToSell:payload?.readyToSell,estimatedPricePhp:payload?.priceEstimate}: {isArchived:payload?.isArchived}),
+                readyToSell: payload?.readyToSell,
+                estimatedPricePhp: payload?.priceEstimate,
                 id: existing.id,
                 barangay: existing.barangay,
                 barangay_id: existing.barangay_id,

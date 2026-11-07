@@ -77,7 +77,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : 'all'
   );
 
-  const committedList = swineList.filter(s => s.isSynced === true);
+  const committedList = swineList.filter(s => s.isSynced === true || s.pendingArchiveSync === true);
   const pendingCount = swineList.filter(s=>s.isSynced === false).length;
   // Every chart/counter shares the same committed, authorized filter scope.
   const scopedList = committedList.filter(s => {

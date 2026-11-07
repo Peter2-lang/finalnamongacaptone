@@ -19,3 +19,15 @@ test('offline drafts, queued deletions, acknowledgement remapping and cloud merg
  assert.deepEqual(await indexedDbService.mergeCloudSwineRecords([{id:'server-1',isSynced:true}]),[]);
  assert.equal((await indexedDbService.getPendingSyncQueue()).length,2);
 });
+
+test('acknowledged archive changes clear the pending dashboard marker and retain archived state',async()=>{
+ await indexedDbService.clear('swineRecords');await indexedDbService.clear('syncQueue');
+ const record={id:'archive-1',isArchived:true,isSynced:false,pendingArchiveSync:true};
+ const queued=await indexedDbService.enqueueSyncItem('archive','swine',record.id,{isArchived:true},2,'owner',{record});
+ await indexedDbService.acknowledgeSwineOperation(queued);
+ const saved=await indexedDbService.get<any>('swineRecords',record.id);
+ assert.equal(saved.isArchived,true);
+ assert.equal(saved.pendingArchiveSync,false);
+ assert.equal(saved.isSynced,true);
+ assert.equal((await indexedDbService.getPendingSyncQueue()).length,0);
+});

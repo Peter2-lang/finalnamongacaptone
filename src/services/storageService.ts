@@ -292,10 +292,108 @@ export const storageService = {
     }
   },
 
+  async fetchAllVisibleSwineRecords(params?: { barangay?: string; search?: string; status?: string; readyToSell?: boolean; page?: number; perPage?: number }): Promise<{ records: SwineRecord[]; total: number }> {
+    if (this.isEffectiveOffline()) {
+      return this.fetchSwineRecords(params);
+    }
+    if (this.getCurrentUser()?.role === 'agent') {
+      return this.fetchSwineRecords(params);
+    }
+
+    const [active, archived] = await Promise.all([
+      this.fetchSwineRecords({ ...params, isArchived: false }),
+      this.fetchSwineRecords({ ...params, isArchived: true }),
+    ]);
+    const recordsById = new Map<string, SwineRecord>();
+    for (const record of [...active.records, ...archived.records]) {
+      recordsById.set(record.id, record);
+    }
+    const records = Array.from(recordsById.values());
+    this.saveSwineRecords(records);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: records }));
+    }
+    return { records, total: active.total + archived.total };
+  },
+
   saveSwineRecords(records: SwineRecord[]): void {
     setItem(STORAGE_KEYS.SWINE, records);
     if (typeof window !== 'undefined') {
       indexedDbService.putBatch('swineRecords', records).catch(() => {});
+    }
+  },
+
+  async setSwineArchived(id: string, isArchived: boolean): Promise<{ record: SwineRecord; pendingSync: boolean }> {
+    const existing = this.getSwineRecords().find(record => record.id === id);
+    if (!existing) throw new Error('Swine record is not available locally. Refresh the records list and try again.');
+
+    const updated: SwineRecord = {
+      ...existing,
+      isArchived,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (this.isEffectiveOffline()) {
+      const user = this.getCurrentUser();
+      if (!user) throw new Error('Sign in before creating offline archive changes.');
+      updated.isSynced = false;
+      updated.pendingArchiveSync = true;
+      await indexedDbService.enqueueSyncItem(
+        'archive',
+        'swine',
+        id,
+        { isArchived },
+        2,
+        user.authUserId || user.id,
+        { record: updated },
+      );
+      const records = this.getSwineRecords().map(record => record.id === id ? updated : record);
+      this.saveSwineRecords(records);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: records }));
+      }
+      return { record: updated, pendingSync: true };
+    }
+
+    const response = await fetch(`/api/swine-records/${encodeURIComponent(id)}/archive`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getSessionAuthorizationHeader() },
+      body: JSON.stringify({ isArchived }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || `Unable to ${isArchived ? 'archive' : 'restore'} the swine record (HTTP ${response.status}).`);
+    }
+
+    const saved: SwineRecord = { ...(result.data || result.record || updated), isSynced: true };
+    const records = this.getSwineRecords();
+    const index = records.findIndex(record => record.id === id);
+    if (index === -1) records.unshift(saved);
+    else records[index] = saved;
+    this.saveSwineRecords(records);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: records }));
+    }
+    return { record: saved, pendingSync: false };
+  },
+
+  async permanentlyDeleteSwineRecord(id: string): Promise<void> {
+    if (this.isEffectiveOffline()) {
+      throw new Error('Permanent deletion requires a live connection and cannot be queued offline.');
+    }
+    const response = await fetch(`/api/swine-records/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getSessionAuthorizationHeader(),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || `Unable to permanently delete the swine record (HTTP ${response.status}).`);
+    }
+
+    const records = this.getSwineRecords().filter(record => record.id !== id);
+    this.saveSwineRecords(records);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: records }));
     }
   },
 
@@ -445,120 +543,27 @@ export const storageService = {
   },
 
   async deleteSwineRecordCloud(id: string): Promise<boolean> {
-    const isOffline = this.isEffectiveOffline();
-    if (!isOffline && typeof fetch !== 'undefined') {
-      const res = await fetch(`/api/swine/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: {
-          ...getSessionAuthorizationHeader(),
-        },
-      });
-      if (!res.ok) {
-        let errMessage = `Delete failed (HTTP ${res.status})`;
-        try {
-          const json = await res.json();
-          if (json?.error) errMessage = json.error;
-        } catch {}
-        throw new Error(errMessage);
-      }
-    } else {
-      this.enqueueOfflineAction({
-        id: 'queue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-        action: 'delete',
-        entity: 'swine',
-        data: { id },
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const records = this.getSwineRecords();
-    const filtered = records.filter(r => r.id !== id);
-    this.saveSwineRecords(filtered);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: filtered }));
-    }
+    await this.setSwineArchived(id, true);
     return true;
   },
 
-  deleteSwineRecord(id: string): void {
-    this.deleteSwineRecordCloud(id).catch(err => {
-      console.warn('Cloud delete notice:', err.message);
-    });
+  async deleteSwineRecord(id: string): Promise<boolean> {
+    return this.deleteSwineRecordCloud(id);
   },
 
   async deleteSwineRecordsCloud(ids: string[]): Promise<boolean> {
     if (!ids || ids.length === 0) return true;
-    const isOffline = this.isEffectiveOffline();
-    if (!isOffline && typeof fetch !== 'undefined') {
-      const res = await fetch('/api/swine/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getSessionAuthorizationHeader(),
-        },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) {
-        let errMessage = `Bulk delete failed (HTTP ${res.status})`;
-        try {
-          const json = await res.json();
-          if (json?.error) errMessage = json.error;
-        } catch {}
-        throw new Error(errMessage);
-      }
-    } else {
-      ids.forEach(id => {
-        this.enqueueOfflineAction({
-          id: 'queue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          action: 'delete',
-          entity: 'swine',
-          data: { id },
-          timestamp: new Date().toISOString(),
-        });
-      });
-    }
-
-    const idSet = new Set(ids);
-    const records = this.getSwineRecords();
-    const filtered = records.filter(r => !idSet.has(r.id));
-    this.saveSwineRecords(filtered);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: filtered }));
-    }
+    await Promise.all(ids.map(id => this.setSwineArchived(id, true)));
     return true;
   },
 
-  deleteSwineRecords(ids: string[]): void {
-    this.deleteSwineRecordsCloud(ids).catch(err => {
-      console.warn('Cloud bulk delete notice:', err.message);
-    });
+  async deleteSwineRecords(ids: string[]): Promise<boolean> {
+    return this.deleteSwineRecordsCloud(ids);
   },
 
-  deleteAllSwineRecords(): void {
-    const allRecords = this.getSwineRecords();
-    const ids = allRecords.map(r => r.id);
-    this.saveSwineRecords([]);
-
-    if (this.isEffectiveOffline()) {
-      ids.forEach(id => {
-        this.enqueueOfflineAction({
-          id: 'queue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          action: 'delete',
-          entity: 'swine',
-          data: { id },
-          timestamp: new Date().toISOString(),
-        });
-      });
-    } else {
-      fetch('/api/swine/bulk-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getSessionAuthorizationHeader(),
-        },
-        body: JSON.stringify({ ids }),
-      }).catch(err => console.warn('Cloud SQL bulk delete sync notice:', err));
-    }
+  async deleteAllSwineRecords(): Promise<void> {
+    const activeRecords = this.getSwineRecords().filter(record => !record.isArchived);
+    await Promise.all(activeRecords.map(record => this.setSwineArchived(record.id, true)));
   },
 
   toggleSellStatus(id: string, readyToSell: boolean): void {
@@ -585,12 +590,11 @@ export const storageService = {
     }
   },
 
-  toggleArchiveStatus(id: string): void {
+  async toggleArchiveStatus(id: string): Promise<void> {
     const records = this.getSwineRecords();
     const item = records.find(r => r.id === id);
     if (item) {
-      item.isArchived = !item.isArchived;
-      this.updateSwineRecord(item);
+      await this.setSwineArchived(id, !item.isArchived);
     }
   },
 

@@ -394,7 +394,7 @@ export default function App() {
     }
 
     try {
-      const { records } = await storageService.fetchSwineRecords();
+      const { records } = await storageService.fetchAllVisibleSwineRecords();
       setSwineList(records);
     } catch {
       setSwineList(storageService.isEffectiveOffline() ? storageService.getSwineRecords() : []);

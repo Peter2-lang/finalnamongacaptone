@@ -153,6 +153,7 @@ export interface SwineRecord {
   registeredAt: string;
   updatedAt: string;
   isSynced?: boolean;
+  pendingArchiveSync?: boolean;
 }
 
 export interface FarmerSelection {

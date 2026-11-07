@@ -269,10 +269,15 @@ class IndexedDbService {
         const nextId = serverId || item.entityId;
         const remaining = (queueRequest.result as OfflineSyncQueueRecord[]).filter(entry => entry.id !== item.id);
         const hasNewerEdit = remaining.some(entry => entry.entity === 'swine' && (entry.entityId === item.entityId || entry.entityId === nextId));
+        const hasPendingArchive = remaining.some(entry =>
+          entry.entity === 'swine' &&
+          entry.operation === 'archive' &&
+          (entry.entityId === item.entityId || entry.entityId === nextId)
+        );
         const local = localRequest.result || remappedRequest.result;
         if (local) {
           records.put({ ...local, id: nextId, pigIdTag: serverPigId || local.pigIdTag,
-            earTagNo: serverPigId || local.earTagNo, isSynced: !hasNewerEdit });
+            earTagNo: serverPigId || local.earTagNo, isSynced: !hasNewerEdit, pendingArchiveSync: hasPendingArchive });
           if (nextId !== item.entityId) records.delete(item.entityId);
         }
         for (const entry of remaining) {

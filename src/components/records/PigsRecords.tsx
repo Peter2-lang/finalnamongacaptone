@@ -238,11 +238,24 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   // Modals & Selection
   const [viewingRecord, setViewingRecord] = useState<SwineRecord | null>(null);
   const [expandedFarmerKey, setExpandedFarmerKey] = useState<string | null>(null);
-  const [deleteConfirmRecord, setDeleteConfirmRecord] = useState<SwineRecord | null>(null);
+  const [archiveConfirmRecord, setArchiveConfirmRecord] = useState<SwineRecord | null>(null);
+  const [restoreConfirmRecord, setRestoreConfirmRecord] = useState<SwineRecord | null>(null);
+  const [permanentDeleteConfirmRecord, setPermanentDeleteConfirmRecord] = useState<SwineRecord | null>(null);
+  const [recordActionNotice, setRecordActionNotice] = useState<{ message: string; success: boolean } | null>(null);
+  const [isSavingRecordAction, setIsSavingRecordAction] = useState(false);
+  const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState('');
   const [printSingleRecord, setPrintSingleRecord] = useState<SwineRecord | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [bulkActionNotice, setBulkActionNotice] = useState<string>('');
+  const canArchiveRecords = currentRole === 'super_admin' ||
+    currentRole === 'admin' ||
+    (currentRole === 'focal' && currentUser?.permissions?.includes('swine_records.archive') === true);
+  const canRestoreRecords = currentRole === 'super_admin' ||
+    currentRole === 'admin' ||
+    (currentRole === 'focal' && currentUser?.permissions?.includes('swine_records.restore') === true);
+  const canPermanentlyDelete = currentRole === 'super_admin' ||
+    (currentRole === 'admin' && currentUser?.permissions?.includes('swine_records.permanent_delete') === true);
 
   // Database Connection & Query States
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
@@ -296,7 +309,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     setDbError(null);
 
     try {
-      const { total } = await storageService.fetchSwineRecords({
+      const { total } = await storageService.fetchAllVisibleSwineRecords({
         barangay: currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : undefined,
       });
       onRefresh();
@@ -335,6 +348,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       return changed ? next : prev;
     });
   }, [swineList]);
+
+  useEffect(() => {
+    setSelectedRecordIds(new Set());
+    setShowBulkDeleteModal(false);
+  }, [showArchived]);
 
   useEffect(() => {
     if (initialViewingRecordId) {
@@ -836,15 +854,67 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   }, [searchTerm, sortedRecords, farmerGroups, groupByKey, expandedFarmerKey]);
 
   // Handlers
-  const handleConfirmDelete = async () => {
-    if (!deleteConfirmRecord) return;
+  const handleConfirmArchive = async () => {
+    if (!archiveConfirmRecord) return;
+    setIsSavingRecordAction(true);
     try {
-      await storageService.deleteSwineRecordCloud(deleteConfirmRecord.id);
-    } catch (err: any) {
-      console.warn('Cloud delete notice:', err?.message || err);
+      const { pendingSync } = await storageService.setSwineArchived(archiveConfirmRecord.id, true);
+      setRecordActionNotice({
+        message: pendingSync ? 'Archive change queued and will sync when online.' : 'Swine record archived.',
+        success: true,
+      });
+      setArchiveConfirmRecord(null);
+      onRefresh();
+    } catch (error) {
+      setRecordActionNotice({
+        message: error instanceof Error ? error.message : 'Unable to archive this swine record.',
+        success: false,
+      });
+    } finally {
+      setIsSavingRecordAction(false);
     }
-    setDeleteConfirmRecord(null);
-    onRefresh();
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreConfirmRecord) return;
+    setIsSavingRecordAction(true);
+    try {
+      const { pendingSync } = await storageService.setSwineArchived(restoreConfirmRecord.id, false);
+      setRecordActionNotice({
+        message: pendingSync ? 'Restore change queued and will sync when online.' : 'Swine record restored.',
+        success: true,
+      });
+      setRestoreConfirmRecord(null);
+      onRefresh();
+    } catch (error) {
+      setRecordActionNotice({
+        message: error instanceof Error ? error.message : 'Unable to restore this swine record.',
+        success: false,
+      });
+    } finally {
+      setIsSavingRecordAction(false);
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!permanentDeleteConfirmRecord || !canPermanentlyDelete) return;
+    const tag = permanentDeleteConfirmRecord.pigIdTag || permanentDeleteConfirmRecord.earTagNo || permanentDeleteConfirmRecord.id;
+    if (permanentDeleteConfirmation.trim() !== tag) return;
+    setIsSavingRecordAction(true);
+    try {
+      await storageService.permanentlyDeleteSwineRecord(permanentDeleteConfirmRecord.id);
+      setPermanentDeleteConfirmRecord(null);
+      setPermanentDeleteConfirmation('');
+      setRecordActionNotice({ message: 'Archived swine record permanently deleted.', success: true });
+      onRefresh();
+    } catch (error) {
+      setRecordActionNotice({
+        message: error instanceof Error ? error.message : 'Unable to permanently delete this swine record.',
+        success: false,
+      });
+    } finally {
+      setIsSavingRecordAction(false);
+    }
   };
 
   // Bulk Selection & Deletion Helpers (Admin)
@@ -906,17 +976,23 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
   const handleConfirmBulkDelete = async () => {
     if (selectedRecordIds.size === 0) return;
-    const idsToDelete: string[] = Array.from(selectedRecordIds);
-    try {
-      await storageService.deleteSwineRecordsCloud(idsToDelete);
-    } catch (err: any) {
-      console.warn('Cloud bulk delete notice:', err?.message || err);
-    }
+    const selected = swineList.filter(record => selectedRecordIds.has(record.id) && !record.isArchived);
+    const results = await Promise.allSettled(selected.map(record => storageService.setSwineArchived(record.id, true)));
+    const archivedCount = results.filter(result => result.status === 'fulfilled').length;
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
     setSelectedRecordIds(new Set());
     setShowBulkDeleteModal(false);
-    setBulkActionNotice(
-      `Successfully deleted ${idsToDelete.length} swine record${idsToDelete.length === 1 ? '' : 's'}.`
-    );
+    if (failure) {
+      setRecordActionNotice({
+        message: `${archivedCount} record${archivedCount === 1 ? '' : 's'} archived; ${selected.length - archivedCount} failed. ${failure.reason instanceof Error ? failure.reason.message : 'Retry the failed records.'}`,
+        success: false,
+      });
+    } else {
+      const pendingCount = results.filter(result => result.status === 'fulfilled' && result.value.pendingSync).length;
+      setBulkActionNotice(pendingCount
+        ? `${archivedCount} record${archivedCount === 1 ? '' : 's'} queued for archive sync.`
+        : `${archivedCount} record${archivedCount === 1 ? '' : 's'} archived.`);
+    }
     onRefresh();
 
     setTimeout(() => {
@@ -939,9 +1015,9 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     onRefresh();
   };
 
-  const handleToggleArchive = (id: string) => {
-    storageService.toggleArchiveStatus(id);
-    onRefresh();
+  const handleToggleArchive = (record: SwineRecord) => {
+    if (record.isArchived) setRestoreConfirmRecord(record);
+    else setArchiveConfirmRecord(record);
   };
 
   const performRecordAction = (
@@ -966,8 +1042,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     else if (action === 'edit' && currentRole !== 'agent') onEditSwine(swine);
     else if (action === 'ready' && currentRole !== 'agent' && swine.status !== 'sold') handleToggleSell(swine);
     else if (action === 'sold' && currentRole !== 'agent' && swine.status !== 'sold') handleMarkSold(swine);
-    else if (action === 'archive' && currentRole !== 'agent') handleToggleArchive(swine.id);
-    else if (action === 'delete' && currentRole === 'admin') setDeleteConfirmRecord(swine);
+    else if (action === 'archive' && (swine.isArchived ? canRestoreRecords : canArchiveRecords)) handleToggleArchive(swine);
+    else if (action === 'delete' && canPermanentlyDelete && swine.isArchived) {
+      setPermanentDeleteConfirmation('');
+      setPermanentDeleteConfirmRecord(swine);
+    }
     setMobileActionMenuRecordId(null);
   };
 
@@ -979,7 +1058,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     return (
       <tr key={`${rowId}-farmer-swines`} id={panelId}>
         <td
-          colSpan={(currentRole === 'admin' ? 16 : 15) + customDynamicColumns.length}
+          colSpan={((currentRole === 'admin' && !showArchived) ? 16 : 15) + customDynamicColumns.length}
           className="border-b border-stone-200 bg-stone-50 px-5 py-3"
         >
           <div className="space-y-2">
@@ -1006,7 +1085,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   }`}
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    {currentRole === 'admin' && (
+                    {currentRole === 'admin' && !showArchived && (
                       <input
                         type="checkbox"
                         checked={selected}
@@ -1054,29 +1133,33 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           else if (action === 'edit' && currentRole !== 'agent') onEditSwine(record);
                           else if (action === 'ready' && currentRole !== 'agent' && record.status !== 'sold') handleToggleSell(record);
                           else if (action === 'sold' && currentRole !== 'agent' && record.status !== 'sold') handleMarkSold(record);
-                          else if (action === 'archive' && currentRole !== 'agent') handleToggleArchive(record.id);
-                          else if (action === 'delete' && currentRole === 'admin') setDeleteConfirmRecord(record);
+                          else if (action === 'archive' && (record.isArchived ? canRestoreRecords : canArchiveRecords)) handleToggleArchive(record);
+                          else if (action === 'delete' && canPermanentlyDelete && record.isArchived) {
+                            setPermanentDeleteConfirmation('');
+                            setPermanentDeleteConfirmRecord(record);
+                          }
                         }}
                         className="min-h-11 w-full max-w-44 rounded-lg border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-800 focus-visible:outline-2 focus-visible:outline-emerald-700"
                       >
                         <option value="" disabled>Record actions</option>
                         <optgroup label="Record">
                           <option value="view">View details</option>
-                          {currentRole !== 'agent' && <option value="edit">Edit record</option>}
+                          {!showArchived && currentRole !== 'agent' && <option value="edit">Edit record</option>}
                         </optgroup>
-                        {onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
                         <optgroup label="Documents">
                           <option value="print">Print swine record</option>
-                          <option value="certificate">Generate certificate</option>
+                          {!showArchived && <option value="certificate">Generate certificate</option>}
                         </optgroup>
-                        {currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
+                        {!showArchived && onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
+                        {!showArchived && currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
                           {record.status !== 'sold' && <>
                             <option value="ready">{record.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
                             <option value="sold">Mark as sold</option>
                           </>}
-                          <option value="archive">{record.isArchived ? 'Restore record' : 'Archive record'}</option>
+                          {canArchiveRecords && <option value="archive">Archive record</option>}
                         </optgroup>}
-                        {currentRole === 'admin' && <optgroup label="Destructive"><option value="delete">Delete record</option></optgroup>}
+                        {showArchived && canRestoreRecords && <optgroup label="Record Archives"><option value="archive">Restore record</option></optgroup>}
+                        {showArchived && canPermanentlyDelete && <optgroup label="Destructive"><option value="delete">Permanently delete record</option></optgroup>}
                       </select>
                     </div>
                   </div>
@@ -1490,16 +1573,16 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
           </details>
 
-          {/* Bulk Delete Button (Admin only, active when records selected) */}
-          {currentRole === 'admin' && selectedRecordIds.size > 0 && (
+          {/* Bulk archive is the safe default for removing active records. */}
+          {currentRole === 'admin' && !showArchived && selectedRecordIds.size > 0 && (
             <button
               type="button"
               onClick={() => setShowBulkDeleteModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm animate-fadeIn"
-              title={`Bulk delete ${selectedRecordIds.size} selected records`}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm animate-fadeIn"
+              title={`Archive ${selectedRecordIds.size} selected records`}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>{t('btn_bulk_delete', { count: selectedRecordIds.size }, `Bulk Delete (${selectedRecordIds.size})`)}</span>
+              <Archive className="w-3.5 h-3.5" />
+              <span>Bulk Archive ({selectedRecordIds.size})</span>
             </button>
           )}
         </div>
@@ -1941,7 +2024,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 onChange={e => setShowArchived(e.target.checked)}
                 className="w-3.5 h-3.5 text-emerald-600 rounded border-stone-300"
               />
-              <span>{t('records_archived', 'Archived Records')}</span>
+              <span>Record Archives</span>
             </label>
           </div>
         </div>
@@ -1994,7 +2077,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       </div>
 
       {/* Admin Bulk Selection Actions Banner */}
-      {currentRole === 'admin' && selectedRecordIds.size > 0 && (
+      {currentRole === 'admin' && !showArchived && selectedRecordIds.size > 0 && (
         <div className="bg-stone-900 text-white p-3.5 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md border border-stone-800 animate-fadeIn">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 font-black text-xs shrink-0">
@@ -2009,9 +2092,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   (out of {totalRecords} filtered)
                 </span>
               </div>
-              <p className="text-[11px] text-stone-400">
-                Admins can remove all selected swine records simultaneously after confirmation.
-              </p>
+              <p className="text-[11px] text-stone-400">Selected records can be archived without removing their history.</p>
             </div>
           </div>
 
@@ -2045,16 +2126,32 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <button
               type="button"
               onClick={() => setShowBulkDeleteModal(true)}
-              className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              className="px-4 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Bulk Delete ({selectedRecordIds.size})</span>
+              <Archive className="w-3.5 h-3.5" />
+              <span>Bulk Archive ({selectedRecordIds.size})</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Bulk Action / Deletion Success Notice */}
+      {recordActionNotice && (
+        <div
+          role={recordActionNotice.success ? 'status' : 'alert'}
+          className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${
+            recordActionNotice.success
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-red-200 bg-red-50 text-red-900'
+          }`}
+        >
+          <span>{recordActionNotice.message}</span>
+          <button type="button" onClick={() => setRecordActionNotice(null)} aria-label="Dismiss notification">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk archive feedback */}
       {bulkActionNotice && (
         <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-2 shadow-2xs animate-fadeIn">
           <div className="flex items-center gap-2 font-medium">
@@ -2072,8 +2169,15 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         </div>
       )}
 
+      {showArchived && (
+        <section aria-labelledby="record-archives-heading" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <h2 id="record-archives-heading" className="text-sm font-black text-amber-950">Record Archives</h2>
+          <p className="mt-1 text-xs text-amber-900">Archived records are excluded from active registry counts and GIS listings.</p>
+        </section>
+      )}
+
       {/* Phone card view shares the same filtered, grouped, and paginated records as the desktop table. */}
-      <section className="mobile-record-cards space-y-3" aria-label="Swine records">
+      <section className="mobile-record-cards space-y-3" aria-label={showArchived ? 'Record Archives' : 'Active swine records'}>
         {isLoadingDb && paginatedRecords.length === 0 ? (
           <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center text-sm text-stone-600">
             Loading swine records…
@@ -2094,24 +2198,30 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             : swine.computedIsReady
               ? t('records_ready_to_sell', 'Ready to Sell')
               : getStatusLabel(swine.status || 'active');
-          const menuActions: { action: SwineRecordAction; label: string; destructive?: boolean }[] = [
-            { action: 'view', label: 'View Details' },
-            ...(farmerKey ? [{ action: 'farmer' as const, label: 'View Farmer’s Swine' }] : []),
-            ...(currentRole !== 'agent' ? [{ action: 'edit' as const, label: 'Edit Record' }] : []),
-            ...(onViewOnMap ? [{ action: 'map' as const, label: 'View on GIS Map' }] : []),
-            { action: 'print', label: 'Print Swine Record' },
-            { action: 'certificate', label: 'Generate Certificate' },
-            ...(currentRole !== 'agent' && swine.status !== 'sold'
-              ? [
-                  { action: 'ready' as const, label: swine.readyToSell ? 'Remove Ready to Sell' : 'Mark Ready to Sell' },
-                  { action: 'sold' as const, label: 'Mark as Sold' },
-                ]
-              : []),
-            ...(currentRole !== 'agent'
-              ? [{ action: 'archive' as const, label: swine.isArchived ? 'Restore Record' : 'Archive Record' }]
-              : []),
-            ...(currentRole === 'admin' ? [{ action: 'delete' as const, label: 'Delete Record', destructive: true }] : []),
-          ];
+          const menuActions: { action: SwineRecordAction; label: string; destructive?: boolean }[] = showArchived
+            ? [
+                { action: 'view', label: 'View Details' },
+                { action: 'print', label: 'Print Swine Record' },
+                ...(canRestoreRecords ? [{ action: 'archive' as const, label: 'Restore Record' }] : []),
+                ...(canPermanentlyDelete
+                  ? [{ action: 'delete' as const, label: 'Permanently Delete', destructive: true }]
+                  : []),
+              ]
+            : [
+                { action: 'view', label: 'View Details' },
+                ...(farmerKey ? [{ action: 'farmer' as const, label: 'View Farmer’s Swine' }] : []),
+                ...(currentRole !== 'agent' ? [{ action: 'edit' as const, label: 'Edit Record' }] : []),
+                ...(onViewOnMap ? [{ action: 'map' as const, label: 'View on GIS Map' }] : []),
+                { action: 'print', label: 'Print Swine Record' },
+                { action: 'certificate', label: 'Generate Certificate' },
+                ...(currentRole !== 'agent' && swine.status !== 'sold'
+                  ? [
+                      { action: 'ready' as const, label: swine.readyToSell ? 'Remove Ready to Sell' : 'Mark Ready to Sell' },
+                      { action: 'sold' as const, label: 'Mark as Sold' },
+                    ]
+                  : []),
+                ...(canArchiveRecords ? [{ action: 'archive' as const, label: 'Archive Record' }] : []),
+              ];
 
           return (
             <article
@@ -2120,7 +2230,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               className="relative rounded-2xl border border-stone-200 bg-white p-4 shadow-xs"
             >
               <div className="flex min-w-0 items-start gap-2.5">
-                {currentRole === 'admin' && (
+                {currentRole === 'admin' && !showArchived && (
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -2335,7 +2445,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <thead className="bg-stone-100/90 text-stone-700 font-bold border-b border-stone-200 uppercase tracking-wider text-[10px]">
               <tr>
                 {/* Column 0: Checkbox Selector (Admin Only) */}
-                {currentRole === 'admin' && (
+                {currentRole === 'admin' && !showArchived && (
                   <th className="py-3.5 px-3 w-10 min-w-[40px] max-w-[40px] text-center sticky left-0 bg-stone-100/95 z-20 border-r border-stone-200 shadow-2xs">
                     <input
                       type="checkbox"
@@ -2356,7 +2466,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 {/* Column 1: Pig ID Tag (Sticky Left, Read-only) */}
                 <th
                   className={`py-3.5 px-4 sticky ${
-                    currentRole === 'admin' ? 'left-10' : 'left-0'
+                    currentRole === 'admin' && !showArchived ? 'left-10' : 'left-0'
                   } bg-stone-100/95 z-10 border-r border-stone-200 shadow-2xs cursor-pointer hover:bg-stone-200/50`}
                   onClick={() => {
                     setSortFieldKey('pigIdTag');
@@ -2598,7 +2708,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <tbody className="divide-y divide-stone-200">
               {isLoadingDb && paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={(currentRole === 'admin' ? 16 : 15) + customDynamicColumns.length} className="py-20 text-center">
+                  <td colSpan={((currentRole === 'admin' && !showArchived) ? 16 : 15) + customDynamicColumns.length} className="py-20 text-center">
                     <div className="max-w-md mx-auto space-y-3 px-4">
                       <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
                       <h4 className="font-bold text-stone-900 text-sm">{t('loading_records', 'Loading swine records...')}</h4>
@@ -2608,7 +2718,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 </tr>
               ) : dbError && paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={(currentRole === 'admin' ? 16 : 15) + customDynamicColumns.length} className="py-16 text-center">
+                  <td colSpan={((currentRole === 'admin' && !showArchived) ? 16 : 15) + customDynamicColumns.length} className="py-16 text-center">
                     <div className="max-w-md mx-auto space-y-3 px-4 bg-rose-50 border border-rose-200 rounded-2xl p-6">
                       <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center mx-auto">
                         <AlertTriangle className="w-6 h-6" />
@@ -2631,7 +2741,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 </tr>
               ) : paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={(currentRole === 'admin' ? 16 : 15) + customDynamicColumns.length} className="py-16 text-center">
+                  <td colSpan={((currentRole === 'admin' && !showArchived) ? 16 : 15) + customDynamicColumns.length} className="py-16 text-center">
                     {swineList.length === 0 && !searchTerm.trim() ? (
                       <div className="max-w-md mx-auto space-y-3 px-4">
                         <div className="w-14 h-14 rounded-3xl bg-stone-100 text-stone-400 border border-stone-200 flex items-center justify-center mx-auto">
@@ -2727,7 +2837,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       }`}
                     >
                     {/* Column 0: Checkbox Selector (Admin Only) */}
-                    {currentRole === 'admin' && (
+                    {currentRole === 'admin' && !showArchived && (
                       <td
                         className={`py-3 px-3 text-center sticky left-0 z-20 border-r border-stone-200 w-10 min-w-[40px] max-w-[40px] ${
                           isSelected
@@ -2753,7 +2863,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     {/* Column 1: Pig ID Tag (Immutable Read-only) */}
                     <td
                       className={`py-3 px-4 sticky ${
-                        currentRole === 'admin' ? 'left-10' : 'left-0'
+                        currentRole === 'admin' && !showArchived ? 'left-10' : 'left-0'
                       } z-10 border-r border-stone-200 ${
                         isSelected
                           ? 'bg-amber-50/95 group-hover:bg-amber-100/90'
@@ -3000,30 +3110,34 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           else if (action === 'edit' && currentRole !== 'agent') onEditSwine(swine);
                           else if (action === 'ready' && currentRole !== 'agent' && swine.status !== 'sold') handleToggleSell(swine);
                           else if (action === 'sold' && currentRole !== 'agent' && swine.status !== 'sold') handleMarkSold(swine);
-                          else if (action === 'archive' && currentRole !== 'agent') handleToggleArchive(swine.id);
-                          else if (action === 'delete' && currentRole === 'admin') setDeleteConfirmRecord(swine);
+                          else if (action === 'archive' && (swine.isArchived ? canRestoreRecords : canArchiveRecords)) handleToggleArchive(swine);
+                          else if (action === 'delete' && canPermanentlyDelete && swine.isArchived) {
+                            setPermanentDeleteConfirmation('');
+                            setPermanentDeleteConfirmRecord(swine);
+                          }
                         }}
                         className="min-h-11 w-full max-w-36 rounded-lg border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-800 focus-visible:outline-2 focus-visible:outline-emerald-700"
                       >
                         <option value="" disabled>{translateInterfaceText("Actions")}</option>
                         <optgroup label="Record">
                           <option value="view">View details</option>
-                          <option value="farmer">View farmer&apos;s swine</option>
-                          {currentRole !== 'agent' && <option value="edit">Edit record</option>}
+                          {!showArchived && <option value="farmer">View farmer&apos;s swine</option>}
+                          {!showArchived && currentRole !== 'agent' && <option value="edit">Edit record</option>}
                         </optgroup>
-                        {onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
+                        {!showArchived && onViewOnMap && <optgroup label="Location"><option value="map">View on GIS map</option></optgroup>}
                         <optgroup label="Documents">
                           <option value="print">Print swine record</option>
-                          <option value="certificate">Generate certificate</option>
+                          {!showArchived && <option value="certificate">Generate certificate</option>}
                         </optgroup>
-                        {currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
+                        {!showArchived && currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
                           {swine.status !== 'sold' && <>
                             <option value="ready">{swine.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
                             <option value="sold">Mark as sold</option>
                           </>}
-                          <option value="archive">{swine.isArchived ? 'Restore record' : 'Archive record'}</option>
+                          {canArchiveRecords && <option value="archive">Archive record</option>}
                         </optgroup>}
-                        {currentRole === 'admin' && <optgroup label="Destructive"><option value="delete">Delete record</option></optgroup>}
+                        {showArchived && canRestoreRecords && <optgroup label="Record Archives"><option value="archive">Restore record</option></optgroup>}
+                        {showArchived && canPermanentlyDelete && <optgroup label="Destructive"><option value="delete">Permanently delete record</option></optgroup>}
                       </select>
                     </td>
                     </tr>
@@ -3045,7 +3159,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <span>
                 {t('pagination_page', 'Page')} <strong>{validCurrentPage}</strong> {t('pagination_of', 'of')} <strong>{totalPages}</strong> ({totalFarmerGroups} farmers · {totalRecords} {t('records_total_heads', 'records')})
               </span>
-              {currentRole === 'admin' && selectedRecordIds.size > 0 && (
+              {currentRole === 'admin' && !showArchived && selectedRecordIds.size > 0 && (
                 <span className="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[11px]">
                   {t('records_selected_count', { count: selectedRecordIds.size }, `${selectedRecordIds.size} selected`)}
                 </span>
@@ -3320,7 +3434,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               </span>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {onViewOnMap && (
+                {onViewOnMap && !viewingRecord.isArchived && (
                   <button
                     type="button"
                     onClick={() => {
@@ -3346,7 +3460,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   <Printer className="w-3.5 h-3.5" /> Print Record
                 </button>
 
-                {currentRole !== 'agent' && (
+                {currentRole !== 'agent' && !viewingRecord.isArchived && (
                   <button
                     type="button"
                     onClick={() => {
@@ -3356,10 +3470,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     }}
                     className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
                   >
-                    <Edit className="w-3.5 h-3.5" /><InterfaceText source="Edit Record" /></button>
+                    <Edit className="w-3.5 h-3.5" /><InterfaceText source="Edit Record" />
+                  </button>
                 )}
 
-                <button
+                {!viewingRecord.isArchived && <button
                   type="button"
                   onClick={() => {
                     const rec = viewingRecord;
@@ -3368,51 +3483,87 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   }}
                   className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer text-xs"
                 >
-                  <FileText className="w-3.5 h-3.5" /><InterfaceText source="Issue Certificate" /></button>
+                  <FileText className="w-3.5 h-3.5" /><InterfaceText source="Issue Certificate" />
+                </button>}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ===================== DELETE CONFIRMATION MODAL ===================== */}
-      {deleteConfirmRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 mx-auto">
-              <Trash2 className="w-6 h-6" />
+      {archiveConfirmRecord && (
+        <div role="dialog" aria-modal="true" aria-labelledby="archive-record-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md space-y-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800"><Archive className="h-6 w-6" /></div>
+            <div className="text-center">
+              <h3 id="archive-record-title" className="font-black text-stone-900">Archive this swine record?</h3>
+              <p className="mt-1 text-xs text-stone-600">The record and its history will be preserved and removed from active counts.</p>
             </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-black text-stone-900">Delete Swine Record?</h3>
-              <p className="text-xs text-stone-500 font-medium">
-                This action is permanent and cannot be undone.
-              </p>
+            <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3 text-center">
+              <p className="font-mono text-sm font-black text-stone-900">{archiveConfirmRecord.pigIdTag || archiveConfirmRecord.earTagNo || archiveConfirmRecord.id}</p>
+              <p className="text-xs font-semibold text-stone-700">{archiveConfirmRecord.farmerName}</p>
+              <p className="text-[11px] text-stone-500">Brgy. {archiveConfirmRecord.barangay}</p>
             </div>
-
-            <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-center space-y-1">
-              <div className="font-mono font-black text-sm text-stone-900">
-                🔒 {deleteConfirmRecord.pigIdTag || deleteConfirmRecord.earTagNo}
-              </div>
-              <div className="text-xs font-bold text-stone-700">
-                {deleteConfirmRecord.farmerName}
-              </div>
-              <div className="text-[11px] text-stone-500">
-                Brgy. {deleteConfirmRecord.barangay}
-              </div>
+            <div className="flex gap-3">
+              <button type="button" disabled={isSavingRecordAction} onClick={() => setArchiveConfirmRecord(null)} className="flex-1 rounded-xl border border-stone-300 py-2 text-xs font-bold text-stone-700 disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmArchive} className="flex-1 rounded-xl bg-amber-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Archive record'}</button>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center gap-3 pt-2">
+      {restoreConfirmRecord && (
+        <div role="dialog" aria-modal="true" aria-labelledby="restore-record-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md space-y-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800"><ArchiveRestore className="h-6 w-6" /></div>
+            <div className="text-center">
+              <h3 id="restore-record-title" className="font-black text-stone-900">Restore this swine record?</h3>
+              <p className="mt-1 text-xs text-stone-600">It will return to active records and current dashboard/GIS data.</p>
+            </div>
+            <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3 text-center">
+              <p className="font-mono text-sm font-black text-stone-900">{restoreConfirmRecord.pigIdTag || restoreConfirmRecord.earTagNo || restoreConfirmRecord.id}</p>
+              <p className="text-xs font-semibold text-stone-700">{restoreConfirmRecord.farmerName}</p>
+              <p className="text-[11px] text-stone-500">Brgy. {restoreConfirmRecord.barangay}</p>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" disabled={isSavingRecordAction} onClick={() => setRestoreConfirmRecord(null)} className="flex-1 rounded-xl border border-stone-300 py-2 text-xs font-bold text-stone-700 disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={isSavingRecordAction} onClick={handleConfirmRestore} className="flex-1 rounded-xl bg-emerald-700 py-2 text-xs font-bold text-white disabled:opacity-50">{isSavingRecordAction ? 'Saving…' : 'Restore record'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {permanentDeleteConfirmRecord && canPermanentlyDelete && (
+        <div role="alertdialog" aria-modal="true" aria-labelledby="permanent-delete-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md space-y-4 rounded-3xl border border-red-200 bg-white p-6 shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-700"><Trash2 className="h-6 w-6" /></div>
+            <div className="text-center">
+              <h3 id="permanent-delete-title" className="font-black text-red-900">Permanently delete this archived record?</h3>
+              <p className="mt-1 text-xs font-semibold text-red-800">This cannot be undone. Related certificates, references, or audit history may prevent deletion.</p>
+            </div>
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-center">
+              <p className="font-mono text-sm font-black text-stone-900">{permanentDeleteConfirmRecord.pigIdTag || permanentDeleteConfirmRecord.earTagNo || permanentDeleteConfirmRecord.id}</p>
+              <p className="text-xs font-semibold text-stone-700">{permanentDeleteConfirmRecord.farmerName}</p>
+              <p className="text-[11px] text-stone-500">Brgy. {permanentDeleteConfirmRecord.barangay}</p>
+            </div>
+            <label className="block text-xs font-semibold text-stone-700">
+              Type <span className="font-mono">{permanentDeleteConfirmRecord.pigIdTag || permanentDeleteConfirmRecord.earTagNo || permanentDeleteConfirmRecord.id}</span> to confirm
+              <input
+                autoComplete="off"
+                value={permanentDeleteConfirmation}
+                onChange={event => setPermanentDeleteConfirmation(event.target.value)}
+                className="mt-1 min-h-11 w-full rounded-xl border border-stone-300 px-3 font-mono"
+              />
+            </label>
+            {storageService.isEffectiveOffline() && <p className="text-xs font-semibold text-red-800">Permanent deletion requires an active internet connection and cannot be queued offline.</p>}
+            <div className="flex gap-3">
+              <button type="button" disabled={isSavingRecordAction} onClick={() => { setPermanentDeleteConfirmRecord(null); setPermanentDeleteConfirmation(''); }} className="flex-1 rounded-xl border border-stone-300 py-2 text-xs font-bold text-stone-700 disabled:opacity-50">Cancel</button>
               <button
                 type="button"
-                onClick={() => setDeleteConfirmRecord(null)}
-                className="flex-1 py-2 rounded-xl border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 transition cursor-pointer text-xs"
-              ><InterfaceText source="Cancel" /></button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition cursor-pointer text-xs shadow-sm"
-              ><InterfaceText source="Delete" /></button>
+                disabled={isSavingRecordAction || storageService.isEffectiveOffline() || permanentDeleteConfirmation.trim() !== (permanentDeleteConfirmRecord.pigIdTag || permanentDeleteConfirmRecord.earTagNo || permanentDeleteConfirmRecord.id)}
+                onClick={handleConfirmPermanentDelete}
+                className="flex-1 rounded-xl bg-red-700 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >{isSavingRecordAction ? 'Deleting…' : 'Permanently delete'}</button>
             </div>
           </div>
         </div>
@@ -3427,26 +3578,23 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-lg font-black text-stone-900">
-                Bulk Delete Swine Records?
-              </h3>
+              <h3 className="text-lg font-black text-stone-900">Bulk Archive Swine Records?</h3>
               <p className="text-xs text-stone-500 font-medium">
-                You are about to permanently remove{' '}
+                You are about to archive{' '}
                 <strong className="text-red-700 font-bold">
                   {selectedRecordIds.size}{" "}<InterfaceText source="swine" />{" "}{selectedRecordIds.size === 1 ? translateInterfaceText("record") : translateInterfaceText("records")}
                 </strong>{' '}
-                from the Hinunangan database.
+                from active registry lists. Their registration details and history will be preserved.
               </p>
             </div>
 
-            {/* Warning Callout Box */}
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-3.5 text-xs space-y-1 text-red-900">
-              <div className="flex items-center gap-1.5 font-bold text-red-800">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>Permanent Irreversible Action</span>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs space-y-1 text-amber-900">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
+                <span>Records can be restored later</span>
               </div>
-              <p className="text-[11px] text-red-700 leading-relaxed">
-                This action cannot be undone. All selected swine registrations, ear tags, computed metrics, and audit entries will be permanently erased.
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                This removes the selected swine from active counts and GIS listings. No farmer or swine data will be permanently erased.
               </p>
             </div>
 
@@ -3492,10 +3640,10 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmBulkDelete}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition cursor-pointer text-xs shadow-sm flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold transition cursor-pointer text-xs shadow-sm flex items-center justify-center gap-1.5"
               >
-                <Trash2 className="w-4 h-4" />
-                <span><InterfaceText source="Delete" />{" "}{selectedRecordIds.size} Records</span>
+                <Archive className="w-4 h-4" />
+                <span>Archive {selectedRecordIds.size} Records</span>
               </button>
             </div>
           </div>

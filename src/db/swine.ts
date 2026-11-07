@@ -1253,6 +1253,21 @@ export async function batchUpsertSwineRecords(
   }
 }
 
+export async function setSwineArchiveStatus(id: string, isArchived: boolean): Promise<SwineRecord | null> {
+  if (!UUID_REGEX.test(id)) {
+    throw new Error('A valid swine record ID is required to change archive status.');
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE public.swine_records SET is_archived = $1 WHERE id = $2::uuid RETURNING *',
+      [isArchived, id],
+    );
+    return result.rows[0] ? mapDbToSwine(result.rows[0]) : null;
+  } catch (error: any) {
+    throw createDatabaseError('archive status update', error);
+  }
+}
+
 /**
  * Delete one swine record.
  * Delete one swine record by UUID or Pig ID.
@@ -1287,6 +1302,168 @@ export async function deleteSwineRecordById(
       error
     );
   }
+}
+
+export class SwinePermanentDeleteError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'SwinePermanentDeleteError';
+  }
+}
+
+function quotePostgresIdentifier(identifier: string): string {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+/**
+ * Permanently remove an archived swine only when no retained records reference it.
+ * The delete and its audit event commit atomically.
+ */
+export async function permanentlyDeleteArchivedSwineRecord(
+  id: string,
+  actorId: string,
+): Promise<void> {
+  if (!UUID_REGEX.test(id)) {
+    throw new SwinePermanentDeleteError('A valid swine record ID is required.', 400);
+  }
+  if (!UUID_REGEX.test(actorId)) {
+    throw new SwinePermanentDeleteError('A verified actor ID is required for the audit event.', 403);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query<{
+      id: string;
+      barangay_id: string | null;
+      is_archived: boolean;
+      old_data: Record<string, unknown>;
+    }>(
+      `SELECT sr.id, sr.barangay_id, sr.is_archived, to_jsonb(sr) AS old_data
+       FROM public.swine_records sr
+       WHERE sr.id = $1::uuid
+       FOR UPDATE`,
+      [id],
+    );
+    const record = found.rows[0];
+    if (!record) throw new SwinePermanentDeleteError('Swine record not found.', 404);
+    if (!record.is_archived) {
+      throw new SwinePermanentDeleteError('Archive this record before permanently deleting it.', 409);
+    }
+
+    const foreignKeyReferences = await client.query<{
+      table_schema: string;
+      table_name: string;
+      column_name: string;
+    }>(
+      `SELECT DISTINCT ns.nspname AS table_schema, tbl.relname AS table_name, col.attname AS column_name
+       FROM pg_constraint fk
+       JOIN pg_class tbl ON tbl.oid = fk.conrelid
+       JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+       JOIN LATERAL unnest(fk.conkey) WITH ORDINALITY AS local_key(attnum, position) ON true
+       JOIN LATERAL unnest(fk.confkey) WITH ORDINALITY AS remote_key(attnum, position)
+         ON remote_key.position = local_key.position
+       JOIN pg_attribute col ON col.attrelid = tbl.oid AND col.attnum = local_key.attnum
+       JOIN pg_attribute remote_col ON remote_col.attrelid = fk.confrelid AND remote_col.attnum = remote_key.attnum
+       WHERE fk.contype = 'f'
+         AND fk.confrelid = 'public.swine_records'::regclass
+         AND remote_col.attname = 'id'
+         AND tbl.oid <> fk.confrelid`,
+    );
+
+    const references = new Map<string, {
+      table_schema: string;
+      table_name: string;
+      column_name: string;
+      has_related_table?: boolean;
+    }>();
+    for (const reference of foreignKeyReferences.rows) {
+      references.set(`${reference.table_schema}.${reference.table_name}.${reference.column_name}`, reference);
+    }
+
+    const legacyReferences = await client.query<{
+      table_schema: string;
+      table_name: string;
+      column_name: string;
+      has_related_table: boolean;
+    }>(
+      `SELECT source.table_schema, source.table_name, source.column_name,
+              EXISTS (
+                SELECT 1 FROM information_schema.columns discriminator
+                WHERE discriminator.table_schema = source.table_schema
+                  AND discriminator.table_name = source.table_name
+                  AND discriminator.column_name = 'related_table'
+              ) AS has_related_table
+       FROM information_schema.columns source
+       WHERE source.table_schema = 'public'
+         AND source.table_name <> 'swine_records'
+         AND source.table_name <> 'audit_logs'
+         AND source.column_name IN ('swine_id', 'swine_record_id', 'pig_id_tag', 'related_record_id')`,
+    );
+    for (const reference of legacyReferences.rows) {
+      references.set(`${reference.table_schema}.${reference.table_name}.${reference.column_name}`, reference);
+    }
+
+    const tagValues = [
+      id,
+      record.old_data.pig_id_tag,
+      record.old_data.computed_pig_id,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+    for (const reference of references.values()) {
+      const table = `${quotePostgresIdentifier(reference.table_schema)}.${quotePostgresIdentifier(reference.table_name)}`;
+      const column = quotePostgresIdentifier(reference.column_name);
+      const isPrintedDocumentReference = reference.table_name === 'printed_documents' &&
+        reference.column_name === 'related_record_id' &&
+        reference.has_related_table;
+      const printedDocumentScope = isPrintedDocumentReference
+        ? ` AND related_table = 'swine_records'`
+        : '';
+      const dependent = await client.query(
+        `SELECT 1 FROM ${table} WHERE ${column}::text = ANY($1::text[])${printedDocumentScope} LIMIT 1`,
+        [tagValues],
+      );
+      if (dependent.rowCount) {
+        throw new SwinePermanentDeleteError(
+          `This archived record is still referenced by ${reference.table_name}; retain it in Record Archives.`,
+          409,
+        );
+      }
+    }
+
+    await client.query(
+      `INSERT INTO public.audit_logs
+         (user_id, barangay_id, action, table_name, record_id, old_data, new_data, created_at)
+       VALUES ($1::uuid, $2::uuid, 'permanent_delete', 'swine_records', $3::uuid,
+         $4::jsonb, jsonb_build_object('deleted', true, 'actor_id', $1::text, 'record_id', $3::text,
+           'deleted_at', now()), now())`,
+      [actorId, record.barangay_id, id, JSON.stringify(record.old_data)],
+    );
+    const deleted = await client.query('DELETE FROM public.swine_records WHERE id = $1::uuid', [id]);
+    if (deleted.rowCount !== 1) {
+      throw new SwinePermanentDeleteError('Swine record was not deleted; refresh and try again.', 409);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function wasSwinePermanentlyDeleted(id: string): Promise<boolean> {
+  if (!UUID_REGEX.test(id)) return false;
+  const result = await pool.query(
+    `SELECT 1
+     FROM public.audit_logs
+     WHERE table_name = 'swine_records'
+       AND action = 'permanent_delete'
+       AND record_id = $1::uuid
+     LIMIT 1`,
+    [id],
+  );
+  return Boolean(result.rowCount);
 }
 
 /**
