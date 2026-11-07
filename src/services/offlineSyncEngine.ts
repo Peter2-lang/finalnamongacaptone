@@ -1,5 +1,7 @@
 import { requireSyncAuthorization, assertQueueOwnership } from './syncAuthorization.ts';
 import { getConnectivityState } from './connectivityState.ts';
+import { supabase } from '../lib/supabase.ts';
+import { getSyncSessionToken } from './syncAuth.ts';
 import { createBackendHealthCheck } from './backendHealth.ts';
 /**
  * Central Offline Synchronization Engine
@@ -65,6 +67,11 @@ export class OfflineSyncEngine {
       }
       this.broadcastStatus();
     }).catch(() => {});
+
+    // Retry saved offline operations when a verified user profile is set.
+    window.addEventListener('da_auth_profile_changed', () => {
+      if (storageService.getCurrentUser()) void this.checkConnectivityAndAutoSync('profile_signed_in');
+    });
 
     // Listen to browser network events
     window.addEventListener('online', () => {
@@ -198,6 +205,16 @@ export class OfflineSyncEngine {
       if (pending.length > 0) {
         await this.syncNow();
       } else {
+        // When there is nothing to sync, stop showing an old sign-in warning.
+        // Verify the current session before clearing an authenticated user's
+        // previous error; no offline data is touched.
+        if (!storageService.getCurrentUser()) this.lastError = null;
+        else if (this.lastError) {
+          try {
+            await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
+            this.lastError = null;
+          } catch { /* Preserve a real authorization failure until sign-in. */ }
+        }
         this.syncState = this.lastError ? 'ERROR' : this.lastSyncedAt ? 'SYNCED' : 'ONLINE';
         this.broadcastStatus(0);
       }
