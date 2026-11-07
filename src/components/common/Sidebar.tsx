@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isAgent = currentRole === 'agent' || currentUser?.role === 'agent';
   const isSuperAdmin = currentRole === 'super_admin' || currentUser?.role === 'super_admin';
-  const isAdmin = currentRole === 'admin' || currentUser?.role === 'admin';
+  const isAdmin = currentRole === 'admin' || currentUser?.role === 'admin' || isSuperAdmin;
 
   const pageLinks = isAgent
     ? [{ id: 'ready_to_sell', label: t('nav_ready_to_sell') }, { id: 'messages', label: t('nav_messages') }, { id: 'account', label: t('nav_my_account') }]

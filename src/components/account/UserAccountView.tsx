@@ -117,7 +117,8 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
   };
 
   const isFocal = currentUser?.role === 'focal';
-  const isAdmin = currentUser?.role === 'admin';
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
   const isAgent = currentUser?.role === 'agent';
 
   return (
@@ -128,6 +129,8 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
           <div className={`w-20 h-20 rounded-2xl text-white font-black text-3xl flex items-center justify-center shadow-md shrink-0 ${
             isFocal
               ? 'bg-gradient-to-br from-emerald-700 to-teal-900'
+              : isSuperAdmin
+              ? 'bg-gradient-to-br from-rose-700 to-red-900'
               : isAdmin
               ? 'bg-gradient-to-br from-blue-700 to-indigo-900'
               : 'bg-gradient-to-br from-amber-600 to-amber-800'
@@ -143,6 +146,8 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
                 isFocal
                   ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : isSuperAdmin
+                  ? 'bg-rose-100 text-rose-900 border-rose-300'
                   : isAdmin
                   ? 'bg-blue-100 text-blue-900 border-blue-300'
                   : 'bg-amber-100 text-amber-900 border-amber-300'
@@ -150,6 +155,8 @@ export const UserAccountView: React.FC<UserAccountViewProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5" />
                 {isFocal
                   ? 'Barangay Agricultural Focal Person'
+                  : isSuperAdmin
+                  ? 'Regional / Super Administrator'
                   : isAdmin
                   ? 'System Administrator / MAO Officer'
                   : 'Accredited Livestock Agent / Trader'}
