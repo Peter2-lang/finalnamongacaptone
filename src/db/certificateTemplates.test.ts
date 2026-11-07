@@ -78,11 +78,12 @@ const client = {
     if (text.includes('SELECT id FROM public.barangays')) {
       return { rows: [{ id: 'barangay-ambacon' }] };
     }
-    if (text.includes('SELECT barangay_id, updated_at FROM public.certificate_templates')) {
+    if (text.includes('SELECT barangay_id, updated_at, template_data FROM public.certificate_templates')) {
       return {
         rows: rows.filter(row => row.code === values[0]).map(row => ({
           barangay_id: row.barangay_id,
           updated_at: row.updated_at,
+          template_data: row.template_data,
         })),
       };
     }
@@ -142,6 +143,27 @@ const updatedTemplate = await saveCertificateTemplate({ ...fullTemplate, name: '
 });
 assert.equal(updatedTemplate.id, fullTemplate.id, 'updates retain the persistent template code');
 assert.equal(updatedTemplate.name, 'Updated certification', 'updates return the persisted template values');
+assert.equal(updatedTemplate.templateVersions?.length, 1, 'template updates retain the prior version for review');
+const importedDraft = await saveCertificateTemplate({
+  ...fullTemplate,
+  id: 'imported-draft',
+  reviewStatus: 'draft',
+  isActive: true,
+  sourceDocument: {
+    fileName: 'certificate.pdf',
+    mimeType: 'application/pdf',
+    storagePath: 'shared/certificate-imports/123e4567-e89b-12d3-a456-426614174000-certificate.pdf',
+    fileSize: 1024,
+    uploadedAt: now,
+  },
+}, {
+  role: 'admin',
+  assignedBarangay: '',
+  isAdmin: true,
+});
+assert.equal(importedDraft.isActive, false, 'a draft import cannot be persisted as issuance-ready');
+assert.equal(importedDraft.reviewStatus, 'draft', 'import review state persists with the template');
+assert.equal(importedDraft.sourceDocument?.url, undefined, 'signed source preview URLs are not persisted');
 rows = rows.map(row => row.code === fullTemplate.id
   ? { ...row, updated_at: '2026-01-02T00:00:00.000Z' }
   : row);
@@ -168,52 +190,14 @@ assert.equal(
 );
 
 const focalTemplate = { ...fullTemplate, id: 'focal-template', barangay: 'Ambacon' };
-const savedFocalTemplate = await saveCertificateTemplate(focalTemplate, {
-  role: 'focal',
-  assignedBarangay: 'Ambacon',
-  isAdmin: false,
-});
-assert.equal(savedFocalTemplate.id, focalTemplate.id, 'allows an assigned focal person to save a barangay template');
 await assert.rejects(
-  saveCertificateTemplate({ ...focalTemplate, id: 'outside-template', barangay: 'Bugho' }, {
+  saveCertificateTemplate(focalTemplate, {
     role: 'focal',
     assignedBarangay: 'Ambacon',
     isAdmin: false,
   }),
-  /assigned barangay/,
-  'rejects a focal person creating a template for another barangay',
-);
-await assert.rejects(
-  saveCertificateTemplate({
-    ...focalTemplate,
-    id: 'outside-logo-template',
-    logos: [{
-      id: 'restricted-logo',
-      type: 'custom',
-      position: 'left',
-      customUrl: 'https://example.invalid/restricted.png',
-      storagePath: 'barangays/bugho/certificate-assets/logo.png',
-      widthPx: 70,
-      heightPx: 70,
-      order: 1,
-      visible: true,
-    }],
-  }, {
-    role: 'focal',
-    assignedBarangay: 'Ambacon',
-    isAdmin: false,
-  }),
-  /assigned barangay/,
-  'rejects a focal person attaching another barangay private image to a template',
-);
-await assert.rejects(
-  saveCertificateTemplate({ ...fullTemplate, id: 'new-template-id', barangay: 'Ambacon' }, {
-    role: 'focal',
-    assignedBarangay: 'Ambacon',
-    isAdmin: false,
-  }),
-  /shared template or a template belonging to another barangay/,
-  'rejects a focal person editing a shared template',
+  /Only administrators can manage certificate templates/,
+  'focal users cannot create or edit templates',
 );
 rows = [];
 assert.deepEqual(await getCertificateTemplates(), [], 'returns a genuine empty list when the query succeeds with no rows');
@@ -230,6 +214,7 @@ const schemaDefinition = [
   readFileSync(new URL('../../supabase/migrations/008_certificate_templates_runtime_schema.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../../supabase/migrations/010_repair_certificate_template_runtime_column.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../../supabase/migrations/011_certificate_template_assets_and_schema_repair.sql', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../supabase/migrations/014_admin_managed_certificate_templates.sql', import.meta.url), 'utf8'),
 ].join('\n');
 for (const column of ['code', 'name', 'template_body', 'css_styles', 'template_data', 'is_active', 'is_archived', 'created_at', 'updated_at']) {
   assert.match(schemaDefinition, new RegExp(`\\b${column}\\b`), `migrations define queried template column ${column}`);
@@ -244,6 +229,13 @@ assert.match(repairMigration, /current_app_role\(\) = 'focal'/i);
 assert.match(repairMigration, /INSERT INTO storage\.buckets[\s\S]*?VALUES \('certificates', 'certificates', FALSE\)/i);
 assert.match(repairMigration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.certificate_templates/i);
 assert.doesNotMatch(repairMigration, /DROP TABLE|TRUNCATE|DELETE FROM public\.certificate_templates/i);
+const templatePermissionsMigration = readFileSync(
+  new URL('../../supabase/migrations/014_admin_managed_certificate_templates.sql', import.meta.url),
+  'utf8',
+);
+assert.match(templatePermissionsMigration, /DROP POLICY IF EXISTS certificate_templates_focal_insert_assigned/i);
+assert.match(templatePermissionsMigration, /DROP POLICY IF EXISTS certificate_templates_focal_update_assigned/i);
+assert.match(templatePermissionsMigration, /DROP POLICY IF EXISTS certificate_templates_focal_delete_assigned/i);
 
 templateQueryError = Object.assign(new Error('column ct.template_data does not exist'), { code: '42703' });
 await assert.rejects(

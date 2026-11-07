@@ -1,0 +1,19 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test tests/browser/gis-regression.spec.ts --grep swine markers
+
+[WebServer] (node:42913) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:43092) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:43162) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › tests/browser/gis-regression.spec.ts:95:1 › GIS swine markers open popup without edit or coordinate selection (4.8s)
+(node:43507) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [mobile] › tests/browser/gis-regression.spec.ts:95:1 › GIS swine markers open popup without edit or coordinate selection (4.2s)
+
+  2 passed (21.5s)

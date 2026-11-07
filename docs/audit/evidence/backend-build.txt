@@ -1,0 +1,13 @@
+
+> hinunangan-swine-registry@1.0.0 build:backend
+> node scripts/build-backend.mjs
+
+
+  build/server.cjs      985.7kb
+  build/server.cjs.map    1.8mb
+
+⚡ Done in 220ms
+
+  build/vercel.cjs  985.0kb
+
+⚡ Done in 187ms

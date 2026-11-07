@@ -1,4 +1,4 @@
-import { uploadImageDirect } from './directUpload.ts';
+import { uploadCertificateTemplateSourceDirect, uploadImageDirect } from './directUpload.ts';
 import {
   Barangay,
   CertificateTemplate,
@@ -162,7 +162,10 @@ export const authApi = {
       console.warn('[AUTH] browser_supabase_client_unavailable');
       return null;
     }
+    const unavailable = () => Object.assign(new Error('Session verification is temporarily unavailable. Please retry.'),{retryable:true});
+    const transient = (error:{status?:number;name?:string}) => !error.status || error.status >= 500 || error.status === 429 || error.name === 'AuthRetryableFetchError';
     const { data, error } = await supabase.auth.getSession();
+    if (error && transient(error)) throw unavailable();
     if (error || !data.session) {
       console.info('[AUTH] session_restore_check', { sessionExists: false });
       return null;
@@ -174,11 +177,12 @@ export const authApi = {
       userExists: Boolean(userData.user),
       userId: userData.user?.id || null,
     });
+    if (userError && transient(userError)) throw unavailable();
     if (userError || !userData.user || userData.user.id !== data.session.user.id) {
       storageService.setSessionToken(null);
       return null;
     }
-    const res = await fetch('/api/auth/profile', { headers: getAuthHeaders() });
+    const res = await fetch('/api/auth/profile', { headers: getAuthHeaders(), signal: AbortSignal.timeout(25000) });
     const result = await res.json().catch(() => null);
     if (!res.ok || !result?.success) {
       console.warn('[AUTH] session_restore_profile_rejected', {
@@ -186,9 +190,10 @@ export const authApi = {
         status: res.status,
         profileFound: false,
       });
+      if (res.status !== 401 && res.status !== 403) throw unavailable();
       await supabase.auth.signOut();
       storageService.setSessionToken(null);
-      throw new Error(result?.error || 'Unable to load the current database profile.');
+      return null;
     }
     console.info('[AUTH] session_restore_profile_authorized', {
       userId: userData.user.id,
@@ -615,6 +620,10 @@ export const mediaApi = {
       throw new Error(data?.error || 'Unable to upload certificate image to private Supabase Storage.');
     }
     return data.data;
+  },
+
+  async uploadCertificateTemplateSource(file: File): Promise<{ filePath: string; fileUrl: string; fileSize: number }> {
+    return uploadCertificateTemplateSourceDirect(file);
   },
 
   async delete(id: string): Promise<boolean> {

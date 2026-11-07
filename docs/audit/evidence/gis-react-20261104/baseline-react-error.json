@@ -1,0 +1,7 @@
+[
+  {
+    "message": "Rendered more hooks than during the previous render.",
+    "stack": "Error: Rendered more hooks than during the previous render.\n    at updateWorkInProgressHook (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:6058:19)\n    at updateEffectImpl (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:6688:20)\n    at Object.useEffect (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:20695:11)\n    at exports.useEffect (http://127.0.0.1:4184/node_modules/.vite/deps/chunk-K5TXI62Y.js?v=c2d376d0:948:36)\n    at ImportSwineModal (http://127.0.0.1:4184/src/components/records/ImportSwineModal.tsx:247:3)\n    at Object.react_stack_bottom_frame (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:20259:20)\n    at renderWithHooks (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:5918:24)\n    at updateFunctionComponent (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:7763:21)\n    at beginWork (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:8843:20)\n    at runWithFiberInDEV (http://127.0.0.1:4184/node_modules/.vite/deps/react-dom_client.js?v=a14c51e4:1133:72)",
+    "name": "Error"
+  }
+]

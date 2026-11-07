@@ -3,6 +3,8 @@ import {
   computeBarangayGisMetrics,
   generateHeatmapPoints,
   getHeatmapColor,
+  filterSwineForHeatmap,
+  findBarangayContainingPoint,
   HeatmapMode,
 } from './gisCalculations';
 import { SwineRecord, Barangay } from '../types';
@@ -166,8 +168,8 @@ if (ambaconMetric) {
     `Ambacon has non-GPS swine correctly associated with polygon (${ambaconMetric.swineWithoutGps})`
   );
   assert(
-    ambaconMetric.populationClass === 'high',
-    'Population category uses registered swine count rather than farmer count'
+    ambaconMetric.populationClass === 'very_low',
+    'Population category follows the configured low-count range for registered swine'
   );
 }
 assert(
@@ -213,5 +215,40 @@ const highColor = getHeatmapColor(0.85);
 assert(lowColor.startsWith('rgba('), 'Low intensity renders rgba color');
 assert(midColor.startsWith('rgba('), 'Medium intensity renders rgba color');
 assert(highColor.startsWith('rgba('), 'High intensity renders rgba color');
+
+assert(filterSwineByAuthorization(mockTestSwineRecords, 'focal', undefined).length === 0,
+  'An unassigned focal person receives no GIS records');
+assert(filterSwineByAuthorization([
+  ...mockTestSwineRecords,
+  {...mockTestSwineRecords[0], id: 'missing-barangay', barangay: ''},
+], 'focal', '   ').length === 0,
+  'A blank focal assignment cannot expose records with a missing barangay');
+assert(filterSwineByAuthorization([
+  {...mockTestSwineRecords[0], readyToSell: true, isArchived: false},
+  {...mockTestSwineRecords[0], readyToSell: false, isArchived: false},
+  {...mockTestSwineRecords[0], readyToSell: true, isArchived: true},
+], 'agent', undefined).length === 1,
+  'Agents receive only ready, nonarchived GIS records');
+
+assert(findBarangayContainingPoint(10.401804141, 125.18452409) === 'Ambacon',
+  'Official polygon lookup resolves a coordinate within Ambacon');
+assert(findBarangayContainingPoint(0, 0) === undefined,
+  'Coordinates outside all configured barangay boundaries are rejected');
+const classificationRecords = [
+  {...mockTestSwineRecords[0], id: 'class-piglet', swineType: 'PIGLET', status: 'healthy', readyToSell: false, isArchived: false},
+  {...mockTestSwineRecords[0], id: 'class-grower', swineType: 'fatten_grower', status: 'healthy', readyToSell: true, isArchived: false},
+  {...mockTestSwineRecords[0], id: 'class-sold', swineType: 'piglet', status: 'sold', readyToSell: false, isArchived: false},
+  {...mockTestSwineRecords[0], id: 'class-archived', swineType: 'boar', status: 'healthy', readyToSell: false, isArchived: true},
+] as SwineRecord[];
+assert(filterSwineForHeatmap(classificationRecords, ['piglet'], false).map(r => r.id).join() === 'class-piglet',
+  'Piglet heatmap excludes sold and archived rows');
+assert(filterSwineForHeatmap(classificationRecords, null, true).map(r => r.id).join() === 'class-grower',
+  'Ready-to-sell heatmap uses actual ready status and active records');
+assert(computeBarangayGisMetrics([], Array.from({length: 11}, (_, index) => ({
+  ...mockTestSwineRecords[0], id: `range-${index}`, barangay: 'Ambacon', status: 'healthy', isArchived: false,
+}))).find(metric => metric.barangayName === 'Ambacon')?.populationClass === 'low',
+  'Eleven active swine are classified in the 11–30 intensity band');
+assert(generateHeatmapPoints(computeBarangayGisMetrics([], []), 'swine_density').points.length === 0,
+  'Zero-record barangays do not create artificial heatmap hotspots');
 
 console.log('\n🎉 ALL GIS MAP AND ACCESS CONTROL TESTS PASSED SUCCESSFULLY!\n');

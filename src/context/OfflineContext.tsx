@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { storageService } from '../services/storageService';
-import { offlineSyncEngine, SyncEngineStatus, SyncState } from '../services/offlineSyncEngine';
+import { offlineSyncEngine, CloudConnectionState, SyncEngineStatus, SyncState } from '../services/offlineSyncEngine';
 import { indexedDbService, OfflineSyncQueueRecord } from '../services/indexedDbService';
 
 export interface OfflineContextValue {
   isOnline: boolean;
   isBrowserOnline: boolean;
   isBackendReachable: boolean;
+  connectionStatus: CloudConnectionState;
   isSimulatedOffline: boolean;
   syncState: SyncState;
   pendingQueueCount: number;
@@ -118,6 +119,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isOnline: !isSimulatedOffline && status.isOnline,
     isBrowserOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     isBackendReachable: status.isBackendReachable,
+    connectionStatus: status.connectionStatus,
     isSimulatedOffline,
     syncState: isSimulatedOffline ? ('OFFLINE' as SyncState) : (status.state as SyncState),
     pendingQueueCount,
@@ -144,6 +146,7 @@ export const useOffline = (): OfflineContextValue => {
       isOnline: !isSimulated && st.isOnline,
       isBrowserOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
       isBackendReachable: st.isBackendReachable,
+      connectionStatus: st.connectionStatus,
       isSimulatedOffline: isSimulated,
       syncState: isSimulated ? ('OFFLINE' as SyncState) : (st.state as SyncState),
       pendingQueueCount: 0,

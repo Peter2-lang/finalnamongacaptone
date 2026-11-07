@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Phone, Mail, MapPin, Clock, ShieldAlert, Image as ImageIcon } from 'lucide-react';
 import { LandingCmsConfig } from '../../../../types/landingCms';
@@ -21,15 +22,15 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-stone-100">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Title</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Title" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.contactTitleColor || '#064e3b'}
                   onChange={e => onChange({ contactTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -42,15 +43,15 @@ export const ContactTab: React.FC<ContactTabProps> = ({ config, onChange, onOpen
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Subtitle</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Subtitle" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.contactSubtitleColor || '#78716c'}
                   onChange={e => onChange({ contactSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>

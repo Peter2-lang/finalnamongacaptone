@@ -1,0 +1,776 @@
+[
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 230,
+    "source": "Left Logo",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 240,
+    "source": "Republic of the Philippines",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 242,
+    "source": "PROVINCE OF SOUTHERN LEYTE",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 244,
+    "source": "Municipality of Hinunangan",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 246,
+    "source": "BARANGAY",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 333,
+    "source": "Right Logo",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 351,
+    "source": "Barangay Certification",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 356,
+    "source": "OFFICE OF THE PUNONG BARANGAY",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 359,
+    "source": "BARANGAY CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 365,
+    "source": "OFFICE OF THE PUNONG BARANGAY",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 368,
+    "source": "BARANGAY CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 373,
+    "source": "BARANGAY LIVESTOCK CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 384,
+    "source": "TO WHOM IT MAY CONCERN:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 387,
+    "source": "This is to certify that",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 391,
+    "source": "is a bonifide resident of Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 391,
+    "source": ", Hinunangan, Southern Leyte.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 394,
+    "source": "This certifies further that",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 398,
+    "source": "owned",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 400,
+    "source": "heads pigs sold to",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 400,
+    "source": "of",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 406,
+    "source": "price ₱{arg0} per kilo.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 409,
+    "source": "THIS CERTIFICATION is being issued upon the request of the below-named for whatever any legal purpose it may serve best.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 413,
+    "source": "Issued this",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 413,
+    "source": "day of",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 417,
+    "source": "at Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 417,
+    "source": ", Hinunangan, Southern Leyte, Philippines.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 426,
+    "source": "KINI NAGPAMATUOD NGA:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 429,
+    "source": "Ako si",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 433,
+    "source": "nagpuyo sa Bgy.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 433,
+    "source": ", Hinunangan, Southern Leyte, nag BALIGYA og (",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 435,
+    "source": ") ka Baboy ngadto ni",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 436,
+    "source": ", nga taga",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 437,
+    "source": ", sa kantidad nga (",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 441,
+    "source": "Kini nga mga Baboy nag edad og",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 443,
+    "source": "ka Bajie og",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 444,
+    "source": "ka Buok, og ang mga kulor niini,",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 445,
+    "source": ", si",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 446,
+    "source": ", ang legal nga tag-iya.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 450,
+    "source": "Gihimo ning ika",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 450,
+    "source": ", nga petsa sa bulan sa",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 454,
+    "source": "dinhi sa Opisina sa Punong Barangay sa",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 454,
+    "source": ", Hinunangan, So. Leyte.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 463,
+    "source": "TO WHOM IT MAY CONCERN:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 466,
+    "source": "THIS IS TO CERTIFY that",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 470,
+    "source": "a bonifide resident of Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 470,
+    "source": ", Hinunangan, Southern Leyte.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 473,
+    "source": "FURTHER CERTIFY that the above-named person Owned",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 474,
+    "source": "Pigs",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 474,
+    "source": "and to be sold to",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 478,
+    "source": "This certification is being issued to support for transporting this",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 479,
+    "source": "pigs",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 479,
+    "source": "from Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 479,
+    "source": ", Hinunangan Southern Leyte to",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 483,
+    "source": "Issued this",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 483,
+    "source": "Day",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 483,
+    "source": "of",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 490,
+    "source": "Note: This certification is not valid without official seal.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 499,
+    "source": "TO ALL CONCERNED QUARANTINE & CHECKPOINT OFFICERS:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 502,
+    "source": "THIS IS TO OFFICIALLY CERTIFY that the livestock holding belonging to",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 506,
+    "source": "of Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 506,
+    "source": ", Hinunangan, Southern Leyte has been inspected by the Municipal Agriculture Office and verified to be compliant with national biosecurity standards, ASF-free zone clearances, and veterinary ante-mortem protocols.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 512,
+    "source": "Permission is hereby granted for the live dispatch and transport of",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 513,
+    "source": "head(s) of swine",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 513,
+    "source": "to",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 514,
+    "source": "destined for",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 518,
+    "source": "Issued this",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 518,
+    "source": "day of",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 522,
+    "source": "at Hinunangan, Southern Leyte, Philippines.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 537,
+    "source": "Punong Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 546,
+    "source": "BBO",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 555,
+    "source": "FARMER/OWNER",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 569,
+    "source": "Hing palit sa Baboy",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 578,
+    "source": "Nagbaligya/Tag-iya sa Baboy",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 586,
+    "source": "Noted by:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 591,
+    "source": "Barangay Bio Officer",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 598,
+    "source": "Certified by:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 604,
+    "source": "Punong Barangay",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 614,
+    "source": "Official Dry Seal",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 618,
+    "source": "BY:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 623,
+    "source": "Punong Brgy",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 636,
+    "source": "Livestock Inspector / BBO",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 645,
+    "source": "Punong Barangay / Authorized Official",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 658,
+    "source": "Official Receipt Paid:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 661,
+    "source": "Issued on:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 663,
+    "source": "Issued at:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 663,
+    "source": "{arg0}, Hinunangan, Southern Leyte",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 671,
+    "source": "Issued On :",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 673,
+    "source": "Issued At :",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 674,
+    "source": "Bgy. {arg0}, Hinunangan, So. Leyte.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 681,
+    "source": "Doc Ref:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/BarangayCertificateView.tsx",
+    "line": 683,
+    "source": "LGU Hinunangan • DA Swine Registry System",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 90,
+    "source": "Official Seal",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 143,
+    "source": "Digital Signature",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 238,
+    "source": "Official Dry Seal",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 301,
+    "source": "Template preview — not an issued certificate",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 329,
+    "source": "Watermark",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 366,
+    "source": "Republic of the Philippines",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 369,
+    "source": "Province of Southern Leyte",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 372,
+    "source": "MUNICIPALITY OF HINUNANGAN",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 375,
+    "source": "BARANGAY {arg0}",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 412,
+    "source": "Barangay Certification",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 416,
+    "source": "BARANGAY CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 421,
+    "source": "BARANGAY CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 426,
+    "source": "BARANGAY CERTIFICATION",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 478,
+    "source": "Official Receipt Paid:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 483,
+    "source": "Issued on:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 486,
+    "source": "Issued at:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 486,
+    "source": "Barangay {arg0}, Hinunangan, Southern Leyte",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 495,
+    "source": "Issued On :",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 498,
+    "source": "Issued At :",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 498,
+    "source": "Bgy. {arg0}, Hinunangan, So. Leyte.",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 505,
+    "source": "Doc Ref:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/DynamicCertificateView.tsx",
+    "line": 507,
+    "source": "LGU Hinunangan • DA Swine Registry System",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 413,
+    "source": "Republic of the Philippines • Province of Southern Leyte",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 414,
+    "source": "OFFICE OF THE MUNICIPAL AGRICULTURIST",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 415,
+    "source": "Municipality of Hinunangan",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 418,
+    "source": "OFFICIAL TRANSMITTAL MEMORANDUM",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 427,
+    "source": "MEMORANDUM REF NO:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 433,
+    "source": "DATE:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 445,
+    "source": "FOR / TO:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 452,
+    "source": "FROM:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 462,
+    "source": "SUBJECT:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 479,
+    "source": "LIST OF ATTACHED DOCUMENTS (",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 479,
+    "source": "ITEMS):",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 493,
+    "source": "Prepared by:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 504,
+    "source": "Verified by:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/certificate/TransmittalLetterManager.tsx",
+    "line": 515,
+    "source": "Approved & Transmitted by:",
+    "reason": "official document body"
+  },
+  {
+    "file": "src/components/registry/SwineForm.tsx",
+    "line": 710,
+    "source": "HIN-YYYY-XXXX",
+    "reason": "literal/code content"
+  },
+  {
+    "file": "src/components/registry/SwineForm.tsx",
+    "line": 710,
+    "source": "HIN-2026-0001",
+    "reason": "literal/code content"
+  }
+]

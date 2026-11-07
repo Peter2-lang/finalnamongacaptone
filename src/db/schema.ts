@@ -51,6 +51,7 @@ export const swineRecords = pgTable('swine_records', {
   farmName: text('farm_name'),
   farmerContact: text('farmer_contact'),
   barangay: text('barangay').notNull(),
+  barangayId: uuid('barangay_id').notNull(),
   // Existing Supabase column is DATE; string mode preserves YYYY-MM-DD on reads.
   birthDate: date('birth_date', { mode: 'string' }),
   ageDays: integer('age_days'),

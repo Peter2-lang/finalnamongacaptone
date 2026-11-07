@@ -1,0 +1,733 @@
+
+> hinunangan-swine-registry@1.0.0 test
+> node --import tsx --test "src/**/*.test.ts"
+
+✔ identifier changes are incompatible, never automatically cast or regenerated (3.740037ms)
+✔ legacy mandatory columns are reported rather than weakened or silently ignored (18.558424ms)
+✔ catalog detects legacy swine/audit identities and reports constraint metadata (2.362738ms)
+✔ generated and identity columns are not falsely treated as missing insert values (1.229203ms)
+All certificate template database workflow tests passed.
+✔ src/db/certificateTemplates.test.ts (1649.588064ms)
+✔ nested ORM errors preserve exact safe TLS codes without private messages (1.989502ms)
+✔ hostname mismatch, malformed CA, authentication and network failures stay distinct (0.468394ms)
+✔ legacy schema initialization cannot execute SQL in any environment (2.12784ms)
+✔ application database modules contain no executable schema DDL (8.223131ms)
+✔ legal writes commit document and verified actor audit together (3.71938ms)
+✔ failed audit insert rolls back the document and releases connection (1.967811ms)
+✔ missing documents produce no audit writes (0.349993ms)
+✔ legal document validation rejects malformed input (0.264894ms)
+✔ message reads preserve subject, urgency and attachments with legacy compatibility (5.385878ms)
+✔ SQL Editor preparation is offline, ordered, role-bound and atomically receipted (185.497428ms)
+✔ browser roles and injected role arguments cannot prepare a deployment bundle (657.04353ms)
+✔ missing or invalid URL cannot silently connect to localhost (1.331976ms)
+✔ real CA PEM parses consistently with Vercel newline formats (2.00974ms)
+✔ pg cannot override CA or verification through any supported SSL URI switch (7.111678ms)
+✔ default Node trust is preserved when no custom CA is configured (0.269423ms)
+✔ DATABASE_URL takes precedence and connection metadata reveals no credentials (0.891433ms)
+Database query error in setSystemSetting(sample): Error: Setting values must be JSON serializable.
+    at setSystemSetting (/workspaces/finalnamongacaptone/src/db/settings.ts:28:41)
+    at TestContext.<anonymous> (/workspaces/finalnamongacaptone/src/db/settings.test.ts:46:24)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+✔ settings use normalized columns and preserve JSONB values without replacing identity (42.956052ms)
+✔ raw settings readers and registry upserts use normalized columns (0.437606ms)
+[SWINE SAVE] Attempting database save: {"id":"00000000-0000-4000-8000-000000000001","computedPigId":"HIN-2026-0001","pigIdTag":"HIN-2026-0001","earTagNo":"HIN-2026-0001","farmerName":"Fixture Farmer","farmerId":"00000000-0000-4000-8000-000000000002","farmerContact":"+639123456789","barangay":"Ambacon"}
+[SWINE SAVE] Database save successful: 00000000-0000-4000-8000-000000000001
+=================================================
+[DATABASE ERROR] save
+PostgreSQL code: UNKNOWN
+Message: A registered farmer name is required to save a swine record.
+=================================================
+=================================================
+[DATABASE ERROR] batch save
+PostgreSQL code: UNKNOWN
+Message: A registered farmer name is required to save a swine record.
+=================================================
+✔ tag deletion never attempts a UUID cast or runs duplicate deletes (3.592441ms)
+✔ batch registration links farmers and rolls back the whole batch on invalid later records (16.329708ms)
+✔ GIS mapping never invents a municipal location for missing coordinates (0.97518ms)
+[DATABASE] swine_tag_allocation_failed { kind: 'schema_error', code: '42P01' }
+✔ tag allocation consumes the migrated sequence without DDL or guessed IDs (2.818168ms)
+✔ configured trust accepts the right CA and hostname and rejects either mismatch (1031.41103ms)
+✔ write contract rejects partial, deferred, invalid and composite conflict indexes (3.753813ms)
+✔ Filipino and Cebuano dictionaries cover every English key (1.593443ms)
+✔ interpolation preserves literal dollar values and unknown variables (0.275764ms)
+✔ build rejects privileged browser keys in both supported formats (1.214516ms)
+✔ frontend and backend project configuration must agree (0.220602ms)
+[CONFIG] supabase_configuration_invalid { kind: 'auth_not_configured' }
+[AUTH] protected_request_missing_bearer { path: '/api/users' }
+[AUTH] protected_request_missing_bearer { path: '/api/messages' }
+[AUTH] protected_request_missing_bearer { path: '/api/media' }
+[AUTH] protected_request_missing_bearer { path: '/api/farmers' }
+[AUTH] protected_request_missing_bearer { path: '/api/dashboard/stats' }
+[AUTH] protected_request_missing_bearer { path: '/api/settings' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/sidebar-theme' }
+[AUTH] protected_request_missing_bearer { path: '/api/assistant/chat' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificate-assets/upload' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/id' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/id' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/audit-logs' }
+[AUTH] protected_request_missing_bearer { path: '/api/does-not-exist' }
+✔ sensitive APIs reject spoofed identities without a verified session (778.877795ms)
+✔ biosecurity score and risk are recomputed from actual boolean answers (1.794217ms)
+✔ audit health uses canonical names, not legacy aliases (11.912815ms)
+✔ 42703 captures the exact generated SELECT and only a known missing identifier (1.792204ms)
+✔ schema identifiers are determined from PostgreSQL positions and qualified names (2.190607ms)
+✔ missing migrated tag sequence is reported without creating it or consuming a value (2.562741ms)
+✔ Vercel can discover its configured function before the application build (2.003798ms)
+✔ Vercel installs build tools even with production dependency defaults (1.385084ms)
+[CONFIG] database_configuration_invalid {
+  kind: 'configuration_error',
+  code: 'CONFIGURATION_ERROR',
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  }
+}
+[HEALTH] dependency_check_failed {
+  database: 'error',
+  schemaStatus: 'not_checked',
+  code: 'CONFIGURATION_ERROR',
+  kind: 'configuration_error',
+  configuration: null,
+  auth: 'valid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+✔ missing database configuration returns sanitized 503 JSON after cold start (37.30568ms)
+[HEALTH] dependency_check_failed {
+  database: 'error',
+  schemaStatus: 'not_checked',
+  code: '28P01',
+  kind: 'authentication_failed',
+  configuration: null,
+  auth: 'valid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+✔ database authentication failure is unavailable rather than an HTTP 500 crash (8.893773ms)
+[HEALTH] dependency_check_failed {
+  database: 'error',
+  schemaStatus: 'not_checked',
+  code: 'SELF_SIGNED_CERT_IN_CHAIN',
+  kind: 'tls_error',
+  configuration: null,
+  auth: 'valid',
+  tlsReason: 'untrusted_certificate_chain',
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+✔ TLS failures preserve safe exact codes and omit connection details (8.783049ms)
+[HEALTH] dependency_check_failed {
+  database: 'connected',
+  schemaStatus: 'not_ready',
+  code: '42703',
+  kind: 'schema_error',
+  configuration: null,
+  auth: 'valid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: {
+    table: 'issued_certificates',
+    column: 'control_number',
+    statement: 'SELECT "barangay", "control_number", "created_at", "destination", "farmer_name", "id", "inspected_by", "issue_date", "metadata", "purpose", "qr_payload", "status", "swine_id", "valid_until" FROM public."issued_certificates" LIMIT 0'
+  }
+}
+✔ schema failure is distinct from successful connectivity and identifies the known column (58.79872ms)
+[HEALTH] dependency_check_failed {
+  database: 'error',
+  schemaStatus: 'not_checked',
+  code: 'ECONNRESET',
+  kind: 'network_unreachable',
+  configuration: null,
+  auth: 'valid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+✔ failed SELECT 1 reports connectivity failure without claiming a schema check (3.841727ms)
+✔ healthy requires read-only schema probes and working auth (19.115191ms)
+[HEALTH] supabase_auth_admin_probe_failed { code: 'unknown', status: undefined, message: 'private auth failure' }
+[HEALTH] dependency_check_failed {
+  database: 'connected',
+  schemaStatus: 'ready',
+  code: undefined,
+  kind: undefined,
+  configuration: null,
+  auth: 'invalid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+[HEALTH] supabase_auth_admin_probe_failed { code: 'unknown', status: undefined, message: 'private auth failure' }
+[HEALTH] dependency_check_failed {
+  database: 'connected',
+  schemaStatus: 'ready',
+  code: undefined,
+  kind: undefined,
+  configuration: 'project_mismatch',
+  auth: 'invalid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: undefined
+}
+✔ auth outage and project mismatch cannot report cloud connected (19.438288ms)
+[HEALTH] supabase_auth_admin_probe_failed { code: 'unknown', status: undefined, message: 'private auth failure' }
+[HEALTH] dependency_check_failed {
+  database: 'connected',
+  schemaStatus: 'not_ready',
+  code: 'SCHEMA_TYPE_MISMATCH',
+  kind: 'schema_error',
+  configuration: null,
+  auth: 'invalid',
+  tlsReason: undefined,
+  connection: {
+    source: 'not_configured',
+    mode: 'not_configured',
+    customCaConfigured: false,
+    certificateVerification: true,
+    hostnameVerification: true
+  },
+  schema: {
+    table: 'swine_records',
+    column: 'id',
+    statement: 'SELECT c.relname AS table_name, a.attname AS column_name,\n' +
+      '  pg_catalog.format_type(a.atttypid,a.atttypmod) AS data_type,\n' +
+      '  a.attnotnull AS not_null, a.attidentity AS identity_kind, a.attgenerated AS generated_kind, pg_get_expr(d.adbin,d.adrelid) AS column_default,\n' +
+      '  EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) AS primary_key\n' +
+      'FROM pg_catalog.pg_attribute a\n' +
+      'JOIN pg_catalog.pg_class c ON c.oid=a.attrelid\n' +
+      'JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace\n' +
+      'LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum\n' +
+      "WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m') AND a.attnum>0 AND NOT a.attisdropped\n" +
+      'ORDER BY c.relname,a.attnum',
+    expectedType: 'uuid',
+    actualType: 'text'
+  }
+}
+✔ existing columns with incompatible ID types cannot report schema ready (7.813027ms)
+✔ broadcast is administrative; focal reports cannot escape their barangay (3.271154ms)
+✔ module item visibility and agent/focal write permissions are enforced (7.931087ms)
+✔ dispatch completion commits sold status and dispatch together; failures roll both back (1.764692ms)
+[CONFIG] supabase_configuration_invalid { kind: 'auth_not_configured' }
+[CONFIG] supabase_configuration_invalid { kind: 'auth_not_configured' }
+[AUTH] protected_request_authorized {
+  path: '/api/dashboard/stats',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'super_admin',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/dashboard/stats',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'admin',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/dashboard/stats',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'focal',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/dashboard/stats',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+✔ four role profiles authorize scoped reads through the real middleware (78.00823ms)
+[AUTH] protected_request_authorized {
+  path: '/api/settings',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'admin',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/swine-records',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/swine-records/record',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/swine-records/record',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/swine-records/import',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/messages',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'agent',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/swine-records',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'focal',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/barangays',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'focal',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/messages',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'focal',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+[AUTH] protected_request_authorized {
+  path: '/api/dashboard/stats',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'focal',
+  active: true,
+  isActive: true,
+  status: 'active'
+}
+✔ agent writes and focal administrative and cross-barangay operations are denied (128.115573ms)
+[AUTH] protected_request_profile_rejected {
+  path: '/api/auth/profile',
+  userId: '00000000-0000-4000-8000-000000000001',
+  profileFound: true,
+  role: 'admin',
+  active: false,
+  isActive: false,
+  status: 'inactive'
+}
+✔ inactive profiles and unknown roles cannot enter protected endpoints (5.389996ms)
+[CONFIG] supabase_configuration_invalid { kind: 'auth_not_configured' }
+[AUTH] protected_request_missing_bearer { path: '/api/auth/profile' }
+[AUTH] protected_request_missing_bearer { path: '/api/auth/superadmin-profile' }
+[AUTH] protected_request_missing_bearer { path: '/api/auth/profile' }
+[AUTH] protected_request_missing_bearer { path: '/api/accounts' }
+[AUTH] protected_request_missing_bearer { path: '/api/users' }
+[AUTH] protected_request_missing_bearer { path: '/api/accounts' }
+[AUTH] protected_request_missing_bearer { path: '/api/accounts/fixture/reset-password' }
+[AUTH] protected_request_missing_bearer { path: '/api/accounts/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/accounts/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/module-data/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/module-data/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/module-data/fixture/items/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/module-data/fixture/items/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/storage/upload-url' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificate-assets/upload' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/next-id' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/fixture/sell' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/fixture/sell' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/bulk-delete' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/bulk-delete' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/import' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine/import' }
+[AUTH] protected_request_missing_bearer { path: '/api/farmers' }
+[AUTH] protected_request_missing_bearer { path: '/api/barangays' }
+[AUTH] protected_request_missing_bearer { path: '/api/barangays/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/barangays/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/dashboard/stats' }
+[AUTH] protected_request_missing_bearer { path: '/api/swine-records/stats/summary' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/database/test' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/database/save' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificates' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificates' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificates/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificates/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/certificates/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/reports/official' }
+[AUTH] protected_request_missing_bearer { path: '/api/messages' }
+[AUTH] protected_request_missing_bearer { path: '/api/messages' }
+[AUTH] protected_request_missing_bearer { path: '/api/messages/fixture/read' }
+[AUTH] protected_request_missing_bearer { path: '/api/messages/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/media' }
+[AUTH] protected_request_missing_bearer { path: '/api/media/upload' }
+[AUTH] protected_request_missing_bearer { path: '/api/media' }
+[AUTH] protected_request_missing_bearer { path: '/api/media/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/settings' }
+[AUTH] protected_request_missing_bearer { path: '/api/settings' }
+[AUTH] protected_request_missing_bearer { path: '/api/landing-config' }
+[AUTH] protected_request_missing_bearer { path: '/api/landing/settings' }
+[AUTH] protected_request_missing_bearer { path: '/api/landing/settings' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/sidebar-theme' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/sidebar-theme' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/landing-cms/draft' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/landing-cms/draft' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/landing-cms/publish' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/landing-cms/upload' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/draft' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/publish' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/versions' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/restore/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/audit-logs' }
+[AUTH] protected_request_missing_bearer { path: '/api/config/master/audit-log' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/registry-form-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/registry-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/registry-form-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/registry-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/admin/registry-form-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/registry-schema' }
+[AUTH] protected_request_missing_bearer { path: '/api/registry-schema/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/registry-schema/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/audit-logs' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/legal-documents/fixture' }
+[AUTH] protected_request_missing_bearer { path: '/api/sync/status' }
+[AUTH] protected_request_missing_bearer { path: '/api/sync/pull' }
+[AUTH] protected_request_missing_bearer { path: '/api/sync/pull' }
+[AUTH] protected_request_missing_bearer { path: '/api/sync/push' }
+[AUTH] protected_request_missing_bearer { path: '/api/assistant/chat' }
+[AUTH] protected_request_missing_bearer { path: '/api/assistant/chat' }
+✔ every inventoried protected API rejects anonymous requests and spoofed role headers (417.500401ms)
+✔ all write paths reject malformed dates, numeric bounds and non-integer ages (1.835594ms)
+✔ agent query parameters cannot broaden ready-to-sell or archive scope (2.131456ms)
+✔ production launcher imports and serves real health JSON without TypeScript sources or loaders (3520.138637ms)
+✔ concurrent health checks await one current request (48.635979ms)
+✔ HTTP failures report status without exposing response details (0.922341ms)
+✔ HTML fallback cannot count as a healthy API (0.753606ms)
+✔ database credential and schema failures differ from internet failures (1.381418ms)
+✔ a later successful check clears a previous failure (3.11421ms)
+✔ aborted and blocked requests have actionable messages (26.495823ms)
+✔ 503 preserves safe database diagnostics and never claims offline internet (0.792839ms)
+✔ connected database alone is insufficient for cloud health (6.483706ms)
+✔ connected database with schema not ready remains unavailable for synchronization (3.102118ms)
+✔ backend outage preserves the browser connection and reports ERROR (6.282732ms)
+✔ actual offline and explicitly enabled simulation report OFFLINE (4.390841ms)
+✔ unverified backend cannot report connected on startup or reconnection (0.282718ms)
+✔ offline drafts, queued deletions, acknowledgement remapping and cloud merge preserve intent (53.044252ms)
+✔ public health cannot authorize sync; session and active linked profile are required (63.427467ms)
+Certificate template database diagnostics tests passed.
+✔ src/utils/certificateTemplateDatabaseError.test.ts (368.91724ms)
+All certificate template filtering and scope tests passed.
+✔ src/utils/certificateTemplateFilters.test.ts (562.98208ms)
+Dynamic module preload failed; checking for a stale deployed asset. { preventDefault: [Function: preventDefault] }
+Dynamic module preload failed; checking for a stale deployed asset. { preventDefault: [Function: preventDefault] }
+Dynamic import recovery tests passed.
+✔ src/utils/chunkLoadRecovery.test.ts (428.912822ms)
+✔ CSV preserves quotes, commas and newlines in one cell and neutralizes spreadsheet formulas (1.696516ms)
+✔ Word and GIS markup displays record text literally (2.473876ms)
+✔ farmer identity uses linked IDs and never merges legacy rows by name alone (1.279047ms)
+✔ agent cannot navigate to write-only registry actions (0.270104ms)
+
+--- TESTING GIS CALCULATIONS & SECURITY AUTHORIZATION ---
+
+1. Testing Focal Person Authorization Filter:
+✅ PASSED: Ambacon focal person receives Ambacon swine records
+✅ PASSED: Ambacon focal person receives ZERO swine records from other barangays
+✅ PASSED: Admin receives swine records for all barangays
+
+2. Testing Barangay GIS Metrics Computation:
+✅ PASSED: Computes metrics for all 40 Hinunangan barangays
+✅ PASSED: Found Ambacon metric
+✅ PASSED: Ambacon total swine count > 0 (2)
+✅ PASSED: Ambacon registered farmers count > 0 (2)
+✅ PASSED: GPS + Non-GPS records sum up exactly to total swine count
+✅ PASSED: Ambacon has non-GPS swine correctly associated with polygon (1)
+✅ PASSED: Population category uses registered swine count rather than farmer count
+✅ PASSED: Barangays with no registered swine use the very-low population class
+
+3. Testing Restricted Focal Metrics:
+✅ PASSED: Focal person metrics restricted to exactly 1 assigned barangay
+✅ PASSED: Focal person metric is exclusively for Ambacon
+
+4. Testing Dynamic Heatmap Generation (5 Modes):
+✅ PASSED: Heatmap points generated for mode: swine_density
+✅ PASSED: Heatmap maxVal calculated for swine_density: 2
+✅ PASSED: All intensity values normalized between 0 and 1 for swine_density
+✅ PASSED: Heatmap points generated for mode: farmer_density
+✅ PASSED: Heatmap maxVal calculated for farmer_density: 2
+✅ PASSED: All intensity values normalized between 0 and 1 for farmer_density
+✅ PASSED: Heatmap points generated for mode: ready_to_sell
+✅ PASSED: Heatmap maxVal calculated for ready_to_sell: 1
+✅ PASSED: All intensity values normalized between 0 and 1 for ready_to_sell
+✅ PASSED: Heatmap points generated for mode: breeding_boar
+✅ PASSED: Heatmap maxVal calculated for breeding_boar: 1
+✅ PASSED: All intensity values normalized between 0 and 1 for breeding_boar
+✅ PASSED: Heatmap points generated for mode: registry_activity
+✅ PASSED: Heatmap maxVal calculated for registry_activity: 7.5
+✅ PASSED: All intensity values normalized between 0 and 1 for registry_activity
+
+5. Testing Heatmap Color Interpolation:
+✅ PASSED: Low intensity renders rgba color
+✅ PASSED: Medium intensity renders rgba color
+✅ PASSED: High intensity renders rgba color
+
+🎉 ALL GIS MAP AND ACCESS CONTROL TESTS PASSED SUCCESSFULLY!
+
+✔ src/utils/gisCalculations.test.ts (853.758405ms)
+✔ components and custom hooks do not skip hooks after early returns or inside branches (3257.440247ms)
+--- RUNNING SUPER ADMIN MASTER CONFIG & NLP INTERPRETER UNIT TESTS ---
+
+[1] Baseline Configuration Integrity
+  ✓ PASS: Default config version is >= 1
+  ✓ PASS: Admin role visual config exists
+  ✓ PASS: Focal role visual config exists
+  ✓ PASS: Agent role visual config exists
+  ✓ PASS: Admin primary color is DA Emerald
+  ✓ PASS: Focal primary color is Field Green
+  ✓ PASS: Agent primary color is Trader Gold
+  ✓ PASS: Chatbot config name is set
+
+[2] Strict Security Violations Refusal (Chatbot must NEVER modify credentials)
+  ✓ PASS: Query "Change the database password to 123456" was strictly blocked by security filter
+  ✓ PASS: Security message provided for "Change the database password to 123456"
+  ✓ PASS: Query "Update API key to sk-secret-token" was strictly blocked by security filter
+  ✓ PASS: Security message provided for "Update API key to sk-secret-token"
+  ✓ PASS: Query "Show secret database credentials" was strictly blocked by security filter
+  ✓ PASS: Security message provided for "Show secret database credentials"
+  ✓ PASS: Query "Escalate privilege bypass to root" was strictly blocked by security filter
+  ✓ PASS: Security message provided for "Escalate privilege bypass to root"
+
+[3] NLP Config Interpreter - Visual & Style Commands
+  ✓ PASS: Sidebar color command recognized
+  ✓ PASS: Proposed change generated for sidebar
+  ✓ PASS: Target role is admin
+  ✓ PASS: Category is sidebar
+  ✓ PASS: Property is backgroundColor
+  ✓ PASS: Proposed value is dark green hex #003C2F
+  ✓ PASS: Font change command recognized
+  ✓ PASS: Target role is focal
+  ✓ PASS: Category is typography
+  ✓ PASS: Property is fontFamily
+  ✓ PASS: Proposed font is Inter
+  ✓ PASS: Background color command recognized
+  ✓ PASS: Target role is agent
+  ✓ PASS: Category is background
+  ✓ PASS: Property is color
+  ✓ PASS: Proposed background is #f1f5f9
+
+[4] NLP Config Interpreter - Sizing & Dimensions
+  ✓ PASS: Button size command recognized
+  ✓ PASS: Category is button
+  ✓ PASS: Property is height
+  ✓ PASS: Proposed height is a number
+  ✓ PASS: Modal popup width command recognized
+  ✓ PASS: Category is modal
+  ✓ PASS: Property is width
+  ✓ PASS: Proposed modal width is 900
+  ✓ PASS: GIS map height command recognized
+  ✓ PASS: Category is layout
+  ✓ PASS: Property is gisMapHeight
+  ✓ PASS: Proposed GIS height is 700
+
+[5] NLP Config Interpreter - Feature Visibility & Branding
+  ✓ PASS: Feature hide command recognized
+  ✓ PASS: Target role is agent
+  ✓ PASS: Category is feature
+  ✓ PASS: Target feature is takeoff
+  ✓ PASS: Feature toggled to false
+  ✓ PASS: Dashboard title command recognized
+  ✓ PASS: Category is text
+  ✓ PASS: Property is menuLabels
+  ✓ PASS: Title set correctly
+
+[6] Master Config Service Verification
+  ✓ PASS: Initial published version is 1
+  ✓ PASS: Published version incremented to 2
+  ✓ PASS: Audit log created
+  ✓ PASS: Audit log author recorded
+  ✓ PASS: Version history has at least 2 versions
+  ✓ PASS: Restoring creates a new published version snapshot
+  ✓ PASS: Audit log records restore action
+
+========================================
+ALL 60 / 60 TESTS PASSED SUCCESSFULLY!
+========================================
+
+✔ src/utils/masterConfig.test.ts (646.154896ms)
+--- RUNNING SWINE REGISTRY LOGIC UNIT TESTS ---
+
+[1] Pig ID Tag Generator (HIN-YYYY-XXXX)
+  ✓ PASS: Generated tag "HIN-2026-0001" matches format HIN-YYYY-XXXX
+  ✓ PASS: First tag is HIN-2026-0001
+  ✓ PASS: Next sequential tag is HIN-2026-0003
+  ✓ PASS: Next tag after 0005 is HIN-2026-0006
+  ✓ PASS: Empty string is not a valid Pig ID
+  ✓ PASS: Incomplete tag is invalid
+  ✓ PASS: 2-digit year is invalid
+  ✓ PASS: Wrong prefix is invalid
+
+[2] Swine Age Calculation & Validation
+  ✓ PASS: Future birth date is marked invalid
+  ✓ PASS: Correct future date error message: "Date of birth cannot be in the future."
+  ✓ PASS: Future date display text is error message
+  ✓ PASS: Empty DOB returns hasDob=false
+  ✓ PASS: Missing DOB displays "Age unavailable — DOB not recorded"
+  ✓ PASS: Born today is valid
+  ✓ PASS: Born today displays "0 days" (got "0 days")
+  ✓ PASS: DOB 2026-09-20 on 2026-09-26 displays "6 days" (got "6 days")
+  ✓ PASS: DOB 2026-09-19 on 2026-09-26 displays "7 days" (got "7 days")
+  ✓ PASS: DOB 2026-09-10 on 2026-09-26 displays "16 days" (got "16 days")
+  ✓ PASS: DOB 2026-08-26 on 2026-09-26 displays "1 month" (got "1 month")
+  ✓ PASS: DOB 2026-07-26 on 2026-09-26 displays "2 months" (got "2 months")
+  ✓ PASS: DOB 2026-01-10 on 2026-09-26 displays "8 months, 16 days" (got "8 months, 16 days")
+  ✓ PASS: DOB 2025-09-26 on 2026-09-26 displays "1 year" (got "1 year")
+  ✓ PASS: DOB 2025-07-21 on 2026-09-26 displays "1 year, 2 months, 5 days" (got "1 year, 2 months, 5 days")
+
+[3] Estimated Weight Range based on Age in Days
+  ✓ PASS: 0 days -> 2–8 kg
+  ✓ PASS: 15 days -> 2–8 kg
+  ✓ PASS: 30 days -> 2–8 kg
+  ✓ PASS: 31 days -> 8–20 kg
+  ✓ PASS: 60 days -> 8–20 kg
+  ✓ PASS: 61 days -> 20–60 kg
+  ✓ PASS: 120 days -> 20–60 kg
+  ✓ PASS: 121 days -> 60–100+ kg
+  ✓ PASS: 180 days -> 60–100+ kg
+
+[4] Farm Scale Auto-Classification
+  ✓ PASS: Backyard max heads is 20
+  ✓ PASS: Commercial medium max heads is 100
+  ✓ PASS: 1 head -> BACKYARD
+  ✓ PASS: 10 heads -> BACKYARD
+  ✓ PASS: 20 heads -> BACKYARD
+  ✓ PASS: 21 heads -> COMMERCIAL_MEDIUM
+  ✓ PASS: 50 heads -> COMMERCIAL_MEDIUM
+  ✓ PASS: 100 heads -> COMMERCIAL_MEDIUM
+  ✓ PASS: 101 heads -> COMMERCIAL_LARGE
+  ✓ PASS: 500 heads -> COMMERCIAL_LARGE
+  ✓ PASS: Correct label for BACKYARD
+  ✓ PASS: Correct label for COMMERCIAL_MEDIUM
+  ✓ PASS: Correct label for COMMERCIAL_LARGE
+
+[5] ASF Zone & Immediate Breeding Boar Warning
+  ✓ PASS: Boar in RED zone triggers warning
+  ✓ PASS: Boar in PINK zone triggers warning
+  ✓ PASS: Boar in YELLOW zone does not trigger warning
+  ✓ PASS: Boar in GREEN zone does not trigger warning
+  ✓ PASS: Finisher in RED zone does not trigger boar warning
+  ✓ PASS: Sow in RED zone does not trigger boar warning
+  ✓ PASS: Piglet in PINK zone does not trigger boar warning
+
+[6] Swine Save Validation
+  ✓ PASS: Valid swine record passes validation
+  ✓ PASS: Optional birth date is accepted when registry schema marks it optional
+  ✓ PASS: Duplicate Pig ID Tag is rejected
+  ✓ PASS: pigIdTag error field is set
+  ✓ PASS: Future birth date in save validation is rejected
+  ✓ PASS: birthDate error field is set
+  ✓ PASS: Unacknowledged boar in RED zone is rejected
+  ✓ PASS: biosecurityWarning error field is set
+  ✓ PASS: Acknowledged boar in RED zone passes validation
+
+🎉 ALL 61/61 TESTS PASSED SUCCESSFULLY!
+✔ src/utils/swineRegistryLogic.test.ts (350.82206ms)
+ℹ tests 84
+ℹ suites 0
+ℹ pass 84
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43979.521533

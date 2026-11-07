@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useRef, useState } from 'react';
 import {
   Megaphone,
@@ -122,7 +123,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Top Badge Pill Notice</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.heroBadgeColor || '#a7f3d0'}
@@ -146,7 +147,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Main Hero Headline (H1)</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.heroTitleColor || '#ffffff'}
@@ -161,7 +162,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               value={config.heroTitle}
               onChange={e => onChange({ heroTitle: e.target.value })}
               className="w-full px-3 py-2 rounded-xl border border-stone-300 font-bold text-stone-900 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
-              placeholder="e.g. DA HINUNANGAN SWINE REGISTRY"
+              placeholder={translateInterfaceText("e.g. DA HINUNANGAN SWINE REGISTRY")}
             />
           </div>
 
@@ -170,13 +171,13 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Hero Subtitle</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.heroSubtitleColor || '#ecfdf5'}
                   onChange={e => onChange({ heroSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>
@@ -194,13 +195,13 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Hero Extended Description</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.heroDescriptionColor || '#d1fae5'}
                   onChange={e => onChange({ heroDescriptionColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Description Font Color"
+                  title={translateInterfaceText("Description Font Color")}
                 />
               </div>
             </div>
@@ -226,7 +227,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
           <div className="p-3.5 rounded-xl border border-stone-200 bg-stone-50/60 space-y-2">
             <span className="font-bold text-stone-900 block text-xs">Primary CTA Button</span>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Button Text</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Button Text" /></label>
               <input
                 type="text"
                 value={config.primaryButtonText}
@@ -235,7 +236,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               />
             </div>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Target Link / Action</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Target Link / Action" /></label>
               <input
                 type="text"
                 value={config.primaryButtonLink}
@@ -248,7 +249,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
           <div className="p-3.5 rounded-xl border border-stone-200 bg-stone-50/60 space-y-2">
             <span className="font-bold text-stone-900 block text-xs">Secondary CTA Button</span>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Button Text</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Button Text" /></label>
               <input
                 type="text"
                 value={config.secondaryButtonText}
@@ -257,7 +258,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
               />
             </div>
             <div>
-              <label className="block text-[11px] text-stone-600 mb-1">Target Link / Action</label>
+              <label className="block text-[11px] text-stone-600 mb-1"><InterfaceText source="Target Link / Action" /></label>
               <input
                 type="text"
                 value={config.secondaryButtonLink}
@@ -296,8 +297,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
           />
           <div className="relative z-10 text-white text-center p-4">
             <p className="font-bold text-sm">Live Overlay Simulation</p>
-            <p className="text-[11px] text-stone-300">
-              Opacity: {config.heroOverlayOpacity}% • Tint: {config.heroOverlayColor}
+            <p className="text-[11px] text-stone-300"><InterfaceText source="Opacity:" />{config.heroOverlayOpacity}% • Tint: {config.heroOverlayColor}
             </p>
           </div>
         </div>
@@ -410,7 +410,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                           type="button"
                           onClick={() => handleSavePresetEdit(idx)}
                           className="p-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded cursor-pointer"
-                          title="Save"
+                          title={translateInterfaceText("Save")}
                         >
                           <Check className="w-3 h-3" />
                         </button>
@@ -418,7 +418,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                           type="button"
                           onClick={() => setEditingPresetIdx(null)}
                           className="p-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded cursor-pointer"
-                          title="Cancel"
+                          title={translateInterfaceText("Cancel")}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -436,8 +436,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                       <div className="flex items-center justify-between border-t pt-1.5 border-stone-100">
                         {/* Change Image Button */}
                         <label className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold cursor-pointer inline-flex items-center gap-0.5">
-                          <Upload className="w-2.5 h-2.5" /> Change Image
-                          <input
+                          <Upload className="w-2.5 h-2.5" /><InterfaceText source="Change Image" /><input
                             type="file"
                             accept="image/*"
                             className="hidden"
@@ -481,8 +480,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
         {/* Position, Opacity & Alignment controls */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-stone-100">
           <div>
-            <label className="block font-semibold text-stone-700 mb-1">
-              Overlay Opacity: {config.heroOverlayOpacity}%
+            <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Overlay Opacity:" />{config.heroOverlayOpacity}%
             </label>
             <input
               type="range"
@@ -522,8 +520,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                   config.heroTextAlign === 'left' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-stone-600'
                 }`}
               >
-                <AlignLeft className="w-3.5 h-3.5" /> Left
-              </button>
+                <AlignLeft className="w-3.5 h-3.5" /><InterfaceText source="Left" /></button>
               <button
                 type="button"
                 onClick={() => onChange({ heroTextAlign: 'center' })}
@@ -531,8 +528,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                   config.heroTextAlign === 'center' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-stone-600'
                 }`}
               >
-                <AlignCenter className="w-3.5 h-3.5" /> Center
-              </button>
+                <AlignCenter className="w-3.5 h-3.5" /><InterfaceText source="Center" /></button>
               <button
                 type="button"
                 onClick={() => onChange({ heroTextAlign: 'right' })}
@@ -540,8 +536,7 @@ export const HeroTab: React.FC<HeroTabProps> = ({ config, onChange, onOpenMediaP
                   config.heroTextAlign === 'right' ? 'bg-white font-bold text-emerald-800 shadow-2xs' : 'text-stone-600'
                 }`}
               >
-                <AlignRight className="w-3.5 h-3.5" /> Right
-              </button>
+                <AlignRight className="w-3.5 h-3.5" /><InterfaceText source="Right" /></button>
             </div>
           </div>
         </div>

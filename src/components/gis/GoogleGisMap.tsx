@@ -1,5 +1,8 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import { MapNavigationControls } from './MapNavigationControls';
 import { useApiSettings } from '../../services/apiSettings.ts';
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   APIProvider,
   Map as GoogleMap,
@@ -53,31 +56,52 @@ import {
 import {
   HeatmapMode,
   computeBarangayGisMetrics,
+  filterSwineByAuthorization,
   generateHeatmapPoints,
   getHeatmapColor,
   getPopulationClassColor,
+  filterSwineForHeatmap,
+  findBarangayContainingPoint,
+  SwineHeatmapClass,
   BarangayGisMetrics,
 } from '../../utils/gisCalculations';
+import { HeatmapClassificationFilters } from './HeatmapClassificationFilters';
 
 // Helper component to control map camera via useMap
 function MapCameraController({
   targetCenter,
   targetZoom,
+  manualPinActive,
 }: {
   targetCenter: { lat: number; lng: number } | null;
   targetZoom: number | null;
+  manualPinActive: boolean;
 }) {
   const map = useMap();
+  const consumedCamera = useRef<{center: typeof targetCenter; zoom: typeof targetZoom} | null>(null);
   useEffect(() => {
     if (!map) return;
+    if (consumedCamera.current?.center === targetCenter && consumedCamera.current?.zoom === targetZoom) return;
+    consumedCamera.current = {center:targetCenter,zoom:targetZoom};
+    if (manualPinActive) return;
     if (targetCenter) {
       map.panTo(targetCenter);
       if (targetZoom) {
         map.setZoom(targetZoom);
       }
     }
-  }, [map, targetCenter, targetZoom]);
+  }, [map, targetCenter, targetZoom, manualPinActive]);
   return null;
+}
+
+function GoogleMapNavigationControls() {
+  const map = useMap();
+  return <MapNavigationControls
+    onZoomIn={() => map?.setZoom((map.getZoom() ?? 13) + 1)}
+    onZoomOut={() => map?.setZoom((map.getZoom() ?? 13) - 1)}
+    onReset={() => {map?.setCenter({lat:10.4015,lng:125.195});map?.setZoom(13);}}
+    onLocate={(lat,lng) => {map?.setCenter({lat,lng});map?.setZoom(16);}}
+  />;
 }
 
 // Guard component that safely renders map overlays ONLY after the Google Maps API and Map instance are fully initialized
@@ -99,7 +123,6 @@ export interface GoogleGisMapProps {
   selectedBarangay?: string;
   currentUser?: UserAccount | null;
   currentRole?: UserRole | 'landing';
-  onSelectSwine?: (swine: SwineRecord) => void;
   onViewSwineRecord?: (swine: SwineRecord) => void;
   onPickLocation?: (lat: number, lng: number, closestBarangay?: string) => void;
   isLocationPicker?: boolean;
@@ -109,12 +132,11 @@ export interface GoogleGisMapProps {
 }
 
 export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
-  swineList,
+  swineList: suppliedSwineList,
   barangays,
   selectedBarangay,
   currentUser,
   currentRole = currentUser?.role || 'admin',
-  onSelectSwine,
   onViewSwineRecord,
   onPickLocation,
   isLocationPicker = false,
@@ -139,6 +161,10 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     );
     return match ? match.name : assignedBarangay;
   }, [assignedBarangay]);
+
+  const swineList = useMemo(() => filterSwineByAuthorization(
+    suppliedSwineList, isFocal ? 'focal' : currentRole, authorizedBarangayName
+  ), [suppliedSwineList, isFocal, currentRole, authorizedBarangayName]);
 
   // Center coordinate calculation
   const defaultCenter = useMemo(() => {
@@ -169,6 +195,8 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   const [showAsfZones, setShowAsfZones] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('swine_density');
+  const [heatmapClasses, setHeatmapClasses] = useState<SwineHeatmapClass[] | null>(null);
+  const [heatmapReadyOnly, setHeatmapReadyOnly] = useState(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.5);
   const [boundaryOpacity, setBoundaryOpacity] = useState<number>(0.18);
 
@@ -182,7 +210,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // UI Panels
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
-  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(true);
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() => typeof window === 'undefined' || window.matchMedia('(min-width: 640px)').matches);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
 
@@ -192,6 +220,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   const [selectedBarangayData, setSelectedBarangayData] = useState<BarangayGisMetrics | null>(null);
   const [hoveredBarangay, setHoveredBarangay] = useState<string | null>(null);
   const [pickedPoint, setPickedPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [isManualPinMode, setIsManualPinMode] = useState(isLocationPicker);
 
   // Boundary Storage
   useEffect(() => {
@@ -207,10 +236,19 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     return computeBarangayGisMetrics(barangays, swineList, authorizedBarangayName);
   }, [barangays, swineList, authorizedBarangayName]);
 
+  const heatmapSwine = useMemo(
+    () => filterSwineForHeatmap(selectedBarangayFilter === 'all' ? swineList : swineList.filter(s => s.barangay.trim().toLowerCase() === selectedBarangayFilter.trim().toLowerCase()), heatmapClasses, heatmapReadyOnly),
+    [swineList, selectedBarangayFilter, heatmapClasses, heatmapReadyOnly]
+  );
+  const heatmapBarangayMetrics = useMemo(
+    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
+    [barangays, heatmapSwine, authorizedBarangayName]
+  );
+
   // Compute Heatmap Points
   const heatmapData = useMemo(() => {
-    return generateHeatmapPoints(allBarangayMetrics, heatmapMode);
-  }, [allBarangayMetrics, heatmapMode]);
+    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
+  }, [heatmapBarangayMetrics, heatmapMode]);
 
   // Filtered Swine Records for Display
   const filteredSwineRecords = useMemo(() => {
@@ -303,7 +341,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Target swine focus on load/update
   useEffect(() => {
-    if (!targetSwineId) return;
+    if (!targetSwineId || isManualPinMode || isLocationPicker) return;
     const target = swineList.find(s => s.id === targetSwineId || s.pigIdTag === targetSwineId);
     if (!target) return;
 
@@ -328,7 +366,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Reactive Synchronize and focus when selectedBarangay prop changes (e.g. Admin selects barangay in SwineForm)
   useEffect(() => {
-    if (!selectedBarangay || selectedBarangay === 'all') return;
+    if (!selectedBarangay || selectedBarangay === 'all' || isLocationPicker || isManualPinMode) return;
     setSelectedBarangayFilter(selectedBarangay);
 
     const metric = allBarangayMetrics.find(
@@ -352,11 +390,13 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   // Reactive Synchronize map camera and pin when initialCenter coordinates change
   useEffect(() => {
     if (initialCenter && initialCenter[0] && initialCenter[1]) {
-      setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
-      setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
-      setTargetZoom(15);
+      if (isLocationPicker) setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
+      if (!isLocationPicker && !isManualPinMode) {
+        setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
+        setTargetZoom(15);
+      }
     }
-  }, [initialCenter?.[0], initialCenter?.[1]]);
+  }, [initialCenter?.[0], initialCenter?.[1], isLocationPicker]);
 
   // Search Results
   const searchResults = useMemo(() => {
@@ -399,19 +439,26 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Handle clicking a barangay polygon
   const handleBarangayClick = (name: string) => {
+    if (isManualPinMode || isLocationPicker) return;
     if (authorizedBarangayName && name.toLowerCase() !== authorizedBarangayName.toLowerCase()) {
       setAccessWarning(`Access restricted. You are assigned to: ${authorizedBarangayName}`);
       setTimeout(() => setAccessWarning(null), 4000);
       return;
     }
 
-    const metric = allBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
+    const metric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === name.toLowerCase());
     if (metric) {
       setSelectedBarangayData(metric);
       setTargetCenter({ lat: metric.latitude, lng: metric.longitude });
       setTargetZoom(14);
     }
   };
+
+  useEffect(() => {
+    if (!selectedBarangayData) return;
+    const updated = heatmapBarangayMetrics.find(m => m.barangayName === selectedBarangayData.barangayName);
+    if (updated) setSelectedBarangayData(updated);
+  }, [heatmapBarangayMetrics]);
 
   if (settingsLoading) return <div role="status" className="p-6">Loading map configuration…</div>;
   if (!apiSettings.googleMapsKey) {
@@ -424,7 +471,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       {accessWarning && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-rose-600/95 text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md border border-rose-300 animate-bounce text-sm font-semibold">
           <AlertTriangle className="w-5 h-5 text-amber-200 flex-shrink-0" />
-          <span>{accessWarning}</span>
+          <span>{<LocalizedFeedback value={accessWarning} />}</span>
           <button
             onClick={() => setAccessWarning(null)}
             className="ml-2 hover:opacity-80 p-0.5 rounded cursor-pointer"
@@ -457,14 +504,20 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
       </div>
 
       {/* Top Right Controls & Search */}
-      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+      <div className="absolute top-12 md:top-3 right-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end items-center gap-2">
+        {onPickLocation && currentRole !== 'agent' && currentRole !== 'landing' && (
+          <button type="button" onClick={() => setIsManualPinMode(value => !value)} aria-pressed={isManualPinMode}
+            className={`px-3 py-1.5 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold ${isManualPinMode ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-stone-900/90 text-stone-200 border-stone-700 hover:bg-stone-800'}`}>
+            <MapPin className="w-3.5 h-3.5" />{isManualPinMode ? translateInterfaceText("Pin Mode Active") : translateInterfaceText("Select Location for Registration")}
+          </button>
+        )}
         {/* Search Bar */}
         <div className="relative">
           <div className="flex items-center bg-stone-900/90 border border-stone-700 rounded-xl px-2.5 py-1.5 shadow-md backdrop-blur-md text-xs text-white">
             <Search className="w-3.5 h-3.5 text-stone-400 mr-1.5" />
             <input
               type="text"
-              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : 'Search barangay or swine...'}
+              placeholder={isFocal ? `Search Brgy. ${authorizedBarangayName}...` : translateInterfaceText("Search barangay or swine...")}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="bg-transparent text-white placeholder-stone-400 outline-none w-36 md:w-56 text-xs"
@@ -514,19 +567,17 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Filters</span>
+          <span><InterfaceText source="Filters" /></span>
         </button>
 
         {/* Map Type Toggle */}
-        <div className="hidden sm:flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
+        <div className="flex bg-stone-900/90 border border-stone-700 rounded-xl p-0.5 shadow-md backdrop-blur-md text-xs">
           <button
             onClick={() => setMapType('hybrid')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
               mapType === 'hybrid' ? 'bg-emerald-600 text-white' : 'text-stone-300 hover:text-white'
             }`}
-          >
-            Satellite
-          </button>
+          ><InterfaceText source="Satellite" /></button>
           <button
             onClick={() => setMapType('roadmap')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
@@ -572,9 +623,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Barangay Filter (Admin Only; Locked for Focal Person) */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Barangay Scope
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Barangay Scope" /></label>
             {isFocal ? (
               <div className="bg-stone-800/80 border border-amber-500/40 rounded-xl px-3 py-2 text-stone-300 flex items-center justify-between">
                 <span>{authorizedBarangayName}</span>
@@ -600,16 +649,14 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Swine Type Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Swine Type
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Swine Type" /></label>
             <select
               value={selectedSwineType}
               onChange={e => setSelectedSwineType(e.target.value)}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
               <option value="all">All Swine Types (Boar, Sow, Piglet, etc.)</option>
-              <option value="boar">Breeding Boars</option>
+              <option value="boar">{translateInterfaceText("Breeding Boars")}</option>
               <option value="sow">Breeding Sows</option>
               <option value="piglet">Piglets</option>
               <option value="grower">Growers</option>
@@ -619,9 +666,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
           {/* Market Status Filter */}
           <div>
-            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1">
-              Market Status
-            </label>
+            <label className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block mb-1"><InterfaceText source="Market Status" /></label>
             <select
               value={selectedMarketStatus}
               onChange={e => setSelectedMarketStatus(e.target.value)}
@@ -630,7 +675,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               <option value="all">All Market Statuses</option>
               <option value="ready_to_sell">🌟 Ready for Market Sale Only</option>
               <option value="active">Active / Healthy</option>
-              <option value="sold">Sold</option>
+              <option value="sold">{translateInterfaceText("Sold")}</option>
             </select>
           </div>
 
@@ -644,7 +689,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
               onChange={e => setSelectedAsfZone(e.target.value)}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-white outline-none cursor-pointer"
             >
-              <option value="all">All ASF Zones</option>
+              <option value="all">{translateInterfaceText("All ASF Zones")}</option>
               <option value="RED">🔴 Red Zone (Infected / Quarantine)</option>
               <option value="PINK">🟣 Pink Zone (Buffer)</option>
               <option value="YELLOW">🟡 Yellow Zone (Surveillance)</option>
@@ -677,11 +722,13 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                   >
                     <option value="swine_density">Total Swine Density</option>
                     <option value="farmer_density">Farmer Density</option>
-                    <option value="ready_to_sell">Ready-to-Sell Swine</option>
+                    <option value="ready_to_sell">{translateInterfaceText("Ready-to-Sell Swine")}</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
                     <option value="registry_activity">Registry Activity Index</option>
                   </select>
                 </div>
+                <HeatmapClassificationFilters selectedClasses={heatmapClasses} onChange={setHeatmapClasses}
+                  readyOnly={heatmapReadyOnly} onReadyOnlyChange={setHeatmapReadyOnly} count={heatmapSwine.length} />
 
                 <div>
                   <div className="flex justify-between text-[10px] text-stone-400 mb-0.5">
@@ -747,7 +794,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
         </div>
       )}
 
-      {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{settingsError}</p>}
+      {settingsError && <p role="alert" className="absolute bottom-0 z-50 bg-white p-2 text-red-700">{<LocalizedFeedback value={settingsError} />}</p>}
+      {pickedPoint && <div role="status" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-[90%] rounded-xl border border-emerald-700 bg-white px-3 py-2 text-xs text-emerald-950 shadow-lg">
+        <strong><InterfaceText source="Selected GPS location" /></strong><br />
+        {pickedPoint.lat.toFixed(6)}, {pickedPoint.lng.toFixed(6)} · {findBarangayContainingPoint(pickedPoint.lat,pickedPoint.lng) || 'Outside configured barangay boundaries'}
+      </div>}
       {/* Main Google Maps Viewport */}
       <APIProvider apiKey={apiSettings.googleMapsKey} onError={() => { if (apiSettings.quotaDefenseEnabled) onSwitchToLeaflet?.(); }}>
         <GoogleMap
@@ -760,17 +811,21 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           gestureHandling="greedy"
           className="w-full h-full"
           onClick={e => {
-            if (e.detail.latLng) {
+            if ((isLocationPicker || isManualPinMode) && onPickLocation && e.detail.latLng) {
               const { lat, lng } = e.detail.latLng;
               setPickedPoint({ lat, lng });
-              const closest = findClosestBarangay(lat, lng);
-              if (onPickLocation) {
-                onPickLocation(Number(lat.toFixed(6)), Number(lng.toFixed(6)), closest.name);
-              }
+              const containingBarangay = findBarangayContainingPoint(lat, lng);
+              setAccessWarning(containingBarangay ? null : 'Selected point is outside configured barangay boundaries. Choose a location inside an official barangay.');
+              onPickLocation(lat, lng, containingBarangay);
             }
           }}
+          options={{ draggableCursor: isManualPinMode || isLocationPicker ? 'crosshair' : undefined, disableDoubleClickZoom: isManualPinMode || isLocationPicker }}
         >
-          <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} />
+          <MapCameraController targetCenter={targetCenter} targetZoom={targetZoom} manualPinActive={isManualPinMode || isLocationPicker} />
+          <GoogleMapNavigationControls />
+          {pickedPoint && <AdvancedMarker position={pickedPoint} zIndex={5000}>
+            <div aria-label={translateInterfaceText("Selected GPS location")} style={{ transform: 'translate(-50%, -100%)', fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.5))' }}>📍</div>
+          </AdvancedMarker>}
 
           <GoogleMapOverlays>
             {/* 1. Barangay Cadastral Boundaries (Filtered by Authorization) */}
@@ -791,8 +846,9 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 );
 
                 const riskLevel = metric?.riskLevel || b.defaultRiskLevel;
-                const populationColor = showHeatmap && heatmapMode === 'swine_density'
-                  ? getPopulationClassColor(metric?.populationClass || 'very_low')
+                const heatMetric = heatmapBarangayMetrics.find(m => m.barangayName.toLowerCase() === b.name.toLowerCase());
+                const populationColor = showHeatmap && heatmapMode === 'swine_density' && heatMetric?.totalSwine
+                  ? getPopulationClassColor(heatMetric.populationClass)
                   : null;
                 const strokeColor = populationColor ||
                   (riskLevel === 'red' ? '#dc2626' : riskLevel === 'yellow' ? '#d97706' : '#059669');
@@ -812,7 +868,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     strokeWeight={isSelected ? 4 : isHovered ? 3 : 1.5}
                     fillColor={isSelected ? '#10b981' : fillColor}
                     fillOpacity={isSelected ? 0.42 : isHovered ? 0.35 : boundaryOpacity}
-                    clickable={true}
+                    clickable={!isManualPinMode && !isLocationPicker}
                     zIndex={isSelected ? 100 : 1}
                     onClick={() => handleBarangayClick(b.name)}
                     onMouseOver={() => setHoveredBarangay(b.name)}
@@ -850,12 +906,12 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 const isReady = swine.readyToSell || swine.status === 'ready_to_sell';
                 return (
                   <AdvancedMarker
+                    clickable={!isManualPinMode && !isLocationPicker}
                     key={swine.id}
                     position={{ lat: swine.latitude, lng: swine.longitude }}
                     onClick={() => {
                       setSelectedSwineRecord(swine);
                       setSelectedFarmerData(null);
-                      if (onSelectSwine) onSelectSwine(swine);
                     }}
                   >
                     <div
@@ -896,8 +952,9 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {showFarmerPins &&
               farmerMarkers.map((farmer, idx) => (
                 <AdvancedMarker
+                    clickable={!isManualPinMode && !isLocationPicker}
                   key={`farmer-${idx}`}
-                  position={{ lat: farmer.lat + 0.0003, lng: farmer.lng + 0.0003 }}
+                  position={{ lat: farmer.lat, lng: farmer.lng }}
                   onClick={() => {
                     setSelectedFarmerData(farmer);
                     setSelectedSwineRecord(null);
@@ -905,7 +962,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 >
                   <div
                     style={{
-                      transform: 'translate(-50%, -100%)',
+                      transform: 'translate(calc(-50% + 40px), -100%)',
                       cursor: 'pointer',
                       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
                     }}
@@ -920,6 +977,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {/* 5. Swine Marker Detail InfoWindow with "View Swine Record" button */}
             {selectedSwineRecord && selectedSwineRecord.latitude > 0 && selectedSwineRecord.longitude > 0 && (
               <InfoWindow
+                disableAutoPan={isManualPinMode || isLocationPicker}
                 position={{ lat: selectedSwineRecord.latitude, lng: selectedSwineRecord.longitude }}
                 onCloseClick={() => setSelectedSwineRecord(null)}
               >
@@ -935,17 +993,17 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                           : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {selectedSwineRecord.readyToSell ? 'Ready for Sale' : selectedSwineRecord.status}
+                      {selectedSwineRecord.readyToSell ? translateInterfaceText("Ready for Sale") : selectedSwineRecord.status}
                     </span>
                   </div>
 
                   <div className="text-xs space-y-1 my-2">
                     <div>
-                      <span className="text-stone-500">Farmer:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Farmer:" /></span>{' '}
                       <strong className="text-stone-900">{selectedSwineRecord.farmerName}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Barangay:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Barangay:" /></span>{' '}
                       <strong>{selectedSwineRecord.barangay}</strong>
                     </div>
                     <div>
@@ -953,7 +1011,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                       <strong className="capitalize">{selectedSwineRecord.swineType}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Age:</span>{' '}
+                      <span className="text-stone-500"><InterfaceText source="Age:" /></span>{' '}
                       <strong>{selectedSwineRecord.ageDays || 0} days</strong>
                     </div>
                     <div>
@@ -984,6 +1042,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             {/* 6. Farmer Marker Detail InfoWindow */}
             {selectedFarmerData && (
               <InfoWindow
+                disableAutoPan={isManualPinMode || isLocationPicker}
                 position={{ lat: selectedFarmerData.lat, lng: selectedFarmerData.lng }}
                 onCloseClick={() => setSelectedFarmerData(null)}
               >
@@ -999,11 +1058,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                       <span className="text-stone-500">Contact:</span> <strong>{selectedFarmerData.contact}</strong>
                     </div>
                     <div>
-                      <span className="text-stone-500">Barangay:</span> <strong>{selectedFarmerData.barangay}</strong>
+                      <span className="text-stone-500"><InterfaceText source="Barangay:" /></span> <strong>{selectedFarmerData.barangay}</strong>
                     </div>
                     <div>
                       <span className="text-stone-500">Total Registered Swine:</span>{' '}
-                      <strong className="text-emerald-700 font-bold">{selectedFarmerData.swineCount} heads</strong>
+                      <strong className="text-emerald-700 font-bold">{selectedFarmerData.swineCount}{" "}<InterfaceText source="heads" /></strong>
                     </div>
                   </div>
                 </div>
@@ -1022,21 +1081,21 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                 <Building className="w-4 h-4" /> Brgy. {selectedBarangayData.barangayName}
               </h4>
               <span className="text-[10px] text-stone-400">
-                Focal Officer: {selectedBarangayData.focalPersonName || 'Municipal Office'}
+                Focal Officer: {selectedBarangayData.focalPersonName || translateInterfaceText("Municipal Office")}
               </span>
             </div>
-            <button onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
+            <button type="button" aria-label="Close barangay information" onClick={() => setSelectedBarangayData(null)} className="text-stone-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-2 my-2.5">
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Total Swine Heads</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Total Swine Heads" /></span>
               <strong className="text-lg text-emerald-400 font-black">{selectedBarangayData.totalSwine}</strong>
             </div>
             <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700/60">
-              <span className="text-stone-400 text-[10px] block">Registered Farmers</span>
+              <span className="text-stone-400 text-[10px] block"><InterfaceText source="Registered Farmers" /></span>
               <strong className="text-lg text-blue-400 font-black">{selectedBarangayData.registeredFarmers}</strong>
             </div>
           </div>
@@ -1077,8 +1136,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}
               >
-                {selectedBarangayData.asfZone} ZONE
-              </span>
+                {selectedBarangayData.asfZone}<InterfaceText source="ZONE" /></span>
             </div>
           </div>
 
@@ -1097,7 +1155,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
           <div className="bg-stone-900/95 border border-stone-700 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-white text-xs w-64 space-y-2">
             <div className="flex items-center justify-between pb-1 border-b border-stone-800">
               <span className="font-bold text-[11px] text-stone-300 uppercase tracking-wider">GIS Map Legend</span>
-              <button onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
+              <button type="button" aria-label="Close map legend" onClick={() => setIsLegendOpen(false)} className="text-stone-400 hover:text-white">
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1135,12 +1193,12 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     <>
                       <span className="text-[10px] text-stone-300 block mb-1 font-semibold">REGISTERED SWINE POPULATION</span>
                       <div className="space-y-1 text-[10px] text-stone-300">
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Highly populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />Moderately populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Less populated</div>
-                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Very low / no registered swine</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />Very high (61+)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />High (31–60)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />Moderate (11–30)</div>
+                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />Low (1–10); zero = no heat</div>
                       </div>
-                      <p className="text-[9px] text-stone-400 mt-1">Colors use registered swine counts and dynamically calculated population bands.</p>
+                      <p className="text-[9px] text-stone-400 mt-1">Colors show active registered swine counts in the selected classifications.</p>
                     </>
                   ) : (
                     <>

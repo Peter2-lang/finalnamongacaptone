@@ -1,7 +1,9 @@
+import { INITIAL_REGISTRY_FORM_SCHEMA } from '../data/initialFormSchema.ts';
+import {validateSwineMutation} from '../server/swineMutationValidation.ts';
 import { getDatabaseDiagnostic } from './diagnostics.ts';
 import { randomUUID } from 'node:crypto';
 import { db, pool } from './index.ts';
-import { barangays, farmers, swineRecords } from './schema.ts';
+import { barangays, farmers, swineRecords, registrySchema, systemSettings } from './schema.ts';
 import { eq, inArray, and, ilike, or, desc, sql } from 'drizzle-orm';
 import { SwineRecord } from '../types.ts';
 
@@ -293,11 +295,7 @@ export function mapDbToSwine(row: any): SwineRecord {
     row.farm_name ||
     '';
 
-  const barangayId =
-    custom.barangayId ||
-    `brgy-${String(barangayName)
-      .toLowerCase()
-      .replace(/\s+/g, '-')}`;
+  const barangayId = row.barangayId || row.barangay_id || custom.barangayId || '';
 
   const latitude =
     custom.latitude !== undefined &&
@@ -305,10 +303,10 @@ export function mapDbToSwine(row: any): SwineRecord {
       ? (
           toSafeNumber(
             custom.latitude,
-            10.3969
-          ) ?? 10.3969
+            0
+          ) ?? 0
         )
-      : 10.3969;
+      : 0;
 
   const longitude =
     custom.longitude !== undefined &&
@@ -316,10 +314,10 @@ export function mapDbToSwine(row: any): SwineRecord {
       ? (
           toSafeNumber(
             custom.longitude,
-            125.1999
-          ) ?? 125.1999
+            0
+          ) ?? 0
         )
-      : 125.1999;
+      : 0;
 
   const registeredBy =
     custom.registeredBy ||
@@ -366,7 +364,7 @@ export function mapDbToSwine(row: any): SwineRecord {
 
     barangay: barangayName,
 
-    barangay_id: barangayId,
+    barangay_id: row.barangayId || row.barangay_id || barangayId,
 
     farmType:
       farmScale === 'BACKYARD'
@@ -487,7 +485,7 @@ export function mapDbToSwine(row: any): SwineRecord {
     registeredAt:
       row.registeredAt ||
       row.registered_at ||
-      new Date().toISOString(),
+      row.createdAt?.toISOString?.() || row.created_at || '',
 
     updatedAt:
       row.updatedAt ||
@@ -608,13 +606,13 @@ export function mapSwineToDb(s: any) {
     latitude:
       toSafeNumber(
         record.latitude,
-        10.3969
+        0
       ),
 
     longitude:
       toSafeNumber(
         record.longitude,
-        125.1999
+        0
       ),
 
     weightKg:
@@ -1023,11 +1021,13 @@ export async function getSwineRecordById(
  * The update set intentionally excludes the primary key "id".
  */
 export async function upsertSwineRecord(
-  record: any
+  record: any,
+  executor: Pick<typeof db, 'transaction'> = db
 ): Promise<SwineRecord> {
   try {
+    validateSwineMutation(record);
     const dbRecord = mapSwineToDb(record);
-    const saved = await db.transaction(async tx => {
+    const saved = await executor.transaction(async tx => {
       const [barangay] = await tx
         .select({ id: barangays.id })
         .from(barangays)
@@ -1056,16 +1056,13 @@ export async function upsertSwineRecord(
         const farmerIdentity = dbRecord.farmerContact || name.toLowerCase();
         await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${barangay.id}), hashtext(${farmerIdentity}))`);
         const fullNameMatch = sql`lower(concat_ws(' ', ${farmers.firstName}, ${farmers.middleName}, ${farmers.lastName})) = lower(${name})`;
-        const identityConditions = [fullNameMatch];
-        if (dbRecord.farmerContact) {
-          identityConditions.unshift(eq(farmers.contactNumber, dbRecord.farmerContact));
-        }
-
-        const [existingFarmer] = await tx
+        // A name alone is not an identity. Require the name AND contact,
+        // otherwise create a separate farmer until an explicit ID is selected.
+        const [existingFarmer] = dbRecord.farmerContact ? await tx
           .select({ id: farmers.id })
           .from(farmers)
-          .where(and(eq(farmers.barangayId, barangay.id), or(...identityConditions)))
-          .limit(1);
+          .where(and(eq(farmers.barangayId, barangay.id), fullNameMatch, eq(farmers.contactNumber, dbRecord.farmerContact)))
+          .limit(1) : [];
 
         farmerId = existingFarmer?.id;
         if (!farmerId) {
@@ -1118,7 +1115,7 @@ export async function upsertSwineRecord(
     const result =
       await tx
         .insert(swineRecords)
-        .values({ ...dbRecord, farmerId })
+        .values({ ...dbRecord, barangayId: barangay.id, farmerId })
         .onConflictDoUpdate({
           target:
             swineRecords.id,
@@ -1146,6 +1143,9 @@ export async function upsertSwineRecord(
 
             barangay:
               dbRecord.barangay,
+
+            barangayId:
+              barangay.id,
 
             birthDate:
               dbRecord.birthDate,
@@ -1240,125 +1240,11 @@ export async function batchUpsertSwineRecords(
   }
 
   try {
-    const dbRecords =
-      records.map(
-        mapSwineToDb
-      );
-
-    const results:
-      SwineRecord[] = [];
-
-    const batchSize = 50;
-
-    for (
-      let i = 0;
-      i < dbRecords.length;
-      i += batchSize
-    ) {
-      const batch =
-        dbRecords.slice(
-          i,
-          i + batchSize
-        );
-
-      for (
-        const item of batch
-      ) {
-        const result =
-          await db
-            .insert(swineRecords)
-            .values(item)
-            .onConflictDoUpdate({
-              target:
-                swineRecords.id,
-
-              set: {
-                computedPigId:
-                  item.computedPigId,
-
-                pigIdTag:
-                  item.pigIdTag,
-
-                earTagNo:
-                  item.earTagNo,
-
-                farmerName:
-                  item.farmerName,
-
-                farmName:
-                  item.farmName,
-
-                farmerContact:
-                  item.farmerContact,
-
-                barangay:
-                  item.barangay,
-
-                birthDate:
-                  item.birthDate,
-
-                ageDays:
-                  item.ageDays,
-
-                ageMonths:
-                  item.ageMonths,
-
-                estimatedWeightKg:
-                  item.estimatedWeightKg,
-
-                actualWeightKg:
-                  item.actualWeightKg,
-
-                swineType:
-                  item.swineType,
-
-                farmScale:
-                  item.farmScale,
-
-                asfZone:
-                  item.asfZone,
-
-                biosecurityWarning:
-                  item.biosecurityWarning,
-
-                status:
-                  item.status,
-
-                readyToSell:
-                  item.readyToSell,
-
-                priceEstimate:
-                  item.priceEstimate,
-
-                photoUrl:
-                  item.photoUrl,
-
-                isArchived:
-                  item.isArchived,
-
-                registeredAt:
-                  item.registeredAt,
-
-                customFields:
-                  item.customFields,
-              },
-            })
-            .returning();
-
-        if (
-          result &&
-          result[0]
-        ) {
-          results.push(
-            mapDbToSwine(
-              result[0]
-            )
-          );
-        }
-      }
-    }
-
-    return results;
+    return await db.transaction(async tx => {
+      const results: SwineRecord[] = [];
+      for (const record of records) results.push(await upsertSwineRecord(record, tx));
+      return results;
+    });
   } catch (error: any) {
     throw createDatabaseError(
       'batch save',
@@ -1375,14 +1261,6 @@ export async function deleteSwineRecordById(
   id: string
 ): Promise<boolean> {
   try {
-    await db
-      .delete(swineRecords)
-      .where(
-        eq(
-          swineRecords.id,
-          id
-        )
-      );
     const trimmedId = (id || '').trim();
     if (!trimmedId) return false;
 
@@ -1457,4 +1335,61 @@ export async function deleteSwineRecordsByIds(
       error
     );
   }
+}
+
+/** Import-only persistence: additive fields and bounded record batches share a
+ * transaction. Receipts make retrying an uncertain HTTP response idempotent. */
+export async function persistSwineImportBatch(
+  records: any[],
+  fields: import('../types').RegistryFormField[],
+  sectionId: string,
+  receiptKey: string,
+  requestHash: string,
+  metadata: {sourceIndexes: number[]; failures: {index:number; reason:string}[]; skipped:number[]},
+  baseSchema: import('../types').RegistryFormSchema = INITIAL_REGISTRY_FORM_SCHEMA,
+) {
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${receiptKey}))`);
+    const [receipt] = await tx.select().from(systemSettings).where(eq(systemSettings.key, receiptKey)).limit(1);
+    if (receipt) {
+      const prior = receipt.value as any;
+      if (prior.requestHash !== requestHash) throw new Error('This import batch was already submitted with different data. Start a new import.');
+      return prior.result as {data: SwineRecord[]; failures: {index:number; reason:string}[]; skipped:number[]; newFields: string[]};
+    }
+    const newFields: string[] = [];
+    if (fields.length) {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('registry_form_schema'))`);
+      const existing = await tx.select().from(registrySchema);
+      const [schemaSetting] = await tx.select().from(systemSettings).where(eq(systemSettings.key,'registry_form_schema')).limit(1);
+      const stored = schemaSetting?.value as import('../types').RegistryFormSchema | undefined;
+      const published = structuredClone(stored?.sections?.length ? stored : baseSchema);
+      const targetSection = published.sections.find(section => section.id === sectionId) || published.sections[0];
+      if (!targetSection) throw new Error('No registry section is available for imported fields.');
+      for (const field of fields) {
+        const found = existing.find(item => item.fieldKey === field.fieldKey || item.id === field.id);
+        if (found) {
+          if (found.fieldType !== field.type) throw new Error(`Field ${field.label} already exists with a different type. Reload the schema and review mappings.`);
+          continue;
+        }
+        await tx.insert(registrySchema).values({id: field.id, fieldKey: field.fieldKey!, label: field.label, fieldType: field.type, required: Boolean(field.required), visible: true, options: field.options || null, sectionId, fieldOrder: existing.length + newFields.length + 1, helpText: 'Confirmed custom field from records import'});
+        newFields.push(field.fieldKey!);
+        if (!published.sections.some(section => section.fields.some(item => item.fieldKey === field.fieldKey))) targetSection.fields.push({...field});
+      }
+      published.lastUpdated = new Date().toISOString();
+      published.isPublished = true;
+      await tx.insert(systemSettings).values({key:'registry_form_schema',value:published,updatedAt:new Date()}).onConflictDoUpdate({target:systemSettings.key,set:{value:published,updatedAt:new Date()}});
+    }
+    const data: SwineRecord[] = [];
+    const failures: {index:number; reason:string}[] = [];
+    for (let index = 0; index < records.length; index++) {
+      try { data.push(await upsertSwineRecord(records[index], tx)); }
+      catch (error) {
+        const diagnostic = getDatabaseErrorInfo(error);
+        failures.push({index, reason: diagnostic.code === '23505' ? 'Swine ID or ear tag already exists.' : diagnostic.code === '23503' ? 'Farmer or barangay reference is invalid.' : diagnostic.message});
+      }
+    }
+    const result = {data, failures: [...metadata.failures, ...failures.map(failure => ({...failure,index:metadata.sourceIndexes[failure.index]}))], skipped: metadata.skipped, newFields};
+    await tx.insert(systemSettings).values({key: receiptKey, value: {requestHash, result}, updatedAt: new Date()});
+    return result;
+  });
 }

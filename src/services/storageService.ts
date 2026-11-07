@@ -1,4 +1,5 @@
 import { requestJson } from './http.ts';
+import { uploadLegalDocumentDirect } from './directUpload.ts';
 import {
   INITIAL_ACCOUNTS,
   INITIAL_BARANGAYS,
@@ -25,6 +26,7 @@ import {
   CertificateTemplate,
   DynamicFormField,
   IssuedCertificate,
+  LegalSourceAttachment,
   LandingPageConfig,
   MarketingAlert,
   MessageItem,
@@ -261,7 +263,7 @@ export const storageService = {
         );
       }
 
-      const records: SwineRecord[] = json.data;
+      const records: SwineRecord[] = json.data.map((record:SwineRecord)=>({...record,isSynced:true}));
 
       // Cache only records that were successfully retrieved from the cloud.
       this.saveSwineRecords(records);
@@ -1294,7 +1296,9 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
         item.action as any,
         item.entity as any,
         dataObj?.id || item.id,
-        item.data
+        item.data,
+        2,
+        this.getCurrentUser()?.authUserId || this.getCurrentUser()?.id
       ).catch(() => {});
     }
   },
@@ -1309,14 +1313,10 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     const queue = this.getOfflineQueue();
     if (queue.length === 0) return { success: true, syncedCount: 0 };
 
-    // Mark all existing swine records as synced
-    const swine = this.getSwineRecords();
-    const updatedSwine = swine.map(s => ({ ...s, isSynced: true }));
-    this.saveSwineRecords(updatedSwine);
+    // A local queue is never proof of a committed server operation.
+    // Keep every draft and operation for the authenticated sync engine.
+    return { success: false, syncedCount: 0 };
 
-    const count = queue.length;
-    this.clearOfflineQueue();
-    return { success: true, syncedCount: count };
   },
 
   // Barangay Biosecurity Audits
@@ -1469,17 +1469,26 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
   },
 
   async updateAsfRegulation(doc: ASFRegulatoryDocument, _performedBy?: string, _changeSummary?: string): Promise<void> {
+    let savedDocument = doc;
     if (navigator.onLine && !this.getSimulatedOffline()) {
-      await requestJson(`/api/legal-documents/${encodeURIComponent(doc.id)}`, { method: 'PUT', body: JSON.stringify(doc) });
+      const result = await requestJson<{ data: ASFRegulatoryDocument }>(
+        `/api/legal-documents/${encodeURIComponent(doc.id)}`,
+        { method: 'PUT', body: JSON.stringify(doc) },
+      );
+      savedDocument = result.data;
     }
     const list = this.getAsfRegulations();
-    this.saveAsfRegulations([...list.filter(item => item.id !== doc.id), doc]);
+    this.saveAsfRegulations([...list.filter(item => item.id !== savedDocument.id), savedDocument]);
   },
 
   async addAsfRegulation(doc: ASFRegulatoryDocument, _performedBy?: string): Promise<void> {
-    const document = { ...doc, id: doc.id || crypto.randomUUID() };
+    let document = { ...doc, id: doc.id || crypto.randomUUID() };
     if (navigator.onLine && !this.getSimulatedOffline()) {
-      await requestJson('/api/legal-documents', { method: 'POST', body: JSON.stringify(document) });
+      const result = await requestJson<{ data: ASFRegulatoryDocument }>('/api/legal-documents', {
+        method: 'POST',
+        body: JSON.stringify(document),
+      });
+      document = result.data;
     }
     this.saveAsfRegulations([document, ...this.getAsfRegulations().filter(item => item.id !== document.id)]);
   },
@@ -1493,7 +1502,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
   async restoreAsfRegulation(id: string, performedBy?: string): Promise<void> {
     const document = this.getAsfRegulations().find(item => item.id === id);
     if (!document) throw new Error('Legal document not found.');
-    await this.updateAsfRegulation({ ...document, status: 'active', isArchived: false }, performedBy);
+    await this.updateAsfRegulation({ ...document, status: 'for_verification', isArchived: false }, performedBy);
   },
 
   async deleteAsfRegulation(id: string, _performedBy?: string): Promise<void> {
@@ -1508,6 +1517,32 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     const result = await requestJson<{ data: ASFRegulatoryDocument[] }>('/api/legal-documents', {}, false);
     setItem(STORAGE_KEYS.ASF_REGULATIONS, result.data);
     return result.data;
+  },
+
+  async uploadLegalDocumentAttachment(documentId: string, file: File): Promise<LegalSourceAttachment> {
+    if (!navigator.onLine || this.getSimulatedOffline()) {
+      throw new Error('Legal document uploads require an online connection.');
+    }
+    const filePath = await uploadLegalDocumentDirect(file, documentId);
+    const result = await requestJson<{
+      data: { document: ASFRegulatoryDocument; attachment: LegalSourceAttachment };
+    }>(`/api/legal-documents/${encodeURIComponent(documentId)}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify({ filePath, fileName: file.name, mimeType: file.type }),
+    });
+    const document = result.data.document;
+    this.saveAsfRegulations([
+      document,
+      ...this.getAsfRegulations().filter(item => item.id !== document.id),
+    ]);
+    return result.data.attachment;
+  },
+
+  async getLegalDocumentAttachmentUrl(documentId: string, attachmentId: string): Promise<string> {
+    const result = await requestJson<{ data: { url: string } }>(
+      `/api/legal-documents/${encodeURIComponent(documentId)}/attachments/${encodeURIComponent(attachmentId)}/url`,
+    );
+    return result.data.url;
   },
 
   async resetAsfRegulations(): Promise<ASFRegulatoryDocument[]> {
@@ -1774,6 +1809,12 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
     setItem(STORAGE_KEYS.REGISTRY_FORM_SCHEMA_DRAFT, savedSchema);
     window.dispatchEvent(new CustomEvent('da_registry_schema_change', { detail: savedSchema }));
     return savedSchema;
+  },
+
+  cacheRegistryFormSchema(schema: RegistryFormSchema): void {
+    setItem(STORAGE_KEYS.REGISTRY_FORM_SCHEMA, schema);
+    setItem(STORAGE_KEYS.REGISTRY_FORM_SCHEMA_DRAFT, schema);
+    window.dispatchEvent(new CustomEvent('da_registry_schema_change', {detail:schema}));
   },
 
   async refreshRegistryFormSchemaFromCloud(): Promise<RegistryFormSchema> {

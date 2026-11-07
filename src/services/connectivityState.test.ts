@@ -17,3 +17,12 @@ test('unverified backend cannot report connected on startup or reconnection', ()
   assert.equal(getConnectivityState({ ...online, backendReachable: false, state: 'SYNCED' }).state, 'ERROR');
   assert.equal(getConnectivityState(online).state, 'ONLINE');
 });
+
+test('initializing backend checks do not report a false error', () => {
+  assert.deepEqual(getConnectivityState({
+    ...online,
+    backendReachable: false,
+    connectionInitializing: true,
+    state: 'ONLINE',
+  }), { isOnline: true, state: 'ONLINE' });
+});

@@ -1,3 +1,5 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   FileText,
@@ -38,6 +40,18 @@ interface CreateCertificateModalProps {
   latestSavedTemplate?: CertificateTemplate | null;
   initialData?: any;
 }
+
+const getFarmerKey = (swine: SwineRecord) =>
+  `${swine.barangay.trim().toLowerCase()}::${swine.farmerId || swine.farmerName.trim().toLowerCase()}`;
+
+const CERTIFICATE_REGISTRY_DATA_KEYS = new Set([
+  'resident_name', 'farmer_name', 'farmer_address', 'barangay', 'municipality', 'province',
+  'number_of_pigs', 'heads', 'swine_identification', 'buyer_name', 'buyer_address',
+  'destination', 'transport_origin', 'price_per_kilo', 'purpose', 'date_issued', 'issue_date',
+  'or_number', 'amount_paid', 'issued_at', 'certificate_number', 'punong_barangay',
+  'association_name', 'farmer_age_civil_status', 'swine_age', 'female_count', 'male_count',
+  'color_description', 'animal_type',
+]);
 
 export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   isOpen,
@@ -85,11 +99,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   }, [latestSavedTemplate]);
 
   const initialSwineRecord = swineList.find(s => s.barangay === selectedBarangay) || swineList[0];
-  const initialFarmerSwineCount = initialSwineRecord
-    ? swineList.filter(
-        s => s.farmerName === initialSwineRecord.farmerName && s.barangay === initialSwineRecord.barangay
-      ).length
-    : 0;
+  const [selectedFarmerId, setSelectedFarmerId] = useState(initialSwineRecord?.farmerId || '');
 
   // Form Field States
   const [farmerName, setFarmerName] = useState<string>(
@@ -101,14 +111,20 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   const [farmerAgeCivilStatus, setFarmerAgeCivilStatus] = useState<string>(
     initialData?.farmerAgeCivilStatus || ''
   );
+  const [farmerAddress, setFarmerAddress] = useState<string>(
+    initialData?.farmerAddress || initialSwineRecord?.farmerAddress || ''
+  );
   const [buyerName, setBuyerName] = useState<string>(
     initialData?.buyerName || ''
+  );
+  const [buyerAddress, setBuyerAddress] = useState<string>(
+    initialData?.buyerAddress || ''
   );
   const [destination, setDestination] = useState<string>(
     initialData?.destination || ''
   );
-  const [numberOfHeads, setNumberOfHeads] = useState<number>(
-    initialData?.numberOfHeads ?? (initialData ? 1 : initialFarmerSwineCount)
+  const [purpose, setPurpose] = useState<string>(
+    initialData?.purpose || ''
   );
   const [swineAge, setSwineAge] = useState<string>(() => {
     if (initialData?.swineAge) return initialData.swineAge;
@@ -133,13 +149,32 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     initialData?.priceDescription || (initialData?.estimatedPricePhp ? `₱${initialData.estimatedPricePhp.toLocaleString()}` : '')
   );
   const [orNumber, setOrNumber] = useState<string>(
-    initialData?.orNumber || activeTemplate?.receipt?.orNumber || ''
+    initialData?.orNumber || ''
   );
   const [amountPaid, setAmountPaid] = useState<string | number>(
-    initialData?.amountPaid ?? activeTemplate?.receipt?.amountPaid ?? ''
+    initialData?.amountPaid ?? ''
   );
   const [issueDate, setIssueDate] = useState<string>(
     initialData?.issueDate || new Date().toISOString().substring(0, 10)
+  );
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [selectedSwineIds, setSelectedSwineIds] = useState<string[]>(() => {
+    if (Array.isArray(initialData?.swineIds)) return initialData.swineIds;
+    if (initialData?.swineId) return [initialData.swineId];
+    return initialSwineRecord
+      ? swineList.filter(s => getFarmerKey(s) === getFarmerKey(initialSwineRecord)).map(s => s.id)
+      : [];
+  });
+  const farmerSwineRecords = swineList.filter(swine =>
+    swine.barangay.trim().toLowerCase() === selectedBarangay.trim().toLowerCase() &&
+    (selectedFarmerId
+      ? swine.farmerId === selectedFarmerId
+      : swine.farmerName.trim().toLowerCase() === farmerName.trim().toLowerCase())
+  );
+  const selectedSwineRecords = farmerSwineRecords.filter(swine => selectedSwineIds.includes(swine.id));
+  const selectedFarmerRecord = swineList.find(swine => selectedSwineIds.includes(swine.id));
+  const availableFarmers = Array.from(
+    new Map(swineList.map(swine => [getFarmerKey(swine), swine])).values()
   );
 
   // Modal active tab: 'form' | 'preview'
@@ -213,11 +248,13 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     if (initialData.farmerName) setFarmerName(initialData.farmerName);
     if (initialData.associationName) setAssociationName(initialData.associationName);
     if (initialData.farmerAgeCivilStatus) setFarmerAgeCivilStatus(initialData.farmerAgeCivilStatus);
+    if (initialData.farmerAddress) setFarmerAddress(initialData.farmerAddress);
     if (initialData.buyerName) setBuyerName(initialData.buyerName);
+    if (initialData.buyerAddress) setBuyerAddress(initialData.buyerAddress);
     if (initialData.destination || initialData.destinationMunicipality || initialData.destinationBarangay) {
       setDestination(initialData.destination || initialData.destinationMunicipality || initialData.destinationBarangay || '');
     }
-    if (initialData.numberOfHeads !== undefined) setNumberOfHeads(Number(initialData.numberOfHeads));
+    if (initialData.purpose) setPurpose(initialData.purpose);
     if (initialData.swineAge) setSwineAge(initialData.swineAge);
     if (initialData.femaleCount !== undefined) setFemaleCount(initialData.femaleCount);
     if (initialData.maleCount !== undefined) setMaleCount(initialData.maleCount);
@@ -226,6 +263,14 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     if (initialData.orNumber) setOrNumber(initialData.orNumber);
     if (initialData.amountPaid !== undefined) setAmountPaid(initialData.amountPaid);
     if (initialData.issueDate) setIssueDate(initialData.issueDate);
+    const savedSwineIds = Array.isArray(initialData.swineIds)
+      ? initialData.swineIds
+      : initialData.swineId
+        ? [initialData.swineId]
+        : [];
+    if (savedSwineIds.length > 0) setSelectedSwineIds(savedSwineIds);
+    const savedSwine = swineList.find(sw => savedSwineIds.includes(sw.id));
+    if (savedSwine?.farmerId) setSelectedFarmerId(savedSwine.farmerId);
   }, [isOpen, initialData]);
 
   useEffect(() => {
@@ -249,26 +294,22 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     }
   }, [allTemplates, selectedBarangay, initialData?.templateId]);
 
-  // When template changes, update receipt defaults
-  useEffect(() => {
-    if (activeTemplate?.receipt?.amountPaid && initialData?.amountPaid == null) {
-      setAmountPaid(activeTemplate.receipt.amountPaid);
-    }
-    if (activeTemplate?.receipt?.orNumber && !initialData?.orNumber) {
-      setOrNumber(activeTemplate.receipt.orNumber);
-    }
-  }, [activeTemplate]);
-
   // When farmer is selected from swine list
-  const handleFarmerSelect = (farmerNameSelected: string) => {
-    setFarmerName(farmerNameSelected);
-    const matched = swineList.filter(
-      s => s.farmerName === farmerNameSelected && (!selectedBarangay || s.barangay === selectedBarangay)
-    );
-    const farmerRecords = matched.length > 0 ? matched : swineList.filter(s => s.farmerName === farmerNameSelected);
+  const handleFarmerSelect = (farmerKey: string) => {
+    const selectedFarmer = swineList.find(s => getFarmerKey(s) === farmerKey);
+    if (!selectedFarmer) {
+      setFarmerName('');
+      setSelectedFarmerId('');
+      setSelectedSwineIds([]);
+      return;
+    }
+    setFarmerName(selectedFarmer.farmerName);
+    setSelectedFarmerId(selectedFarmer.farmerId || '');
+    const farmerRecords = swineList.filter(s => getFarmerKey(s) === farmerKey);
     if (farmerRecords.length > 0) {
       setSelectedBarangay(farmerRecords[0].barangay || selectedBarangay);
-      setNumberOfHeads(farmerRecords.length);
+      setFarmerAddress(farmerRecords[0].farmerAddress || '');
+      setSelectedSwineIds(farmerRecords.map(record => record.id));
       const females = farmerRecords.filter(s => s.gender === 'female').length;
       const males = farmerRecords.filter(s => s.gender === 'male').length;
       setFemaleCount(females);
@@ -282,6 +323,16 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         }
       }
     }
+  };
+
+  const handleSwineSelection = (swineId: string, checked: boolean) => {
+    const nextIds = checked
+      ? [...selectedSwineIds, swineId]
+      : selectedSwineIds.filter(id => id !== swineId);
+    setSelectedSwineIds(nextIds);
+    const selected = farmerSwineRecords.filter(sw => nextIds.includes(sw.id));
+    setFemaleCount(selected.filter(sw => sw.gender === 'female').length);
+    setMaleCount(selected.filter(sw => sw.gender === 'male' || sw.gender === 'castrated').length);
   };
 
   if (!isOpen) return null;
@@ -313,16 +364,14 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
               Retry loading templates
             </button>
           )}
-          <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-2">
-            Close
-          </button>
+          <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-2"><InterfaceText source="Close" /></button>
         </div>
       </div>
     );
   }
 
   // Active compiled data context for preview and placeholder replacement
-  const activeDataContext = {
+  const activeDataContext: Record<string, string | number> = {
     resident_name: farmerName,
     farmer_name: farmerName,
     barangay: selectedBarangay,
@@ -330,22 +379,38 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
     province: 'Southern Leyte',
     association_name: associationName,
     farmer_age_civil_status: farmerAgeCivilStatus,
+    farmer_address: farmerAddress,
     buyer_name: buyerName,
-    buyer_address: destination,
+    buyer_address: buyerAddress,
     destination: destination,
-    number_of_pigs: numberOfHeads,
-    heads: numberOfHeads,
+    transport_origin: selectedBarangay,
+    number_of_pigs: selectedSwineRecords.length,
+    heads: selectedSwineRecords.length,
+    swine_identification: selectedSwineRecords
+      .map(sw => sw.pigIdTag?.trim() || sw.earTagNo?.trim() || '')
+      .filter(Boolean)
+      .join(', '),
+    certificate_number: initialData?.certificateNo || initialData?.controlNumber || '—',
+    punong_barangay: activeTemplate.signatories.find(signatory =>
+      signatory.position?.toLowerCase().includes('punong') || signatory.section === 'certified_by')?.name || '—',
     swine_age: swineAge,
     female_count: femaleCount,
     male_count: maleCount,
     color_description: colorDescription,
     price_per_kilo: priceDescription,
+    purpose,
     or_number: orNumber,
     amount_paid: amountPaid,
     date_issued: issueDate,
     issue_date: issueDate,
     issued_at: `Barangay ${selectedBarangay}, Hinunangan, Southern Leyte`,
+    ...customFieldValues,
   };
+  activeTemplate.templateFields?.forEach(field => {
+    if ((activeDataContext[field.key] === undefined || activeDataContext[field.key] === '') && field.defaultValue) {
+      activeDataContext[field.key] = field.defaultValue;
+    }
+  });
 
   const handleArchiveCertificate = async () => {
     const certRef = initialData?.controlNumber || initialData?.certificateNo || initialData?.id;
@@ -365,20 +430,35 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
 
   const handleSaveAndIssue = async (andPrint = false) => {
     setSaveError('');
-    if (!farmerName.trim() || !selectedBarangay || !Number.isFinite(Number(numberOfHeads)) || Number(numberOfHeads) < 1) {
-      setSaveError('Enter a recipient, barangay, and a valid number of swine before issuing.');
+    if (activeTab !== 'preview') {
+      setActiveTab('preview');
+      setSaveError('Review the populated certificate preview before issuing.');
+      return;
+    }
+    if (!farmerName.trim() || !selectedBarangay || selectedSwineRecords.length < 1) {
+      setSaveError('Select a registered farmer and at least one registered swine before issuing.');
       return;
     }
     if (!barangays.some(barangay => barangay.name === selectedBarangay)) {
       setSaveError('Select an active barangay loaded from the database.');
       return;
     }
-    const selectedFarmerRecords = swineList.filter(
-      swine =>
-        swine.farmerName.trim().toLowerCase() === farmerName.trim().toLowerCase() &&
-        swine.barangay.toLowerCase() === selectedBarangay.toLowerCase()
-    );
-    if (!isEditMode && selectedFarmerRecords.length === 0) {
+    if (selectedSwineRecords.some(sw => sw.farmerName.trim().toLowerCase() !== farmerName.trim().toLowerCase())) {
+      setSaveError('The selected swine must belong to the displayed farmer.');
+      return;
+    }
+    const missingTemplateFields = (activeTemplate.templateFields || [])
+      .filter(field => field.required && field.key !== 'certificate_number')
+      .filter(field => {
+        const value = activeDataContext[field.key];
+        return value === undefined || String(value).trim() === '' || String(value).trim() === '—';
+      });
+    if (missingTemplateFields.length) {
+      setSaveError(`Complete the required template fields: ${missingTemplateFields.map(field => field.label).join(', ')}.`);
+      setActiveTab('form');
+      return;
+    }
+    if (!isEditMode && selectedSwineRecords.length === 0) {
       setSaveError('Select a registered farmer with swine records in the selected barangay before issuing.');
       return;
     }
@@ -395,14 +475,19 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         initialData?.controlNumber ||
         `HN-BRGY-${selectedBarangay.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
       const certId = initialData?.id || `cert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const renderedBody = replaceTemplatePlaceholders(activeTemplate.bodyTemplate || '', activeDataContext);
-      const recordedEarTags = selectedFarmerRecords
-        .map(swine => swine.pigIdTag?.trim() || swine.earTagNo?.trim() || '')
-        .filter(Boolean);
-
       const firstPB =
         activeTemplate.signatories.find(s => s.position?.toLowerCase().includes('punong') || s.section === 'certified_by')
           ?.name || '';
+      const issueDataContext = {
+        ...activeDataContext,
+        certificate_number: certNumber,
+        punong_barangay: firstPB || '—',
+      };
+      const renderedBody = replaceTemplatePlaceholders(activeTemplate.bodyTemplate || '', issueDataContext);
+      const recordedEarTags = selectedSwineRecords
+        .map(swine => swine.pigIdTag?.trim() || swine.earTagNo?.trim() || '')
+        .filter(Boolean);
+
       const firstBBO =
         activeTemplate.signatories.find(s => s.position?.toLowerCase().includes('bbo') || s.section === 'noted_by')
           ?.name || '';
@@ -417,16 +502,19 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         templateId: activeTemplate.id,
         templateSnapshot: activeTemplate,
         renderedBody: renderedBody,
-        swineId: initialData?.swineId || selectedFarmerRecords[0]?.id || '',
+        swineIds: selectedSwineRecords.map(sw => sw.id),
+        swineId: selectedSwineRecords[0]?.id || '',
         earTagNo: initialData?.earTagNo || recordedEarTags.join(', '),
         farmerName,
+        farmerAddress,
         farmerBarangay: selectedBarangay,
         issuingBarangay: selectedBarangay,
         buyerName,
+        buyerAddress,
         destinationBarangay: destination,
         destinationMunicipality: destination,
-        numberOfHeads: Number(numberOfHeads),
-        swineDescription: `${numberOfHeads} heads of pigs${colorDescription ? ` (${colorDescription})` : ''}`,
+        numberOfHeads: selectedSwineRecords.length,
+        swineDescription: `${selectedSwineRecords.length} heads of pigs${colorDescription ? ` (${colorDescription})` : ''}`,
         orNumber,
         amountPaid: Number.isFinite(parsedAmountPaid) ? parsedAmountPaid : 0,
         issueDate,
@@ -435,12 +523,13 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
         bboName: firstBBO,
         authorizedBy: firstPB,
         status: initialData?.status || 'active',
-        qrVerificationCode: `DA-HN-CERT|${certNumber}|${farmerName}|${selectedBarangay}|${numberOfHeads}HEADS|BUYER:${buyerName}|OR:${orNumber}|TPL:${activeTemplate.id}`,
-        purpose: activeTemplate.documentType,
+        qrVerificationCode: `DA-HN-CERT|${certNumber}|${farmerName}|${selectedBarangay}|${selectedSwineRecords.length}HEADS|BUYER:${buyerName}|OR:${orNumber}|TPL:${activeTemplate.id}`,
+        purpose,
+        pricePerKg: priceDescription,
         destination,
         inspectedBy: currentUser?.name || firstBBO,
         createdBy: initialData?.createdBy || currentUser?.id,
-        certificateData: activeDataContext,
+        certificateData: issueDataContext,
       };
 
       const savedCertificate = isEditMode
@@ -459,7 +548,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in duration-150">
       <div className="bg-white max-w-5xl w-full rounded-2xl shadow-2xl border border-stone-200 flex flex-col max-h-[95vh] overflow-hidden">
-        {saveError && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>}
+        {saveError && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
         {isLoadingTemplates && <div role="status" className="px-4 py-2 text-xs text-stone-600">Loading templates from database...</div>}
 
         {/* Header Bar */}
@@ -546,7 +635,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {allTemplates.map(tpl => {
+                  {allTemplates.filter(tpl => tpl.isActive !== false && tpl.reviewStatus !== 'draft').map(tpl => {
                     const isSelected = activeTemplate.id === tpl.id;
                     return (
                       <button
@@ -600,8 +689,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                       className="w-full bg-slate-50 border border-stone-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
                     >
                       {barangays.map(b => (
-                        <option key={b.name} value={b.name}>
-                          Barangay {b.name}
+                        <option key={b.name} value={b.name}>{translateInterfaceText("Barangay")}{b.name}
                         </option>
                       ))}
                     </select>
@@ -612,17 +700,30 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                       Quick Select Registered Raiser (Optional)
                     </label>
                     <select
-                      value={farmerName}
+                      value={selectedFarmerRecord ? getFarmerKey(selectedFarmerRecord) : ''}
                       onChange={e => handleFarmerSelect(e.target.value)}
                       className="w-full bg-slate-50 border border-stone-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select a registered raiser</option>
-                      {swineList.map(s => (
-                        <option key={s.id} value={s.farmerName}>
-                          {s.farmerName} — Brgy. {s.barangay} ({s.breed})
+                      {availableFarmers.map(s => (
+                        <option key={getFarmerKey(s)} value={getFarmerKey(s)}>
+                          {s.farmerName} — Brgy. {s.barangay}
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Farmer / Owner Address
+                    </label>
+                    <input
+                      type="text"
+                      value={farmerAddress}
+                      onChange={e => setFarmerAddress(e.target.value)}
+                      placeholder="Address from the farmer record"
+                      className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
+                    />
                   </div>
 
                   <div>
@@ -664,6 +765,31 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                     />
                   </div>
                 </div>
+                {(activeTemplate.templateFields || []).filter(field =>
+                  !CERTIFICATE_REGISTRY_DATA_KEYS.has(field.key)
+                ).length > 0 && (
+                  <div className="grid grid-cols-1 gap-4 border-t border-stone-100 pt-4 sm:grid-cols-2">
+                    {(activeTemplate.templateFields || [])
+                      .filter(field => !CERTIFICATE_REGISTRY_DATA_KEYS.has(field.key))
+                      .map(field => (
+                        <div key={field.key}>
+                          <label className="mb-1 block text-xs font-bold text-slate-700">
+                            {field.label}{field.required && <span className="ml-1 text-rose-600">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={customFieldValues[field.key] ?? field.defaultValue ?? ''}
+                            onChange={event => setCustomFieldValues(previous => ({
+                              ...previous,
+                              [field.key]: event.target.value,
+                            }))}
+                            placeholder={`Enter ${field.label.toLocaleLowerCase()}`}
+                            className="w-full rounded-xl border border-stone-300 bg-white p-2.5 text-xs font-semibold text-slate-900"
+                          />
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Form Grid 2: Swine Specifications */}
@@ -680,9 +806,10 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                     </label>
                     <input
                       type="number"
-                      min="1"
-                      value={numberOfHeads}
-                      onChange={e => setNumberOfHeads(parseInt(e.target.value, 10) || 0)}
+                      min="0"
+                      value={selectedSwineRecords.length}
+                      readOnly
+                      aria-label="Head count from selected registered swine"
                       className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs font-bold text-slate-900"
                     />
                   </div>
@@ -752,6 +879,28 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
                     />
                   </div>
                 </div>
+                <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-bold text-stone-800">Registered swine to include</p>
+                    <span className="text-xs font-semibold text-emerald-800">{selectedSwineRecords.length} selected</span>
+                  </div>
+                  {farmerSwineRecords.length > 0 ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {farmerSwineRecords.map(sw => (
+                        <label key={sw.id} className="flex items-center gap-2 rounded-lg bg-white p-2 text-xs text-stone-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedSwineIds.includes(sw.id)}
+                            onChange={e => handleSwineSelection(sw.id, e.target.checked)}
+                          />
+                          <span>{sw.pigIdTag || sw.earTagNo || sw.id} — {sw.breed || 'Breed not recorded'}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-stone-500">Select a registered farmer to load swine records.</p>
+                  )}
+                </div>
               </div>
 
               {/* Form Grid 3: Buyer & Destination */}
@@ -777,13 +926,37 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Transit Destination Address
+                      Buyer Address
+                    </label>
+                    <input
+                      type="text"
+                      value={buyerAddress}
+                      onChange={e => setBuyerAddress(e.target.value)}
+                      placeholder="Buyer address"
+                      className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Transport Destination
                     </label>
                     <input
                       type="text"
                       value={destination}
                       onChange={e => setDestination(e.target.value)}
-                      placeholder="e.g. Barangay Colawen, Pastrana, Leyte"
+                      placeholder="Destination address"
+                      className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Purpose of Certification
+                    </label>
+                    <input
+                      type="text"
+                      value={purpose}
+                      onChange={e => setPurpose(e.target.value)}
+                      placeholder="Enter the stated purpose"
                       className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs font-semibold text-slate-900"
                     />
                   </div>
@@ -886,9 +1059,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-xs font-bold transition cursor-pointer"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
 
             <button
               type="button"
@@ -898,7 +1069,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({
             >
               <Check className="w-4 h-4" />
               <span>
-                {isSaving ? 'Saving to database...' : isEditMode ? 'Save Changes' : 'Save & Issue Certificate'}
+                {isSaving ? 'Saving to database...' : isEditMode ? translateInterfaceText("Save Changes") : 'Save & Issue Certificate'}
               </span>
             </button>
 

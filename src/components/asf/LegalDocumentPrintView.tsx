@@ -1,3 +1,5 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { ASFRegulatoryDocument } from '../../types';
 import { Printer, ArrowLeft, Building, Scale, ShieldCheck } from 'lucide-react';
@@ -35,7 +37,7 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
 
         <div className="flex items-center gap-3">
           {printError ? (
-            <span role="alert" className="text-xs font-medium text-red-700">{printError}</span>
+            <span role="alert" className="text-xs font-medium text-red-700">{<LocalizedFeedback value={printError} />}</span>
           ) : (
             <span className="text-xs text-stone-500 font-medium hidden sm:inline">
               Official document ready to print
@@ -55,15 +57,9 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
       <div data-print-document="legal-document" className="w-full max-w-4xl bg-white text-stone-900 p-8 sm:p-14 shadow-2xl rounded-2xl print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full font-serif leading-relaxed">
         {/* Official Letterhead Header */}
         <div className="text-center border-b-2 border-stone-800 pb-6 mb-8">
-          <p className="text-xs tracking-widest uppercase text-stone-600 font-sans font-semibold">
-            Republic of the Philippines
-          </p>
-          <p className="text-xs tracking-wider uppercase text-stone-700 font-sans font-semibold">
-            Province of Southern Leyte
-          </p>
-          <h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-stone-900 font-sans mt-0.5">
-            Municipality of Hinunangan
-          </h2>
+          <p className="text-xs tracking-widest uppercase text-stone-600 font-sans font-semibold"><InterfaceText source="Republic of the Philippines" /></p>
+          <p className="text-xs tracking-wider uppercase text-stone-700 font-sans font-semibold"><InterfaceText source="Province of Southern Leyte" /></p>
+          <h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-stone-900 font-sans mt-0.5"><InterfaceText source="Municipality of Hinunangan" /></h2>
           <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-900 font-sans mt-1">
             {doc.issuingAuthority}
           </h3>
@@ -155,12 +151,12 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
             <table className="w-full text-left text-[10px] border border-stone-300">
               <thead className="bg-stone-100 font-bold border-b border-stone-300">
                 <tr>
-                  <th className="p-2 border-r border-stone-300">Category</th>
+                  <th className="p-2 border-r border-stone-300"><InterfaceText source="Category" /></th>
                   <th className="p-2 border-r border-stone-300">Class</th>
-                  <th className="p-2 border-r border-stone-300">Heads</th>
-                  <th className="p-2 border-r border-stone-300">Groundwater</th>
+                  <th className="p-2 border-r border-stone-300"><InterfaceText source="Heads" /></th>
+                  <th className="p-2 border-r border-stone-300"><InterfaceText source="Groundwater" /></th>
                   <th className="p-2 border-r border-stone-300">Built-up</th>
-                  <th className="p-2">Major Roads</th>
+                  <th className="p-2"><InterfaceText source="Major Roads" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200">
@@ -212,7 +208,7 @@ export const LegalDocumentPrintView: React.FC<LegalDocumentPrintViewProps> = ({
             <p className="text-stone-500 mb-8">Official Record System:</p>
             <p className="font-bold text-emerald-900 uppercase text-sm">OMAS Hinunangan</p>
             <p className="text-stone-600">Swine & Livestock Registry System</p>
-            <p className="text-stone-400 text-[10px] mt-1">Status: {doc.status?.toUpperCase() || 'ACTIVE'}</p>
+            <p className="text-stone-400 text-[10px] mt-1"><InterfaceText source="Status:" />{" "}{doc.status?.toUpperCase() || translateInterfaceText("ACTIVE")}</p>
           </div>
         </div>
       </div>

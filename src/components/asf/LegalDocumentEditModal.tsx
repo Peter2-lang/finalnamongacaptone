@@ -1,4 +1,6 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Save,
@@ -13,7 +15,7 @@ import {
   Layers,
   HelpCircle,
 } from 'lucide-react';
-import { ASFRegulatoryDocument, LegalArticle, LegalArticleSection, LegalDocumentCategory } from '../../types';
+import { ASFRegulatoryDocument, LegalArticle, LegalArticleSection, LegalDocumentCategory, LegalDocumentStatus } from '../../types';
 
 interface LegalDocumentEditModalProps {
   isOpen: boolean;
@@ -52,6 +54,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
   const [effectiveDate, setEffectiveDate] = useState('');
   const [shortSummary, setShortSummary] = useState('');
   const [legalBasisText, setLegalBasisText] = useState('');
+  const [documentStatus, setDocumentStatus] = useState<LegalDocumentStatus>('draft');
+  const [sourceCompleteness, setSourceCompleteness] = useState<'complete' | 'excerpt' | 'metadata_only'>('metadata_only');
 
   // Articles state
   const [articles, setArticles] = useState<LegalArticle[]>([]);
@@ -89,6 +93,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       setEffectiveDate(documentToEdit.effectiveDate || '');
       setShortSummary(documentToEdit.shortSummary || '');
       setLegalBasisText((documentToEdit.legalBasis || []).join('\n'));
+      setDocumentStatus(documentToEdit.status || 'for_verification');
+      setSourceCompleteness(documentToEdit.sourceCompleteness || 'metadata_only');
       setArticles(documentToEdit.articles || []);
       setKeyArticles(documentToEdit.keyArticles || []);
       setSetbackRules(documentToEdit.setbackRules || []);
@@ -100,70 +106,37 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       setId(newId);
       setType('municipal_ordinance');
       setCategory('ordinance');
-      setOfficialNumber('Municipal Ordinance No. 2026-');
-      setSeriesYear('Series of 2026');
+      setOfficialNumber('');
+      setSeriesYear('');
       setTitle('');
       setKnownAs('');
       setJurisdiction('Municipality of Hinunangan, Southern Leyte');
       setIssuingAuthority('Sangguniang Bayan of Hinunangan, Southern Leyte');
       setAuthor('');
       setSignatory('');
-      setSignatoryTitle('Municipal Mayor');
-      setDateEnacted(new Date().toISOString().split('T')[0]);
+      setSignatoryTitle('');
+      setDateEnacted('');
       setEffectiveDate('');
       setShortSummary('');
-      setLegalBasisText('Republic Act No. 7160 (Local Government Code of 1991)\nRepublic Act No. 8485 (Animal Welfare Act)');
-      setArticles([
-        {
-          id: 'art-1',
-          articleNumber: 'ARTICLE I',
-          articleTitle: 'TITLE AND DECLARATION OF POLICY',
-          sections: [
-            {
-              id: 'sec-1',
-              sectionNumber: 'SECTION 1',
-              sectionTitle: 'TITLE',
-              content: 'This Ordinance shall be known and cited as the "..."',
-              mandateCategory: 'mandatory',
-            },
-          ],
-        },
-      ]);
+      setLegalBasisText('');
+      setArticles([]);
       setKeyArticles([]);
-      setSetbackRules([
-        {
-          target: 'Potable Water Source / Riverbank',
-          minimumDistance: 25,
-          statutoryBasis: 'Environmental Protection Buffer',
-          rationale: 'Protects municipal water sources.',
-        },
-        {
-          target: 'Residential Built-Up Areas',
-          minimumDistance: 50,
-          statutoryBasis: 'Sanitation Buffer',
-          rationale: 'Odor and fly mitigation.',
-        },
-      ]);
-      setPenalties([
-        {
-          offenseTier: 'First Offense',
-          finePhp: 1000,
-          punitiveActions: 'Written warning and 7-day compliance notice.',
-        },
-        {
-          offenseTier: 'Second Offense',
-          finePhp: 1500,
-          punitiveActions: 'Temporary suspension of clearance.',
-        },
-        {
-          offenseTier: 'Third Offense',
-          finePhp: 2500,
-          punitiveActions: 'Revocation of permit and pen closure.',
-        },
-      ]);
-      setChangeSummary('Initial document creation and entry into system.');
+      setSetbackRules([]);
+      setPenalties([]);
+      setDocumentStatus('draft');
+      setSourceCompleteness('metadata_only');
+      setChangeSummary('');
     }
   }, [documentToEdit, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -231,6 +204,11 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       alert('Please fill in both the Document Title and Official Number.');
       return;
     }
+    if (documentStatus === 'verified' &&
+        (sourceCompleteness === 'metadata_only' || !documentToEdit?.sourceDocuments?.some(attachment => attachment.storagePath))) {
+      alert('Upload and review an original source attachment before marking this document verified.');
+      return;
+    }
 
     const legalBasisArray = legalBasisText
       .split('\n')
@@ -272,7 +250,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
       keyArticles: compiledKeyArticles,
       setbackRules,
       penalties,
-      status: documentToEdit?.status || 'active',
+      status: documentStatus,
+      sourceCompleteness,
     };
 
     try {
@@ -284,8 +263,8 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-stone-900/60 p-2 backdrop-blur-xs sm:p-4">
+      <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-[900px] flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200 sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-emerald-950 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -311,7 +290,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 border-b border-stone-200 bg-stone-50 flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-stone-200 bg-stone-50 px-3 sm:px-6">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
@@ -348,7 +327,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-6">
           {activeTab === 'details' && (
             <div className="space-y-4 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -360,22 +339,23 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                       const val = e.target.value;
                       setType(val);
                       if (val === 'resolution') setCategory('resolution');
-                      else if (val === 'administrative_order') setCategory('national_reference');
+                      else if (val === 'administrative_order' || val === 'legal_reference') setCategory('national_reference');
+                      else if (val === 'municipal_eo') setCategory('executive_order');
                       else setCategory('ordinance');
                     }}
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl focus:ring-2 focus:ring-emerald-600"
                   >
-                    <option value="municipal_ordinance">Municipal Ordinance</option>
+                    <option value="municipal_ordinance">{translateInterfaceText("Municipal Ordinance")}</option>
                     <option value="resolution">Sangguniang Bayan Resolution</option>
-                    <option value="provincial_ordinance">Provincial Ordinance</option>
+                    <option value="provincial_ordinance">{translateInterfaceText("Provincial Ordinance")}</option>
                     <option value="administrative_order">DA Administrative Order</option>
                     <option value="municipal_eo">Municipal Executive Order</option>
                     <option value="memorandum">Memorandum Order</option>
-                    <option value="republic_act">Republic Act</option>
+                    <option value="republic_act">{translateInterfaceText("Republic Act")}</option>
                     <option value="proclamation">Presidential Proclamation</option>
-                    <option value="department_order">Department Order</option>
+                    <option value="department_order">{translateInterfaceText("Department Order")}</option>
                     <option value="legal_reference">Legal Reference</option>
-                    <option value="other">Other Legal Document</option>
+                    <option value="other">{translateInterfaceText("Other Legal Document")}</option>
                   </select>
                 </div>
 
@@ -418,6 +398,36 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <label className="block font-bold text-stone-700 mb-1">Verification Status</label>
+                  <select
+                    value={documentStatus}
+                    onChange={e => setDocumentStatus(e.target.value as LegalDocumentStatus)}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="for_verification">For Verification</option>
+                    <option value="verified">Verified</option>
+                    <option value="superseded">Superseded</option>
+                    <option value="archived">Archived</option>
+                    <option value="repealed">Repealed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Source Completeness</label>
+                  <select
+                    value={sourceCompleteness}
+                    onChange={e => setSourceCompleteness(e.target.value as 'complete' | 'excerpt' | 'metadata_only')}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl"
+                  >
+                    <option value="metadata_only">Original content not provided</option>
+                    <option value="excerpt">Incomplete excerpt / reference pages</option>
+                    <option value="complete">Complete source document</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <label className="block font-bold text-stone-700 mb-1">Short Title / Known As</label>
                   <input
                     type="text"
@@ -429,12 +439,12 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">Author / Sponsor</label>
+                  <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Author / Sponsor" /></label>
                   <input
                     type="text"
                     value={author}
                     onChange={e => setAuthor(e.target.value)}
-                    placeholder="e.g. Hon. Gezar S. Ngoho"
+                    placeholder={translateInterfaceText("e.g. Hon. Gezar S. Ngoho")}
                     className="w-full px-3 py-2 border border-stone-300 rounded-xl focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
@@ -445,7 +455,6 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                   <label className="block font-bold text-stone-700 mb-1">Signatory / Approver</label>
                   <input
                     type="text"
-                    required
                     value={signatory}
                     onChange={e => setSignatory(e.target.value)}
                     placeholder="e.g. Hon. Reynaldo C. Fontenilla"
@@ -467,7 +476,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">Date Enacted</label>
+                  <label className="block font-bold text-stone-700 mb-1"><InterfaceText source="Date Enacted" /></label>
                   <input
                     type="text"
                     value={dateEnacted}
@@ -580,8 +589,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                         onClick={() => handleAddSection(artIdx)}
                         className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 rounded-lg text-[11px] font-semibold transition"
                       >
-                        <Plus className="w-3 h-3 text-emerald-600" /> Add Section
-                      </button>
+                        <Plus className="w-3 h-3 text-emerald-600" /><InterfaceText source="Add Section" /></button>
                       <button
                         type="button"
                         onClick={() => handleRemoveArticle(artIdx)}
@@ -629,9 +637,9 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                             }
                             className="text-[10px] px-2 py-1 bg-stone-50 border border-stone-300 rounded font-semibold text-stone-700"
                           >
-                            <option value="mandatory">Mandatory</option>
+                            <option value="mandatory">{translateInterfaceText("Mandatory")}</option>
                             <option value="prohibitive">Prohibitive</option>
-                            <option value="advisory">Advisory</option>
+                            <option value="advisory">{translateInterfaceText("Advisory")}</option>
                             <option value="penal">Penal</option>
                           </select>
 
@@ -712,7 +720,7 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
                           setSetbackRules(updated);
                         }}
                         className="sm:col-span-2 px-2 py-1 bg-white border border-stone-300 rounded font-mono font-bold text-xs"
-                        placeholder="Meters"
+                        placeholder={translateInterfaceText("Meters")}
                       />
                       <input
                         type="text"
@@ -813,14 +821,12 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
           )}
 
           {/* Modal Action Buttons */}
-          <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3 shrink-0">
+          <div className="sticky bottom-0 -mx-3 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:gap-3 sm:px-6">
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 text-xs font-bold text-stone-600 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-xl transition"
-            >
-              Cancel
-            </button>
+            ><InterfaceText source="Cancel" /></button>
             <button
               type="submit"
               className="flex items-center gap-2 px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition"
@@ -830,6 +836,6 @@ export const LegalDocumentEditModal: React.FC<LegalDocumentEditModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>, document.body)
   );
 };

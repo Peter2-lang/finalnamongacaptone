@@ -1,3 +1,4 @@
+import { InterfaceText } from '../../i18n/interfaceText';
 import React from 'react';
 import { LocationalDesignStandardItem, LegalProximityRegulation } from '../../types';
 import { ShieldCheck, MapPin, Compass, AlertCircle, Sparkles, Building2, Trees } from 'lucide-react';
@@ -57,10 +58,10 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                 <th className="px-4 py-3">Classification</th>
                 <th className="px-4 py-3">Number of Heads</th>
                 <th className="px-4 py-3">ECC Requirement</th>
-                <th className="px-4 py-3">Zone</th>
-                <th className="px-4 py-3">Groundwater</th>
+                <th className="px-4 py-3"><InterfaceText source="Zone" /></th>
+                <th className="px-4 py-3"><InterfaceText source="Groundwater" /></th>
                 <th className="px-4 py-3">Built-up Area</th>
-                <th className="px-4 py-3">Major Roads</th>
+                <th className="px-4 py-3"><InterfaceText source="Major Roads" /></th>
                 <th className="px-4 py-3">Between Farms</th>
               </tr>
             </thead>
@@ -101,8 +102,7 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                     </td>
                     <td className="px-4 py-3.5 font-medium text-stone-700">{item.zone}</td>
                     <td className="px-4 py-3.5 font-bold text-emerald-700">
-                      {item.distanceGroundwater} meters
-                    </td>
+                      {item.distanceGroundwater}<InterfaceText source="meters" /></td>
                     <td className="px-4 py-3.5 font-bold text-blue-700">
                       {item.distanceBuiltUp}
                     </td>
@@ -135,10 +135,10 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                 <th className="px-4 py-3">Classification</th>
                 <th className="px-4 py-3">Number of Heads</th>
                 <th className="px-4 py-3">ECC Requirement</th>
-                <th className="px-4 py-3">Zone</th>
-                <th className="px-4 py-3">Groundwater</th>
+                <th className="px-4 py-3"><InterfaceText source="Zone" /></th>
+                <th className="px-4 py-3"><InterfaceText source="Groundwater" /></th>
                 <th className="px-4 py-3">Built-up Area</th>
-                <th className="px-4 py-3">Major Roads</th>
+                <th className="px-4 py-3"><InterfaceText source="Major Roads" /></th>
                 <th className="px-4 py-3">Between Farms</th>
               </tr>
             </thead>
@@ -162,8 +162,7 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                   </td>
                   <td className="px-4 py-3.5 font-medium text-stone-700">{item.zone}</td>
                   <td className="px-4 py-3.5 font-bold text-emerald-700">
-                    {item.distanceGroundwater} meters
-                  </td>
+                    {item.distanceGroundwater}<InterfaceText source="meters" /></td>
                   <td className="px-4 py-3.5 font-bold text-blue-700">{item.distanceBuiltUp}</td>
                   <td className="px-4 py-3.5 text-stone-700">{item.distanceMajorRoads}</td>
                   <td className="px-4 py-3.5 text-stone-700">{item.distanceBetweenFarms}</td>
@@ -188,12 +187,11 @@ export const LegalLocationalTable: React.FC<LegalLocationalTableProps> = ({
                     Section 10: Proximity Regulations Near Tourist Destinations
                   </h4>
                   <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
-                    Minimum {proximity.touristDestinationMinDistance} Meters
-                  </span>
+                    Minimum {proximity.touristDestinationMinDistance}<InterfaceText source="Meters" /></span>
                 </div>
                 <p className="text-xs text-stone-600 mt-1">
                   All commercial and backyard piggery, poultry, and livestock farms must be located at least{' '}
-                  <strong className="text-amber-900 font-bold">{proximity.touristDestinationMinDistance} meters</strong>{' '}
+                  <strong className="text-amber-900 font-bold">{proximity.touristDestinationMinDistance}{" "}<InterfaceText source="meters" /></strong>{' '}
                   away from officially designated tourist destinations in Hinunangan.
                 </p>
               </div>

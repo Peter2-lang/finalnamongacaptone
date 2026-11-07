@@ -1,3 +1,6 @@
+import { readConversation, saveConversation } from '../../services/assistantConversation';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import { useLanguage } from '../../context/LanguageContext';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
@@ -51,13 +54,18 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
   onRefresh,
   onOpenLogin,
 }) => {
+  const { t, language } = useLanguage();
+  const conversationOwner = `${currentUser?.id || 'public'}:${currentRole}:${currentUser?.assignedBarangay || ''}`;
+  const requestVersionRef = useRef(0);
+  const sendingRef = useRef(false);
   const isPublicMode = currentRole === 'landing' || !currentUser;
   const isSuperAdmin = currentRole === 'super_admin' || currentUser?.role === 'super_admin';
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [restoredConversation] = useState(()=>readConversation(conversationOwner));
+  const [hasInteracted, setHasInteracted] = useState(()=>restoredConversation.some(message=>message.sender==='user'));
   const [pendingConfirmation, setPendingConfirmation] = useState<{
     prompt: string;
     actionId: string;
@@ -247,100 +255,40 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     }
   };
 
-  const getInitialWelcomeMessage = (): ChatMessage => {
-    if (isPublicMode) {
-      return {
-        id: 'msg-welcome-public',
-        sender: 'assistant',
-        text: `👋 Welcome to the **DA Hinunangan Public Information Portal**! I am the **DA Hinunangan Public Information Assistant**.
-
-I can answer publicly available questions regarding:
-• **Swine Registry & Guidelines**: How to register your swine and official requirements.
-• **Municipal Programs & Services**: Free ear tagging, veterinary outreach, and biosecurity kits.
-• **African Swine Fever (ASF)**: Prevention measures, swill feeding prohibition, and zoning.
-• **Barangays & Office Contacts**: Office telephone, emergency hotline, and focal person coordination.
-
-*Note: Personal registry records, individual swine data, and internal GIS coordinates are restricted to authorized personnel. Authorized officers may sign in via the portal.*`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        action: {
-          type: 'open_login',
-          label: 'Official Login',
-        },
-        suggestions: PUBLIC_ASSISTANT_SUGGESTIONS.slice(0, 4),
-      };
-    }
-
-    if (isSuperAdmin) {
-      return {
-        id: 'msg-welcome-superadmin',
-        sender: 'assistant',
-        text: `👋 Greetings **${currentUser?.name || 'Super Admin'}**! I am the **DA Hinunangan Super Admin Configuration Assistant**.
-
-As Super Administrator, you have full master configuration authority over the entire municipal platform, including Admin, Focal Person, and Agent interfaces.
-
-You can configure features using natural language:
-• *"Change the Admin sidebar color to dark green."*
-• *"Set Focal Person font to Poppins."*
-• *"Make Agent buttons 48 pixels high."*
-• *"Increase Admin popup width to 800px."*
-• *"Make the GIS map 700px tall."*
-• *"Make the dashboard cards smaller."*
-• *"Change the text of Swine Records to Livestock Registry."*
-• *"Hide the Reports menu from Agent."*
-
-Every command provides an interactive preview and requires your explicit confirmation before applying.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: [
-          'Change Admin sidebar to blue',
-          'Set Focal Person font to Poppins',
-          'Make Agent buttons 48 pixels high',
-          'Increase Admin popup width to 800px',
-        ],
-      };
-    }
-
-    const assigned = currentUser?.assignedBarangay;
-    const roleSuggestions =
-      currentRole === 'focal' && assigned
-        ? [
-            `Show records for ${assigned}`,
-            `How many ready to sell in ${assigned}?`,
-            'Register a new swine',
-            'Open GIS Swine Map',
-          ]
-        : currentRole === 'agent'
-        ? [
-            'How many swine are ready to sell?',
-            'View Ready for Take-Off catalog',
-            'What are the transport requirements?',
-          ]
-        : [
-            "Show today's registry status",
-            'How many swine are ready to sell?',
-            'How do I register a swine?',
-            'Open GIS Swine Map',
-          ];
-
-    return {
-      id: 'msg-welcome-auth',
-      sender: 'assistant',
-      text: `👋 Hello${currentUser?.name ? ` **${currentUser.name}**` : ''}! I am the **DA Hinunangan Biosecurity & Registry Assistant**.
-
-I am connected to your live municipal swine database, GIS coordinates, ASF risk zoning, and official livestock reports. How can I help you today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      suggestions: roleSuggestions,
-    };
-  };
+  const getInitialWelcomeMessage = (): ChatMessage => ({
+    id:'msg-welcome',sender:'assistant',text:t('assistant_welcome'),
+    timestamp:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    suggestions:isPublicMode ? PUBLIC_ASSISTANT_SUGGESTIONS.slice(0,4) : ['How many new records today?','How many swine are ready to sell?','How do I register a pig?','Open GIS Map.'],
+  });
 
   // Initial welcome message based on mode
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [getInitialWelcomeMessage()]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => restoredConversation.length ? restoredConversation : [getInitialWelcomeMessage()]);
 
-  // Update welcome message if authentication state changes and user hasn't started a custom chat
+  // Reset on identity changes even when an earlier user already chatted.
   useEffect(() => {
-    if (!hasInteracted) {
-      setMessages([getInitialWelcomeMessage()]);
-    }
-  }, [currentRole, currentUser, isPublicMode]);
+    requestVersionRef.current++;
+    sendingRef.current = false;
+    setIsLoading(false);
+    const restored=readConversation(conversationOwner);
+    setHasInteracted(restored.some(message=>message.sender==='user'));
+    setMessages(restored.length ? restored : [getInitialWelcomeMessage()]);
+    setPendingConfirmation(null);
+    setPendingProposedChange(null);
+  }, [conversationOwner]);
+  useEffect(() => () => { requestVersionRef.current++; }, []);
+  useEffect(() => { saveConversation(conversationOwner,messages); }, [conversationOwner,messages]);
+
+  const clearConversation = () => {
+    requestVersionRef.current++;
+    sendingRef.current = false;
+    setIsLoading(false);
+    setHasInteracted(false);
+    setMessages([getInitialWelcomeMessage()]);
+    setPendingConfirmation(null);
+    setPendingProposedChange(null);
+  };
+
+  useEffect(() => { if (!hasInteracted) setMessages([getInitialWelcomeMessage()]); }, [language]);
 
   // Auto-scroll to bottom of conversation
   useEffect(() => {
@@ -375,13 +323,15 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
-    if (!text || isLoading) return;
+    if (!text || sendingRef.current) return;
+    sendingRef.current = true;
+    const requestVersion = ++requestVersionRef.current;
 
     setHasInteracted(true);
     setInputMessage('');
 
     const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}-user`,
+      id: crypto.randomUUID(),
       sender: 'user',
       text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -398,8 +348,9 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
         messages.slice(-6).map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text }))
       );
 
+      if (requestVersion !== requestVersionRef.current) return;
       const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}-assistant`,
+        id: crypto.randomUUID(),
         sender: 'assistant',
         text: response.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -421,10 +372,11 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
         setPendingProposedChange(response.action.payload as ProposedConfigChange);
       }
     } catch {
+      if (requestVersion !== requestVersionRef.current) return;
       setMessages(prev => [
         ...prev,
         {
-          id: `msg-${Date.now()}-err`,
+          id: crypto.randomUUID(),
           sender: 'assistant',
           text: "I couldn't retrieve the live registry data right now. Please check **Swine Records** directly.",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -432,7 +384,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
         },
       ]);
     } finally {
-      setIsLoading(false);
+      if (requestVersion === requestVersionRef.current) { sendingRef.current = false; setIsLoading(false); }
     }
   };
 
@@ -451,7 +403,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
         setMessages(prev => [
           ...prev,
           {
-            id: `msg-${Date.now()}-config-success`,
+            id: crypto.randomUUID(),
             sender: 'assistant',
             text: `✅ **Configuration Applied & Published Successfully!**\n• ${pendingProposedChange.description}\n• Changes are now live across the system canvas without requiring page reloads.\n• Recorded in Master Configuration Audit Logs.`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -468,7 +420,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
         setMessages(prev => [
           ...prev,
           {
-            id: `msg-${Date.now()}-config-err`,
+            id: crypto.randomUUID(),
             sender: 'assistant',
             text: '⚠️ An error occurred while applying the configuration change. Please try again.',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -479,7 +431,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
       setMessages(prev => [
         ...prev,
         {
-          id: `msg-${Date.now()}-config-cancelled`,
+          id: crypto.randomUUID(),
           sender: 'assistant',
           text: `Configuration change discarded: "${pendingProposedChange.description}". No modifications were applied.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -519,7 +471,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
       setMessages(prev => [
         ...prev,
         {
-          id: `msg-${Date.now()}-confirmed`,
+          id: crypto.randomUUID(),
           sender: 'assistant',
           text: '✓ Action acknowledged. Navigating to module for authorization.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -529,7 +481,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
       setMessages(prev => [
         ...prev,
         {
-          id: `msg-${Date.now()}-cancelled`,
+          id: crypto.randomUUID(),
           sender: 'assistant',
           text: 'Action cancelled. No changes were made to the municipal registry.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -599,8 +551,8 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
           onClick={event => {
             if (event.detail === 0) openAssistant();
           }}
-          aria-label="Open Biosecurity Assistant"
-          title="Open Biosecurity Assistant"
+          aria-label={translateInterfaceText("Open Biosecurity Assistant")}
+          title={translateInterfaceText("Open Biosecurity Assistant")}
           className="biosecurity-assistant-launcher fixed z-40 flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 shadow-xl hover:shadow-2xl border-2 border-emerald-500/30 transition-transform hover:scale-105 active:scale-95 focus:outline-hidden focus:ring-4 focus:ring-emerald-500/30"
           style={{
             width: `${BUTTON_SIZE}px`,
@@ -682,11 +634,11 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                     DA Hinunangan
                   </h2>
                   <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {isPublicMode ? 'Public Info' : isSuperAdmin ? 'Super Admin' : 'Live'}
+                    {isPublicMode ? translateInterfaceText("Public Info") : isSuperAdmin ? translateInterfaceText("Super Admin") : 'Live'}
                   </span>
                 </div>
                 <p className="text-[10.5px] text-emerald-200/90 font-medium truncate flex items-center gap-1">
-                  <span>{isPublicMode ? 'Public Information Assistant' : isSuperAdmin ? 'Super Admin Configuration Assistant' : 'Biosecurity & Registry Assistant'}</span>
+                  <span>{isPublicMode ? translateInterfaceText("Public Information Assistant") : isSuperAdmin ? translateInterfaceText("Super Admin Configuration Assistant") : translateInterfaceText("Biosecurity & Registry Assistant")}</span>
                   <span>•</span>
                   <span className="text-emerald-300">● Online</span>
                 </p>
@@ -695,12 +647,13 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
 
             {/* Header Control Buttons */}
             <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={clearConversation} title={t('assistant_new_chat', 'New Chat / Clear Conversation')} aria-label={t('assistant_new_chat', 'New Chat / Clear Conversation')} className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10"><RotateCcw className="w-4 h-4" /></button>
               <button
                 type="button"
                 onClick={() => setIsMinimized(prev => !prev)}
                 className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label={isMinimized ? 'Expand assistant' : 'Minimize assistant'}
-                title={isMinimized ? 'Expand' : 'Minimize'}
+                title={isMinimized ? translateInterfaceText("Expand") : translateInterfaceText("Minimize")}
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -709,7 +662,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label="Close assistant"
-                title="Close chat"
+                title={translateInterfaceText("Close chat")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -756,7 +709,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                               onClick={() => handleActionClick(msg.action)}
                               className="w-full py-1.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
                             >
-                              <span>{msg.action.label || (msg.action.type === 'open_login' ? 'Official Login' : 'Open Module')}</span>
+                              <span>{msg.action.label || (msg.action.type === 'open_login' ? translateInterfaceText("Official Login") : 'Open Module')}</span>
                               <ExternalLink className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -816,9 +769,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                         type="button"
                         onClick={() => handleConfirmAction(false)}
                         className="px-3 py-1 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 text-stone-700 font-bold text-[11px] cursor-pointer"
-                      >
-                        Cancel
-                      </button>
+                      ><InterfaceText source="Cancel" /></button>
                       <button
                         type="button"
                         onClick={() => handleConfirmAction(true)}
@@ -884,9 +835,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                         type="button"
                         onClick={() => handleConfirmConfigChange(false)}
                         className="px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] cursor-pointer transition"
-                      >
-                        Cancel
-                      </button>
+                      ><InterfaceText source="Cancel" /></button>
                       <button
                         type="button"
                         onClick={() => handleConfirmConfigChange(true)}
@@ -919,8 +868,8 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                       onChange={e => setInputMessage(e.target.value)}
                       placeholder={
                         isPublicMode
-                          ? 'Ask about swine registration, requirements, ASF, contact...'
-                          : 'Ask about swine registration, ASF, GIS, records...'
+                          ? translateInterfaceText('Ask about swine registration, requirements, ASF, contact...')
+                          : translateInterfaceText('Ask about swine registration, ASF, GIS, records...')
                       }
                       disabled={isLoading}
                       className="w-full pl-3.5 pr-3 py-2.5 rounded-2xl bg-stone-100/90 border border-stone-300 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-xs text-stone-900 placeholder:text-stone-400 outline-hidden transition font-medium"
@@ -945,7 +894,7 @@ I am connected to your live municipal swine database, GIS coordinates, ASF risk 
                   </span>
                   <span>
                     {isPublicMode
-                      ? 'Municipal Agriculture Office'
+                      ? translateInterfaceText("Municipal Agriculture Office")
                       : `Role: ${currentRole === 'super_admin' ? 'Super Admin' : currentRole.toUpperCase()}${currentUser?.assignedBarangay ? ` (${currentUser.assignedBarangay})` : ''}`}
                   </span>
                 </div>

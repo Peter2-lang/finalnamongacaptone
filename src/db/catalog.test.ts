@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { comparePostgresTypes, compareDatabaseCatalog, findUnmodeledRequiredColumns } from './catalog.ts';
+import { getRequiredDatabaseColumns } from './requirements.ts';
 import { successfulSchemaRows } from '../server/testSupport/schemaFixture.ts';
 
 test('identifier changes are incompatible, never automatically cast or regenerated', () => {
@@ -14,9 +15,10 @@ test('identifier changes are incompatible, never automatically cast or regenerat
   assert.equal(comparePostgresTypes('text','numeric(12,2)'),'incompatible');
 });
 
-test('legacy mandatory columns are reported rather than weakened or silently ignored', () => {
+test('swine barangay UUID is part of the ORM contract and is written by the save workflow', () => {
   const columns = [{table_name:'swine_records',column_name:'barangay_id',data_type:'uuid',not_null:true,column_default:null,primary_key:false}];
-  assert.deepEqual(findUnmodeledRequiredColumns(columns),[{table:'swine_records',column:'barangay_id',actualType:'uuid',reason:'mandatory_column_not_written_by_current_contract'}]);
+  assert.equal(getRequiredDatabaseColumns().some(column => column.table === 'swine_records' && column.column === 'barangay_id' && column.sqlType === 'uuid' && column.expectedNotNull), true);
+  assert.deepEqual(findUnmodeledRequiredColumns(columns), []);
 });
 
 test('catalog detects legacy swine/audit identities and reports constraint metadata', () => {

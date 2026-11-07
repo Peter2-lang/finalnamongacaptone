@@ -1,4 +1,7 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileText,
   Plus,
@@ -17,6 +20,7 @@ import {
   Layers,
   Printer,
   Download,
+  Copy,
   PenTool,
   Building2,
   FileCheck,
@@ -31,16 +35,21 @@ import {
   CertificateLogoPosition,
   CertificateLogoType,
   CertificateTemplate,
+  CertificateTemplateField,
   CertificateWatermarkConfig,
 } from '../../types';
 import { printDocument } from '../../utils/printUtils';
+import { downloadElementAsPdf } from '../../utils/pdfUtils';
 import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 import { DOCUMENT_TYPE_OPTIONS } from '../../data/certificateTemplates';
 import { AVAILABLE_PLACEHOLDERS } from '../../utils/templateReplacer';
+import { replaceTemplatePlaceholders } from '../../utils/templateReplacer';
 import { DynamicCertificateView } from './DynamicCertificateView';
 import { mediaApi, moduleDataApi } from '../../services/api';
 import { filterCertificateTemplates } from '../../utils/certificateTemplateFilters';
 import { useCertificateTemplateSync } from '../../hooks/useCertificateTemplateSync';
+import { CERTIFICATE_FIELD_OPTIONS, extractCertificate } from '../../services/certificateImportService';
+import type { CertificateFieldSuggestion } from '../../services/certificateImportService';
 
 interface CertificateTemplateEditorProps {
   initialTemplate?: CertificateTemplate;
@@ -63,8 +72,12 @@ const createBlankTemplate = (barangay = 'All'): CertificateTemplate => {
     documentType: 'Barangay Certification',
     documentTitle: 'BARANGAY CERTIFICATION',
     titleFont: 'serif_bold',
+    bodyFontFamily: 'serif',
+    bodyFontSizePt: 12,
+    pageMarginMm: 14,
+    paragraphSpacingPx: 16,
     language: 'english',
-    pageSize: 'Folio',
+    pageSize: 'A4',
     orientation: 'portrait',
     header: {
       countryText: 'Republic of the Philippines',
@@ -103,6 +116,17 @@ interface ImportedTemplateMetadata {
   bodyTemplate: string;
   warnings: string[];
   isReferenceOnly: boolean;
+  fields: CertificateFieldSuggestion[];
+  pageSize: CertificateTemplate['pageSize'];
+  orientation: CertificateTemplate['orientation'];
+  header?: Partial<CertificateTemplate['header']>;
+  layoutHints?: {
+    headings: string[];
+    hasTables: boolean;
+    hasImages: boolean;
+    hasSignatureArea: boolean;
+  };
+  signatories: CertificateTemplate['signatories'];
 }
 
 const formatImportSize = (bytes: number) => {
@@ -140,7 +164,10 @@ const sanitizeImportedHtml = (rawHtml: string) => {
   return doc;
 };
 
-const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMetadata> => {
+const parseImportedTemplateFile = async (
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<ImportedTemplateMetadata> => {
   if (file.size > IMPORT_TEMPLATE_SIZE_LIMIT) {
     throw new Error(`The selected file exceeds the 5 MB size limit. Please choose a smaller template import.`);
   }
@@ -178,6 +205,10 @@ const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMe
       bodyTemplate,
       warnings: [],
       isReferenceOnly: false,
+      fields: [],
+      pageSize: 'A4',
+      orientation: 'portrait',
+      signatories: [],
     };
   }
 
@@ -199,49 +230,34 @@ const parseImportedTemplateFile = async (file: File): Promise<ImportedTemplateMe
       bodyTemplate: bodyText,
       warnings: ['Scripts, event handlers, and unsafe URLs were removed for safety.'],
       isReferenceOnly: false,
+      fields: [],
+      pageSize: 'A4',
+      orientation: 'portrait',
+      signatories: [],
     };
   }
 
-  if (lowerName.endsWith('.docx')) {
+  if (lowerName.endsWith('.docx') || lowerName.endsWith('.pdf') || /\.(jpe?g|png)$/i.test(lowerName)) {
+    const extracted = await extractCertificate(file, onProgress);
     return {
-      kind: 'docx',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Microsoft Word document imported as a reference layout.',
+      kind: lowerName.endsWith('.pdf') ? 'pdf' : lowerName.endsWith('.docx') ? 'docx' : 'image',
+      title: extracted.title,
+      description: `Editable template imported from ${fileName}. Original source retained privately for administrator review.`,
       documentType: 'Barangay Certification',
       barangay: 'All',
-      bodyTemplate: `Imported DOCX reference: ${fileName}. Review the layout, map placeholders, and complete the editable template body before saving.`,
-      warnings: ['This DOCX import is reference-only. The layout requires manual review and cleanup before official use.'],
-      isReferenceOnly: true,
+      bodyTemplate: extracted.text,
+      warnings: extracted.warnings,
+      isReferenceOnly: false,
+      fields: extracted.fields,
+      pageSize: extracted.pageSize,
+      orientation: extracted.orientation,
+      header: extracted.header,
+      layoutHints: extracted.layoutHints,
+      signatories: extracted.signatories,
     };
   }
 
-  if (lowerName.endsWith('.pdf')) {
-    return {
-      kind: 'pdf',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Reference PDF imported as an optional background or source document.',
-      documentType: 'Barangay Certification',
-      barangay: 'All',
-      bodyTemplate: `Imported PDF reference: ${fileName}. This file cannot be converted into an editable template automatically and should be used only as a background reference.`,
-      warnings: ['PDF conversion is not automatic. Configure the editable template manually.'],
-      isReferenceOnly: true,
-    };
-  }
-
-  if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(lowerName)) {
-    return {
-      kind: 'image',
-      title: fileName.replace(/\.[^.]+$/, ''),
-      description: 'Image imported as a reference asset or background graphic.',
-      documentType: 'Barangay Certification',
-      barangay: 'All',
-      bodyTemplate: `Imported image asset: ${fileName}. Use this as a logo, watermark, or background reference and complete the certificate body separately.`,
-      warnings: ['Images are treated as visual assets, not editable certificate layouts.'],
-      isReferenceOnly: true,
-    };
-  }
-
-  throw new Error('Unsupported import format. Use JSON, HTML, DOCX, PDF, or image files.');
+  throw new Error('Unsupported or mismatched import format. Use a valid PDF, DOCX, JPG/JPEG, PNG, JSON, or HTML template.');
 };
 
 export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps> = ({
@@ -257,11 +273,13 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [templateLoadError, setTemplateLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const templateLoadSequence = useRef(0);
   const [isUploadingAsset, setIsUploadingAsset] = useState(false);
 
   // Selected template state
   const isFocalPerson = userRole === 'focal';
+  const canImportTemplates = userRole === 'admin' || userRole === 'super_admin';
   const defaultTpl = initialTemplate || createBlankTemplate(isFocalPerson ? assignedBarangay : 'All');
   const [template, setTemplate] = useState<CertificateTemplate>(() => JSON.parse(JSON.stringify(defaultTpl)));
   const [activeSection, setActiveSection] = useState<
@@ -273,9 +291,20 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [importedFile, setImportedFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importedTemplateName, setImportedTemplateName] = useState('');
+  const [importedTemplateId, setImportedTemplateId] = useState('');
   const [importedTemplateDescription, setImportedTemplateDescription] = useState('');
   const [importedDocumentType, setImportedDocumentType] = useState('Barangay Certification');
   const [importedBarangay, setImportedBarangay] = useState('All');
+  const [importedBody, setImportedBody] = useState('');
+  const [importedFields, setImportedFields] = useState<CertificateFieldSuggestion[]>([]);
+  const [pendingSourceFile, setPendingSourceFile] = useState<File | null>(null);
+  const [uploadedImportSource, setUploadedImportSource] = useState<NonNullable<CertificateTemplate['sourceDocument']> | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [isImportingFile, setIsImportingFile] = useState(false);
+  const [isDraggingImport, setIsDraggingImport] = useState(false);
+  const importSaveLock = useRef(false);
+  const [customFieldLabel, setCustomFieldLabel] = useState('');
+  const [templateCustomFieldLabel, setTemplateCustomFieldLabel] = useState('');
 
   const loadTemplates = useCallback(async () => {
     const sequence = ++templateLoadSequence.current;
@@ -334,6 +363,21 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [newLogoStoragePath, setNewLogoStoragePath] = useState<string | undefined>(undefined);
 
   const printRef = useRef<HTMLDivElement>(null);
+  const importedSourcePreviewUrl = useMemo(
+    () => importedFile ? URL.createObjectURL(importedFile) : null,
+    [importedFile],
+  );
+  useEffect(() => () => {
+    if (importedSourcePreviewUrl) URL.revokeObjectURL(importedSourcePreviewUrl);
+  }, [importedSourcePreviewUrl]);
+  useEffect(() => {
+    if (!isImportDialogOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isImportDialogOpen]);
 
   // Placeholder-only context prevents example data from being mistaken for an issued document.
   const sampleDataContext = {
@@ -389,8 +433,12 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
       documentType: 'Barangay Certification',
       documentTitle: 'BARANGAY CERTIFICATION',
       titleFont: 'serif_bold',
+      bodyFontFamily: 'serif',
+      bodyFontSizePt: 12,
+      pageMarginMm: 14,
+      paragraphSpacingPx: 16,
       language: 'english',
-      pageSize: 'Folio',
+      pageSize: 'A4',
       orientation: 'portrait',
       header: {
         countryText: 'Republic of the Philippines',
@@ -483,21 +531,40 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     setImportError(null);
     setImportedTemplate(null);
     setImportedFile(null);
+    setImportedTemplateId('');
     setImportedTemplateName('');
     setImportedTemplateDescription('');
     setImportedDocumentType(template.documentType || 'Barangay Certification');
     setImportedBarangay(template.barangay || 'All');
+    setImportedBody('');
+    setImportedFields([]);
+    setPendingSourceFile(null);
+    setUploadedImportSource(null);
+    setImportProgress(0);
+    setCustomFieldLabel('');
     setIsImportDialogOpen(true);
   };
 
-  const handleImportTemplateFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processImportTemplateFile = async (file: File) => {
+    setImportedTemplate(null);
+    setImportedFile(null);
+    setImportedBody('');
+    setImportedFields([]);
+    setPendingSourceFile(null);
+    setUploadedImportSource(null);
+    setImportError(null);
     if (!file) return;
 
+    setIsImportingFile(true);
     try {
-      const parsed = await parseImportedTemplateFile(file);
+      setImportProgress(0);
+      const parsed = await parseImportedTemplateFile(file, setImportProgress);
       setImportedFile(file);
+      setImportedTemplateId(createTemplateId());
       setImportedTemplate(parsed);
+      setImportedBody(parsed.bodyTemplate);
+      setImportedFields(parsed.fields);
+      setPendingSourceFile(/\.(pdf|docx|jpe?g|png)$/i.test(file.name) ? file : null);
       setImportError(null);
       setImportedTemplateName(parsed.title || file.name.replace(/\.[^.]+$/, ''));
       setImportedTemplateDescription(parsed.description || 'Imported certificate template');
@@ -506,34 +573,152 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     } catch (error) {
       setImportedTemplate(null);
       setImportedFile(null);
+      setImportedBody('');
+      setImportedFields([]);
+      setPendingSourceFile(null);
       setImportError(error instanceof Error ? error.message : 'Unable to import template.');
     } finally {
-      e.target.value = '';
+      setIsImportingFile(false);
     }
   };
 
+  const handleImportTemplateFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await processImportTemplateFile(file);
+    e.target.value = '';
+  };
+
+  const addImportedCustomField = () => {
+    const label = customFieldLabel.trim();
+    if (!label) return;
+    const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'custom_field';
+    let key = baseKey;
+    let suffix = 2;
+    while (importedFields.some(field => field.key === key)) key = `${baseKey}_${suffix++}`;
+    setImportedFields(previous => [...previous, { key, label, confidence: 'review', required: false }]);
+    setImportedBody(previous => `${previous}${previous.endsWith('\n') || !previous ? '' : '\n'}{{${key}}}`);
+    setCustomFieldLabel('');
+  };
+
+  const buildImportedCertificateTemplate = (
+    sourceDocument = uploadedImportSource || undefined,
+    requireEditableBody = true,
+  ): CertificateTemplate => {
+    if (!importedTemplate || !importedFile) {
+      throw new Error('Upload and review a certificate file before saving.');
+    }
+    if (!importedTemplateName.trim()) {
+      throw new Error('Enter a template name before saving.');
+    }
+    if (!DOCUMENT_TYPE_OPTIONS.some(option => option === importedDocumentType)) {
+      throw new Error('Select a valid certificate document type.');
+    }
+    if (importedBarangay !== 'All' && !HINUNANGAN_BARANGAYS.some(barangay => barangay.name === importedBarangay)) {
+      throw new Error('Select a valid barangay scope.');
+    }
+    if (requireEditableBody && !importedBody.trim()) {
+      throw new Error('No editable wording was detected. Enter the certificate wording before saving this template.');
+    }
+    const templateFields: CertificateTemplateField[] = importedFields.map(field => ({
+      key: field.key,
+      label: field.label,
+      required: field.required,
+      defaultValue: field.defaultValue,
+    }));
+    const now = new Date().toISOString();
+    return {
+      ...createBlankTemplate(isFocalPerson ? assignedBarangay : importedBarangay),
+      id: importedTemplateId || createTemplateId(),
+      name: importedTemplateName.trim(),
+      description: importedTemplateDescription.trim() || importedTemplate.description,
+      documentType: importedDocumentType,
+      barangay: importedBarangay,
+      documentTitle: importedTemplate.title,
+      bodyTemplate: importedBody,
+      templateFields,
+      pageSize: importedTemplate.pageSize,
+      orientation: importedTemplate.orientation,
+      header: { ...createBlankTemplate(importedBarangay).header, ...importedTemplate.header },
+      logos: [],
+      signatories: importedTemplate.signatories,
+      watermark: { enabled: false, type: 'municipality', opacity: 0.12, position: 'center', size: 'large' },
+      receipt: { showReceiptBox: false, formatStyle: 'standard' },
+      reviewStatus: 'draft',
+      isActive: false,
+      sourceDocument,
+      templateVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+  };
+
   const applyImportedTemplate = () => {
-    if (!importedTemplate) {
+    try {
+      const nextTemplate = buildImportedCertificateTemplate(undefined, false);
+      setImportedTemplateId(nextTemplate.id);
+      setTemplate(nextTemplate);
+      setSaveNotice(`Imported template "${nextTemplate.name}" loaded as a draft. Save it from the editor when ready.`);
+      setIsImportDialogOpen(false);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Unable to prepare the imported template.');
+    }
+  };
+
+  const handleImportBack = () => {
+    if (importedTemplate) {
+      applyImportedTemplate();
       return;
     }
-
-    const nextTemplate: CertificateTemplate = {
-      ...template,
-      name: importedTemplateName.trim() || importedTemplate.title,
-      description: importedTemplateDescription.trim() || importedTemplate.description,
-      documentType: importedDocumentType || importedTemplate.documentType,
-      barangay: importedBarangay || importedTemplate.barangay,
-      documentTitle: importedTemplate.title,
-      bodyTemplate: importedTemplate.bodyTemplate,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setTemplate(nextTemplate);
-    setSaveNotice(`Imported template "${nextTemplate.name}" loaded. Review and save to persist it.`);
     setIsImportDialogOpen(false);
-    setImportedTemplate(null);
-    setImportedFile(null);
+  };
+
+  const handleSaveImportedTemplate = async () => {
+    if (importSaveLock.current) return;
+    importSaveLock.current = true;
     setImportError(null);
+    setIsSaving(true);
+    try {
+      const validation = buildImportedCertificateTemplate();
+      let sourceDocument = uploadedImportSource || undefined;
+      if (pendingSourceFile && !sourceDocument) {
+        const uploaded = await mediaApi.uploadCertificateTemplateSource(pendingSourceFile);
+        sourceDocument = {
+          fileName: pendingSourceFile.name,
+          mimeType: pendingSourceFile.type,
+          storagePath: uploaded.filePath,
+          fileSize: uploaded.fileSize,
+          uploadedAt: new Date().toISOString(),
+        };
+        setUploadedImportSource(sourceDocument);
+        setPendingSourceFile(null);
+      }
+
+      const nextTemplate = {
+        ...validation,
+        sourceDocument,
+      };
+      setImportedTemplateId(nextTemplate.id);
+      setTemplate(nextTemplate);
+      const persisted = await onSave(nextTemplate);
+      setAvailableTemplates(previous => [persisted, ...previous.filter(item => item.id !== persisted.id)]);
+      setTemplate(JSON.parse(JSON.stringify(persisted)));
+      setIsImportDialogOpen(false);
+      setSaveNotice(`Template "${persisted.name}" saved successfully.`);
+      setTimeout(() => setSaveNotice(null), 3000);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Unable to save the imported template.');
+    } finally {
+      setIsSaving(false);
+      importSaveLock.current = false;
+    }
+  };
+
+  const requestCloseImportDialog = () => {
+    if ((importedFile || importedTemplateName.trim() || importedBody.trim()) &&
+        !window.confirm('Discard this unsaved certificate import?')) {
+      return;
+    }
+    setIsImportDialogOpen(false);
   };
 
   // ==========================================
@@ -671,25 +856,6 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     setTemplate(prev => ({ ...prev, signatories: list }));
   };
 
-  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>, sigId: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsUploadingAsset(true);
-      const asset = await mediaApi.uploadCertificateAsset(file);
-      handleUpdateSignatory(sigId, {
-        signatureImageUrl: asset.fileUrl,
-        signatureStoragePath: asset.filePath,
-        showSignatureImage: true,
-      });
-      setSaveNotice(null);
-    } catch (error) {
-      setSaveNotice(error instanceof Error ? error.message : 'Unable to upload certificate signature.');
-    } finally {
-      setIsUploadingAsset(false);
-    }
-  };
-
   // ==========================================
   // 3. WATERMARK HANDLER
   // ==========================================
@@ -725,6 +891,22 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     }));
   };
 
+  const addTemplateCustomField = () => {
+    const label = templateCustomFieldLabel.trim();
+    if (!label) return;
+    const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'custom_field';
+    const fields = template.templateFields || [];
+    let key = baseKey;
+    let suffix = 2;
+    while (fields.some(field => field.key === key)) key = `${baseKey}_${suffix++}`;
+    setTemplate({
+      ...template,
+      templateFields: [...fields, { key, label, required: false }],
+      bodyTemplate: `${template.bodyTemplate}${template.bodyTemplate.endsWith('\n') || !template.bodyTemplate ? '' : '\n'}{{${key}}}`,
+    });
+    setTemplateCustomFieldLabel('');
+  };
+
   // Save template
   const handleSave = async () => {
     if (isSaving) return;
@@ -741,12 +923,27 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
       return;
     }
     setIsSaving(true);
-    const updated = { ...template };
+    let updated = { ...template };
     try {
+      if (pendingSourceFile && !updated.sourceDocument?.storagePath) {
+        const source = await mediaApi.uploadCertificateTemplateSource(pendingSourceFile);
+        updated = {
+          ...updated,
+          sourceDocument: {
+            fileName: pendingSourceFile.name,
+            mimeType: pendingSourceFile.type,
+            storagePath: source.filePath,
+            fileSize: source.fileSize,
+            uploadedAt: new Date().toISOString(),
+          },
+        };
+        setTemplate(updated);
+      }
       const confirmedTemplate = await onSave(updated);
       templateLoadSequence.current++;
       setTemplate(JSON.parse(JSON.stringify(confirmedTemplate)));
       setAvailableTemplates(previous => [confirmedTemplate, ...previous.filter(item => item.id !== confirmedTemplate.id)]);
+      setPendingSourceFile(null);
       setSaveNotice('Template saved successfully.');
       setTimeout(() => setSaveNotice(null), 3000);
     } catch (error) {
@@ -763,6 +960,41 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
     } catch (error) {
       setSaveNotice(error instanceof Error ? error.message : 'Unable to open the browser print dialog.');
     }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!printRef.current || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const safeName = template.name.trim().replace(/[^a-z0-9_-]+/gi, '-').replace(/^-|-$/g, '') || 'certificate-template';
+      const format = template.pageSize === 'Folio'
+        ? [215.9, 330.2] as [number, number]
+        : template.pageSize === 'Letter' ? 'letter' : 'a4';
+      await downloadElementAsPdf(printRef.current, `${safeName}.pdf`, {
+        format,
+        orientation: template.orientation,
+        marginMm: 0,
+      });
+      setSaveNotice(`${template.pageSize} PDF downloaded.`);
+      setTimeout(() => setSaveNotice(null), 3000);
+    } catch (error) {
+      setSaveNotice(error instanceof Error ? error.message : 'Unable to download the A4 PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleDuplicateTemplate = () => {
+    const now = new Date().toISOString();
+    const duplicate: CertificateTemplate = {
+      ...JSON.parse(JSON.stringify(template)) as CertificateTemplate,
+      id: createTemplateId(),
+      name: `${template.name.trim() || 'Certificate template'} (Copy)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTemplate(duplicate);
+    setSaveNotice('Duplicate draft created. Save Template to persist it.');
   };
 
   return (
@@ -805,7 +1037,26 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>{isUploadingAsset ? 'Uploading image…' : isSaving ? 'Saving…' : 'Save Template'}</span>
+            <span>{isUploadingAsset ? 'Uploading source…' : isSaving ? translateInterfaceText("Saving…") : template.reviewStatus === 'draft' ? 'Save Draft' : 'Save Template'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDuplicateTemplate}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Duplicate Template</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleDownloadPdf()}
+            disabled={isExportingPdf}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-60"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isExportingPdf ? 'Preparing PDF…' : 'Download A4 PDF'}</span>
           </button>
 
           <button
@@ -814,7 +1065,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            <span>Print Document</span>
+            <span>Print Preview</span>
           </button>
 
           {onClose && (
@@ -862,7 +1113,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               onChange={e => setSelectedBarangayFilter(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="all">All Barangays</option>
+              <option value="all">{translateInterfaceText("All Barangays")}</option>
               {HINUNANGAN_BARANGAYS.map(b => (
                 <option key={b.code} value={b.name}>
                   {b.name}
@@ -911,14 +1162,16 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={openImportTemplateDialog}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Import Template</span>
-            </button>
+            {canImportTemplates && (
+              <button
+                type="button"
+                onClick={openImportTemplateDialog}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Certificate</span>
+              </button>
+            )}
 
             {/* Create New Template Button */}
             <button
@@ -938,14 +1191,12 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
         )}
         {!isLoadingTemplates && templateLoadError && (
           <div role="alert" className="flex flex-wrap items-center gap-3 pt-1 text-xs text-rose-200">
-            <span>Saved templates could not be loaded: {templateLoadError}</span>
+            <span>Saved templates could not be loaded: {<LocalizedFeedback value={templateLoadError} />}</span>
             <button
               type="button"
               onClick={() => void loadTemplates()}
               className="min-h-10 rounded-lg border border-rose-300/60 px-3 font-bold hover:bg-rose-900/40"
-            >
-              Retry
-            </button>
+            ><InterfaceText source="Retry" /></button>
           </div>
         )}
         {!isLoadingTemplates && !templateLoadError && availableTemplates.length === 0 && (
@@ -1021,6 +1272,26 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 <p className="text-xs text-stone-500">Configure template identity, barangay scope, and typography</p>
               </div>
 
+              {template.reviewStatus === 'draft' && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                  Imported template draft — verify wording, field mappings, signatories, and layout before enabling it for issuance.
+                </div>
+              )}
+              {!isFocalPerson && (
+                <label className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={template.isActive && template.reviewStatus !== 'draft'}
+                    onChange={event => setTemplate({
+                      ...template,
+                      isActive: event.target.checked,
+                      reviewStatus: event.target.checked ? 'approved' : 'draft',
+                    })}
+                  />
+                  Approved for certificate issuance
+                </label>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">Template Name</label>
@@ -1033,7 +1304,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Barangay Scope</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="Barangay Scope" /></label>
                   <select
                     value={template.barangay}
                     disabled={isFocalPerson}
@@ -1101,6 +1372,70 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     <option value="serif_bold">Serif Bold with Border Box (Tuburan Style)</option>
                     <option value="sans_bold">Modern Sans-Serif Bold</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">Body Font Family</label>
+                  <select
+                    value={template.bodyFontFamily || 'serif'}
+                    onChange={e =>
+                      setTemplate({
+                        ...template,
+                        bodyFontFamily: e.target.value as CertificateTemplate['bodyFontFamily'],
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Arial">Arial</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Body Font Size ({template.bodyFontSizePt || 12} pt)
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="16"
+                    step="1"
+                    value={template.bodyFontSizePt || 12}
+                    onChange={e => setTemplate({ ...template, bodyFontSizePt: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Page Margins ({template.pageMarginMm ?? 14} mm)
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="25"
+                    step="1"
+                    value={template.pageMarginMm ?? 14}
+                    onChange={e => setTemplate({ ...template, pageMarginMm: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Paragraph Spacing ({template.paragraphSpacingPx ?? 16} px)
+                  </label>
+                  <input
+                    type="range"
+                    min="4"
+                    max="28"
+                    step="2"
+                    value={template.paragraphSpacingPx ?? 16}
+                    onChange={e => setTemplate({ ...template, paragraphSpacingPx: Number(e.target.value) })}
+                    className="w-full"
+                  />
                 </div>
 
                 <div>
@@ -1260,13 +1595,13 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             {logo.type === 'barangay'
                               ? `Barangay Seal (${logo.barangayName || template.barangay})`
                               : logo.type === 'municipality'
-                              ? 'Municipality of Hinunangan Seal'
+                              ? translateInterfaceText("Municipality of Hinunangan Seal")
                               : logo.type === 'da'
-                              ? 'Department of Agriculture (DA) Seal'
+                              ? translateInterfaceText("Department of Agriculture (DA) Seal")
                               : logo.type === 'bagong_pilipinas'
                               ? 'Bagong Pilipinas Official Logo'
                               : logo.type === 'province'
-                              ? 'Province of Southern Leyte Seal'
+                              ? translateInterfaceText("Province of Southern Leyte Seal")
                               : 'Custom Uploaded Logo'}
                           </span>
                         </div>
@@ -1277,7 +1612,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             onClick={() => handleMoveLogo(index, 'up')}
                             disabled={index === 0}
                             className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                            title="Move Up"
+                            title={translateInterfaceText("Move Up")}
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -1286,7 +1621,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             onClick={() => handleMoveLogo(index, 'down')}
                             disabled={index === (template.logos?.length || 0) - 1}
                             className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                            title="Move Down"
+                            title={translateInterfaceText("Move Down")}
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
@@ -1304,8 +1639,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {/* Position Selector (LEFT, CENTER, RIGHT) */}
                         <div>
-                          <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                            Position: <span className="text-blue-600 uppercase font-black">{logo.position}</span>
+                          <label className="block text-[11px] font-bold text-stone-700 mb-1"><InterfaceText source="Position:" /><span className="text-blue-600 uppercase font-black">{logo.position}</span>
                           </label>
                           <select
                             value={logo.position}
@@ -1324,7 +1658,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
 
                         {/* Seal Type / Change Logo */}
                         <div>
-                          <label className="block text-[11px] font-bold text-stone-700 mb-1">Seal Type</label>
+                          <label className="block text-[11px] font-bold text-stone-700 mb-1"><InterfaceText source="Seal Type" /></label>
                           <select
                             value={logo.type}
                             onChange={e =>
@@ -1334,10 +1668,10 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                             }
                             className="w-full px-2.5 py-1.5 bg-stone-50 border border-stone-300 rounded-lg text-xs font-semibold text-slate-900"
                           >
-                            <option value="barangay">Barangay Official Seal</option>
-                            <option value="municipality">Municipality of Hinunangan</option>
-                            <option value="province">Province of Southern Leyte</option>
-                            <option value="da">Department of Agriculture (DA)</option>
+                            <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
+                            <option value="municipality">{translateInterfaceText("Municipality of Hinunangan")}</option>
+                            <option value="province">{translateInterfaceText("Province of Southern Leyte")}</option>
+                            <option value="da">{translateInterfaceText("Department of Agriculture (DA)")}</option>
                             <option value="bagong_pilipinas">Bagong Pilipinas</option>
                             <option value="custom">Custom Uploaded File</option>
                           </select>
@@ -1417,6 +1751,87 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 <p className="text-xs text-stone-500">
                   Write the official body text in English, Bisaya, or Filipino with dynamic placeholders
                 </p>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800">Template field mappings</h4>
+                    <p className="text-[10px] text-stone-500">Select registry-backed values, edit labels/defaults, and mark required fields.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={templateCustomFieldLabel}
+                      onChange={event => setTemplateCustomFieldLabel(event.target.value)}
+                      placeholder="Custom field"
+                      className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-xs text-slate-900"
+                    />
+                    <button type="button" onClick={addTemplateCustomField} className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white">
+                      Add field
+                    </button>
+                  </div>
+                </div>
+                {(template.templateFields || []).length === 0 ? (
+                  <p className="text-[11px] text-stone-500">No custom mappings. Use the standard placeholders below or add a configurable field.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(template.templateFields || []).map((field, index) => (
+                      <div key={`${field.key}-${index}`} className="grid gap-2 rounded-lg border border-stone-200 bg-white p-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
+                        <input
+                          value={field.label}
+                          onChange={event => setTemplate({
+                            ...template,
+                            templateFields: template.templateFields?.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, label: event.target.value } : item),
+                          })}
+                          aria-label="Template field label"
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        />
+                        <select
+                          value={field.key}
+                          onChange={event => {
+                            const nextKey = event.target.value;
+                            setTemplate({
+                              ...template,
+                              bodyTemplate: template.bodyTemplate.replaceAll(`{{${field.key}}}`, `{{${nextKey}}}`),
+                              templateFields: template.templateFields?.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, key: nextKey } : item),
+                            });
+                          }}
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        >
+                          {CERTIFICATE_FIELD_OPTIONS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+                          {!CERTIFICATE_FIELD_OPTIONS.some(option => option.key === field.key) && (
+                            <option value={field.key}>{field.key} (custom)</option>
+                          )}
+                        </select>
+                        <input
+                          value={field.defaultValue || ''}
+                          onChange={event => setTemplate({
+                            ...template,
+                            templateFields: template.templateFields?.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, defaultValue: event.target.value } : item),
+                          })}
+                          placeholder="Optional default"
+                          aria-label="Template field default"
+                          className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-slate-900"
+                        />
+                        <label className="flex items-center gap-1 text-[11px] text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={event => setTemplate({
+                              ...template,
+                              templateFields: template.templateFields?.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, required: event.target.checked } : item),
+                            })}
+                          />
+                          Required
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Placeholder helper chips */}
@@ -1501,7 +1916,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           #{index + 1}
                         </span>
                         <span className="text-xs font-black text-slate-900 uppercase">
-                          {sig.position || 'Signatory'}
+                          {sig.position || translateInterfaceText("Signatory")}
                         </span>
                       </div>
 
@@ -1511,7 +1926,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           onClick={() => handleMoveSignatory(index, 'up')}
                           disabled={index === 0}
                           className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                          title="Move Up"
+                          title={translateInterfaceText("Move Up")}
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
@@ -1520,7 +1935,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                           onClick={() => handleMoveSignatory(index, 'down')}
                           disabled={index === (template.signatories?.length || 0) - 1}
                           className="p-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
-                          title="Move Down"
+                          title={translateInterfaceText("Move Down")}
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
@@ -1583,36 +1998,13 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         />
                       </div>
 
-                      {/* Digital Signature Upload */}
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          DIGITAL SIGNATURE
+                          SIGNATURE
                         </label>
-                        <div className="flex items-center gap-2">
-                          <label className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-lg text-[11px] flex items-center gap-1 transition cursor-pointer border border-stone-300">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload PNG</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={e => handleSignatureUpload(e, sig.id)}
-                              className="hidden"
-                            />
-                          </label>
-                          {sig.signatureImageUrl && (
-                            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-700 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={sig.showSignatureImage !== false}
-                                onChange={e =>
-                                  handleUpdateSignatory(sig.id, { showSignatureImage: e.target.checked })
-                                }
-                                className="rounded text-blue-600"
-                              />
-                              <span>Show Signature</span>
-                            </label>
-                          )}
-                        </div>
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                          Leave this area blank for the authorized signatory to sign by hand. Uploaded signature images are not printed as approval.
+                        </p>
                       </div>
                     </div>
 
@@ -1667,9 +2059,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                               }
                               className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-xs font-semibold text-slate-900"
                             >
-                              <option value="left">Left</option>
-                              <option value="center">Center</option>
-                              <option value="right">Right</option>
+                              <option value="left">{translateInterfaceText("Left")}</option>
+                              <option value="center">{translateInterfaceText("Center")}</option>
+                              <option value="right">{translateInterfaceText("Right")}</option>
                             </select>
                           </div>
 
@@ -1750,10 +2142,10 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                         }
                         className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="municipality">Municipality of Hinunangan Seal</option>
-                        <option value="barangay">Barangay Official Seal</option>
-                        <option value="da">Department of Agriculture (DA) Seal</option>
-                        <option value="province">Province of Southern Leyte Seal</option>
+                        <option value="municipality">{translateInterfaceText("Municipality of Hinunangan Seal")}</option>
+                        <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
+                        <option value="da">{translateInterfaceText("Department of Agriculture (DA) Seal")}</option>
+                        <option value="province">{translateInterfaceText("Province of Southern Leyte Seal")}</option>
                         <option value="custom">Custom Uploaded Watermark</option>
                       </select>
                     </div>
@@ -1906,7 +2298,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <Printer className="w-3.5 h-3.5 text-amber-400" />
-                <span>Print Document</span>
+                <span>Print Preview</span>
               </button>
             </div>
           </div>
@@ -1971,10 +2363,10 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                   onChange={e => setNewLogoType(e.target.value as CertificateLogoType)}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl font-semibold text-slate-900"
                 >
-                  <option value="barangay">Barangay Official Seal</option>
-                  <option value="municipality">Municipality of Hinunangan Seal</option>
-                  <option value="province">Province of Southern Leyte Seal</option>
-                  <option value="da">Department of Agriculture (DA) Seal</option>
+                  <option value="barangay">{translateInterfaceText("Barangay Official Seal")}</option>
+                  <option value="municipality">{translateInterfaceText("Municipality of Hinunangan Seal")}</option>
+                  <option value="province">{translateInterfaceText("Province of Southern Leyte Seal")}</option>
+                  <option value="da">{translateInterfaceText("Department of Agriculture (DA) Seal")}</option>
                   <option value="bagong_pilipinas">Bagong Pilipinas Official Logo</option>
                   <option value="custom">Custom Uploaded File</option>
                 </select>
@@ -1983,7 +2375,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               {/* If Barangay Seal, select which barangay */}
               {newLogoType === 'barangay' && (
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Select Barangay</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="Select Barangay" /></label>
                   <select
                     value={newLogoBarangay}
                     onChange={e => setNewLogoBarangay(e.target.value)}
@@ -2033,9 +2425,7 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                 type="button"
                 onClick={() => setIsAddLogoModalOpen(false)}
                 className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl text-xs transition cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleSaveNewLogo}
@@ -2049,44 +2439,91 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
       )}
 
       {isImportDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-700 px-5 py-4">
+        createPortal(<div className="fixed inset-0 z-[1000] flex items-end justify-center overflow-hidden bg-slate-950/80 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="certificate-import-title"
+            className="flex max-h-[95dvh] w-[95vw] max-w-[52rem] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[90dvh] sm:w-full"
+          >
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 sm:px-5 sm:py-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Template import</p>
-                <h3 className="text-lg font-black text-white">Import Certificate Template</h3>
+                <h3 id="certificate-import-title" className="text-lg font-black text-white">Import Certificate Template</h3>
+                <p className="mt-0.5 text-xs text-slate-400">Upload and configure your certificate template.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsImportDialogOpen(false)}
-                className="rounded-lg border border-slate-600 p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleImportBack}
+                  className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={requestCloseImportDialog}
+                  aria-label="Close import dialog"
+                  className="rounded-lg border border-slate-600 p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
 
-            <div className="space-y-5 p-5">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:space-y-5 sm:p-5">
               <div className="rounded-2xl border border-dashed border-slate-600 bg-slate-950/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold text-slate-200">Accepted formats</p>
-                    <p className="text-[11px] text-slate-400">JSON, HTML, DOCX, PDF, PNG, JPG, WEBP</p>
+                    <p className="text-[11px] text-slate-400">PDF, DOCX, JPG/JPEG, PNG (also JSON/HTML template exports)</p>
                   </div>
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
                     up to 5 MB
                   </span>
                 </div>
 
-                <label className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-5 py-8 text-center transition hover:border-blue-500 hover:bg-slate-800">
+                <label
+                  onDragOver={event => {
+                    event.preventDefault();
+                    setIsDraggingImport(true);
+                  }}
+                  onDragLeave={event => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDraggingImport(false);
+                  }}
+                  onDrop={event => {
+                    event.preventDefault();
+                    setIsDraggingImport(false);
+                    const file = event.dataTransfer.files[0];
+                    if (file) void processImportTemplateFile(file);
+                  }}
+                  className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-4 py-6 text-center transition sm:px-5 sm:py-8 ${
+                    isDraggingImport
+                      ? 'border-emerald-400 bg-emerald-500/10'
+                      : 'border-slate-700 bg-slate-900 hover:border-blue-500 hover:bg-slate-800'
+                  }`}
+                >
                   <Upload className="h-8 w-8 text-emerald-400" />
                   <div>
                     <p className="text-sm font-black text-white">Drag and drop or browse files</p>
-                    <p className="mt-1 text-[11px] text-slate-400">Select a template export, HTML layout, or reference document.</p>
+                    <p className="mt-1 text-[11px] text-slate-400">Select a template export or certificate reference document.</p>
                   </div>
-                  <input type="file" accept=".json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp" onChange={handleImportTemplateFile} className="hidden" />
-                  <span className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white">Browse Files</span>
+                  <input
+                    type="file"
+                    accept=".json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg"
+                    onChange={handleImportTemplateFile}
+                    className="sr-only"
+                    aria-label="Choose a certificate template file"
+                  />
+                  <span className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white"><InterfaceText source="Browse Files" /></span>
                 </label>
               </div>
+
+              {isImportingFile && (
+                <div role="status" className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+                  Reading the selected certificate…
+                </div>
+              )}
 
               {importedFile && (
                 <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-200">
@@ -2100,19 +2537,26 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                       onClick={() => {
                         setImportedFile(null);
                         setImportedTemplate(null);
+                        setImportedBody('');
+                        setImportedFields([]);
+                        setPendingSourceFile(null);
                         setImportError(null);
                       }}
                       className="rounded-lg border border-slate-600 px-2 py-1 font-bold text-slate-200 hover:bg-slate-800"
-                    >
-                      Replace File
-                    </button>
+                    ><InterfaceText source="Replace File" /></button>
                   </div>
                 </div>
               )}
 
               {importError && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
-                  {importError}
+                <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                  {<LocalizedFeedback value={importError} />}
+                </div>
+              )}
+
+              {importProgress > 0 && importProgress < 1 && (
+                <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+                  Extracting certificate text… {Math.round(importProgress * 100)}%
                 </div>
               )}
 
@@ -2125,8 +2569,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-bold text-slate-200">Template name</label>
+                      <label htmlFor="imported-template-name" className="mb-1 block text-xs font-bold text-slate-200">Template name</label>
                       <input
+                        id="imported-template-name"
                         type="text"
                         value={importedTemplateName}
                         onChange={e => setImportedTemplateName(e.target.value)}
@@ -2135,8 +2580,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-bold text-slate-200">Description</label>
+                      <label htmlFor="imported-template-description" className="mb-1 block text-xs font-bold text-slate-200"><InterfaceText source="Description" /></label>
                       <textarea
+                        id="imported-template-description"
                         value={importedTemplateDescription}
                         onChange={e => setImportedTemplateDescription(e.target.value)}
                         rows={3}
@@ -2145,8 +2591,9 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-200">Document type</label>
+                      <label htmlFor="imported-document-type" className="mb-1 block text-xs font-bold text-slate-200">Document type</label>
                       <select
+                        id="imported-document-type"
                         value={importedDocumentType}
                         onChange={e => setImportedDocumentType(e.target.value)}
                         className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-blue-500"
@@ -2158,13 +2605,14 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-200">Barangay scope</label>
+                      <label htmlFor="imported-barangay-scope" className="mb-1 block text-xs font-bold text-slate-200">Barangay scope</label>
                       <select
+                        id="imported-barangay-scope"
                         value={importedBarangay}
                         onChange={e => setImportedBarangay(e.target.value)}
                         className="w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-blue-500"
                       >
-                        <option value="All">All Barangays</option>
+                        <option value="All">{translateInterfaceText("All Barangays")}</option>
                         {HINUNANGAN_BARANGAYS.map(b => (
                           <option key={b.code} value={b.name}>{b.name}</option>
                         ))}
@@ -2172,17 +2620,130 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Imported content preview</p>
-                    <p className="line-clamp-5 whitespace-pre-wrap text-xs text-slate-200">
-                      {importedTemplate.bodyTemplate}
-                    </p>
+                  {importedTemplate.layoutHints && (
+                    <div className="flex flex-wrap gap-2 rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-[10px] text-slate-300">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Layout clues:</span>
+                      <span>{importedTemplate.pageSize} {importedTemplate.orientation}</span>
+                      <span>{importedTemplate.layoutHints.headings.length} heading candidate(s)</span>
+                      {importedTemplate.layoutHints.hasTables && <span>possible table</span>}
+                      {importedTemplate.layoutHints.hasImages && <span>image/logo candidate (not copied)</span>}
+                      {importedTemplate.layoutHints.hasSignatureArea && <span>signature-area text candidate</span>}
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Extracted wording — edit freely</p>
+                        <textarea
+                          value={importedBody}
+                          onChange={event => setImportedBody(event.target.value)}
+                          rows={14}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-100"
+                        />
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Detected field mapping</p>
+                            <p className="mt-1 text-[10px] text-slate-400">Review each mapping; fields without authorized data remain visibly unresolved.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              value={customFieldLabel}
+                              onChange={event => setCustomFieldLabel(event.target.value)}
+                              placeholder="Custom field label"
+                              className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                            />
+                            <button type="button" onClick={addImportedCustomField} className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white">
+                              Add field
+                            </button>
+                          </div>
+                        </div>
+                        {importedFields.length === 0 ? (
+                          <p className="py-2 text-xs text-amber-200">No labeled fields were confidently detected. Add custom fields and place their placeholders in the wording above.</p>
+                        ) : (
+                          <div className="max-h-64 space-y-2 overflow-auto">
+                            {importedFields.map((field, index) => (
+                              <div key={`${field.key}-${index}`} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-800 p-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
+                                <span className="text-xs text-slate-200">
+                                  {field.label}
+                                  {field.confidence === 'review' && <span className="ml-1 text-amber-300">Review</span>}
+                                </span>
+                                <select
+                                  value={field.key}
+                                  onChange={event => {
+                                    const nextKey = event.target.value;
+                                    setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                      ? { ...item, key: nextKey }
+                                      : item));
+                                    setImportedBody(previous => previous.replaceAll(`{{${field.key}}}`, `{{${nextKey}}}`));
+                                  }}
+                                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                                >
+                                  {CERTIFICATE_FIELD_OPTIONS.map(option => (
+                                    <option key={option.key} value={option.key}>{option.label}</option>
+                                  ))}
+                                  {importedFields
+                                    .filter(option => !CERTIFICATE_FIELD_OPTIONS.some(standard => standard.key === option.key))
+                                    .map(option => <option key={option.key} value={option.key}>{option.label} (custom)</option>)}
+                                </select>
+                                <input
+                                  value={field.defaultValue || ''}
+                                  onChange={event => setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                    ? { ...item, defaultValue: event.target.value }
+                                    : item))}
+                                  placeholder="Optional default"
+                                  className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white"
+                                />
+                                <label className="flex items-center gap-1 text-[11px] text-slate-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={event => setImportedFields(previous => previous.map((item, itemIndex) => itemIndex === index
+                                      ? { ...item, required: event.target.checked }
+                                      : item))}
+                                  />
+                                  Required
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900/80">
+                        <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Original source preview</p>
+                        {importedFile?.type === 'application/pdf' && importedSourcePreviewUrl ? (
+                          <iframe title="Imported certificate source" src={importedSourcePreviewUrl} className="h-56 w-full bg-white sm:h-72" />
+                        ) : importedFile?.type.startsWith('image/') && importedSourcePreviewUrl ? (
+                          <img src={importedSourcePreviewUrl} alt="Imported certificate source" className="max-h-72 w-full object-contain bg-white" />
+                        ) : (
+                          <p className="px-3 pb-3 text-xs text-slate-300">Original document preview is not supported by this browser. The extracted text is shown for review.</p>
+                        )}
+                        {importedFile?.type === 'application/pdf' && (
+                          <p className="border-t border-slate-700 px-3 py-2 text-[11px] leading-5 text-amber-200">
+                            The original PDF is retained as a reference. Extracted wording is an editable approximation; the original visual layout is not converted into an editable background.
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-white p-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Editable template preview — not issued</p>
+                        <p className="whitespace-pre-wrap text-xs leading-5 text-stone-900">
+                          {replaceTemplatePlaceholders(importedBody, Object.fromEntries(
+                            importedFields.map(field => [field.key, field.defaultValue || '—']),
+                          ))}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {importedTemplate.warnings.length > 0 && (
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
                       {importedTemplate.warnings.map(warning => (
-                        <p key={warning} className="mb-1 last:mb-0">• {warning}</p>
+                        <p key={warning} className="mb-1 last:mb-0">• {<LocalizedFeedback value={warning} />}</p>
                       ))}
                     </div>
                   )}
@@ -2190,25 +2751,25 @@ Issued this {{date_issued}} at Barangay {{barangay}}, Hinunangan, Southern Leyte
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-slate-700 px-5 py-4">
+            <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-700 bg-slate-900 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
               <button
                 type="button"
-                onClick={() => setIsImportDialogOpen(false)}
-                className="rounded-xl border border-slate-600 px-4 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800"
-              >
-                Cancel
-              </button>
+                onClick={requestCloseImportDialog}
+                disabled={isSaving}
+                className="min-h-10 rounded-xl border border-slate-600 px-4 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
-                disabled={!importedTemplate}
-                onClick={applyImportedTemplate}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!importedTemplate || isImportingFile || isSaving}
+                onClick={() => void handleSaveImportedTemplate()}
+                className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Apply to Template
+                {isSaving && <span aria-hidden="true" className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                {isSaving ? 'Saving…' : 'Save Template'}
               </button>
-            </div>
-          </div>
-        </div>
+            </footer>
+          </section>
+        </div>, document.body)
       )}
     </div>
   );

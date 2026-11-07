@@ -1,9 +1,13 @@
 import { db } from './index.ts';
 import { messages } from './schema.ts';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { MessageItem } from '../types.ts';
 
-export function mapDbToMessage(row: any): MessageItem {
+export function mapDbToMessage(row: any, userId?: string): MessageItem {
+  const metadata = row.attachments && !Array.isArray(row.attachments) ? row.attachments : {};
+  const readBy: string[] = Array.isArray(metadata.readBy)
+    ? [...new Set<string>(metadata.readBy.filter((id: unknown): id is string => typeof id === 'string'))]
+    : [];
   return {
     id: String(row.id),
     senderId: row.senderId,
@@ -12,12 +16,15 @@ export function mapDbToMessage(row: any): MessageItem {
     targetBarangay: row.barangay || 'all',
     recipientBarangay: row.barangay || 'all',
     recipientId: row.receiverId || undefined,
-    title: row.text ? row.text.substring(0, 40) : 'Official Advisory',
-    subject: row.text ? row.text.substring(0, 40) : 'Official Advisory',
+    title: metadata.subject || (row.text ? row.text.substring(0, 40) : 'Official Advisory'),
+    subject: metadata.subject || (row.text ? row.text.substring(0, 40) : 'Official Advisory'),
     content: row.text,
     body: row.text,
-    priority: 'normal',
-    isRead: Boolean(row.isRead),
+    priority: ['normal','advisory','urgent'].includes(metadata.priority) ? metadata.priority : 'normal',
+    readBy,
+    // Legacy global read state remains readable, while new reads are user-specific.
+    isRead: Boolean(row.isRead) || Boolean(userId && (readBy.includes(userId) || row.senderId === userId)),
+    attachments: Array.isArray(row.attachments) ? row.attachments : Array.isArray(metadata.files) ? metadata.files : [],
     timestamp: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
   };
@@ -26,7 +33,7 @@ export function mapDbToMessage(row: any): MessageItem {
 export async function getAllMessages(filter?: { role?: string; barangay?: string; userId?: string }): Promise<MessageItem[]> {
   try {
     const rows = await db.select().from(messages).orderBy(desc(messages.createdAt));
-    let list = rows.map(mapDbToMessage);
+    let list = rows.map(row => mapDbToMessage(row, filter?.userId));
 
     if (filter?.role && filter.role !== 'admin' && filter.role !== 'super_admin') {
       list = list.filter(m => {
@@ -59,8 +66,8 @@ export async function createMessage(msg: Partial<MessageItem> & Record<string, a
       receiverRole: msg.recipientRole || null,
       barangay: targetBrgy !== 'all' ? targetBrgy : null,
       text: textContent,
-      attachments: msg.attachments || null,
-      isRead: Boolean(msg.isRead),
+      attachments: {files: Array.isArray(msg.attachments) ? msg.attachments : [], subject: msg.subject || msg.title || '', priority: msg.priority || 'normal'},
+      isRead: false,
     };
 
     const result = await db.insert(messages).values(values).onConflictDoNothing().returning();
@@ -74,10 +81,21 @@ export async function createMessage(msg: Partial<MessageItem> & Record<string, a
   }
 }
 
-export async function markMessageRead(id: string): Promise<boolean> {
+export async function markMessageRead(id: string, userId: string): Promise<boolean> {
+  if (!userId) return false;
   try {
-    await db.update(messages).set({ isRead: true }).where(eq(messages.id, id));
-    return true;
+    // Append atomically in PostgreSQL so simultaneous readers do not overwrite each other.
+    const result = await db.update(messages).set({
+      attachments: sql`jsonb_set(
+        CASE WHEN jsonb_typeof(${messages.attachments}) = 'object'
+          THEN ${messages.attachments} ELSE '{}'::jsonb END,
+        '{readBy}',
+        (CASE WHEN jsonb_typeof(${messages.attachments}->'readBy') = 'array'
+          THEN ${messages.attachments}->'readBy' ELSE '[]'::jsonb END) || jsonb_build_array(${userId}),
+        true
+      )`,
+    }).where(eq(messages.id, id)).returning({ id: messages.id });
+    return result.length > 0;
   } catch (err) {
     console.error('Database query error in markMessageRead:', err);
     return false;

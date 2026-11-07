@@ -1,3 +1,6 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
   TrendingUp,
@@ -39,7 +42,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
   onRefresh,
   onScheduleTakeoff,
 }) => {
-  const [alerts, setAlerts] = useState<MarketingAlert[]>(() => storageService.getMarketingAlerts());
+  const {items:alerts,error:cloudError,save:saveAlert,remove:removeAlert} = useCloudItems<MarketingAlert>('marketing_alerts');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | MarketingAlertType>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -66,7 +69,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
     isActive: true,
   });
 
-  const handleCreateAlert = (e: React.FormEvent) => {
+  const handleCreateAlert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alertForm.title?.trim()) return;
 
@@ -90,24 +93,18 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
       isActive: true,
     };
 
-    storageService.addMarketingAlert(newAlert);
-    setAlerts(storageService.getMarketingAlerts());
+    if (!await saveAlert(newAlert)) return;
     setIsNewAlertModalOpen(false);
     onRefresh();
   };
 
-  const handleToggleActive = (id: string) => {
-    storageService.toggleMarketingAlertStatus(id);
-    setAlerts(storageService.getMarketingAlerts());
-    onRefresh();
+  const handleToggleActive = async (id: string) => {
+    const existing=alerts.find(item=>item.id===id);
+    if(existing&&await saveAlert({...existing,isActive:!existing.isActive}))onRefresh();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this marketing alert?')) {
-      storageService.deleteMarketingAlert(id);
-      setAlerts(storageService.getMarketingAlerts());
-      onRefresh();
-    }
+  const handleDelete = async (id: string) => {
+    if(confirm('Delete this marketing alert?')&&await removeAlert(id))onRefresh();
   };
 
   const handleCopyAlert = (alert: MarketingAlert) => {
@@ -152,6 +149,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{<LocalizedFeedback value={cloudError} />}</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-amber-900 via-stone-900 to-emerald-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-amber-800/60 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -327,7 +325,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                           : 'bg-stone-200 text-stone-600'
                       }`}
                     >
-                      {alert.isActive ? 'Active' : 'Closed'}
+                      {alert.isActive ? translateInterfaceText("Active") : 'Closed'}
                     </span>
                   </div>
 
@@ -342,7 +340,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                     {alert.headsNeeded && (
                       <div>
                         <span className="text-[10px] text-stone-500 font-medium block">Heads Needed</span>
-                        <span className="text-sm font-extrabold text-amber-900">{alert.headsNeeded} heads</span>
+                        <span className="text-sm font-extrabold text-amber-900">{alert.headsNeeded}{" "}<InterfaceText source="heads" /></span>
                       </div>
                     )}
                     {(alert.preferredWeightMin || alert.preferredWeightMax) && (
@@ -577,9 +575,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                   type="button"
                   onClick={() => setIsNewAlertModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-md"
@@ -628,8 +624,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
                           </span>
                           <span className="text-[10px] text-stone-500">Brgy. {swine.barangay}</span>
                         </div>
-                        <p className="text-stone-600 text-[11px] mt-0.5">
-                          Farmer: <strong>{swine.farmerName}</strong> ({swine.farmerContact || 'No contact'})
+                        <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{swine.farmerName}</strong> ({swine.farmerContact || translateInterfaceText("No contact")})
                         </p>
                       </div>
 
@@ -655,9 +650,7 @@ export const SwineMarketingAlerts: React.FC<SwineMarketingAlertsProps> = ({
               <button
                 onClick={() => setMatchingAlert(null)}
                 className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-100 cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>

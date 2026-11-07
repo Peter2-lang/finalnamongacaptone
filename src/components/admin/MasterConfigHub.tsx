@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   Palette,
@@ -354,8 +355,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               Super Admin Master Configuration Hub
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-              v{publishedConfig.version} Published
-            </span>
+              v{publishedConfig.version}<InterfaceText source="Published" /></span>
             {isDraftDirty && (
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
                 Unpublished Changes
@@ -376,7 +376,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               className="px-3.5 py-2 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Discard Draft</span>
+              <span><InterfaceText source="Discard Draft" /></span>
             </button>
           )}
 
@@ -389,7 +389,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
             className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset to Default</span>
+            <span><InterfaceText source="Reset to Default" /></span>
           </button>
 
           <button
@@ -402,7 +402,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Live Preview</span>
+            <span><InterfaceText source="Live Preview" /></span>
           </button>
 
           <button
@@ -411,7 +411,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
             className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition cursor-pointer flex items-center gap-2 shadow-sm"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>Publish Changes</span>
+            <span><InterfaceText source="Publish Changes" /></span>
           </button>
         </div>
       </div>
@@ -474,7 +474,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                         : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    {role === 'admin' ? 'Super Admin / Admin' : role === 'focal' ? 'Focal Person' : 'Agent / Buyer'}
+                    {role === 'admin' ? 'Super Admin / Admin' : role === 'focal' ? translateInterfaceText("Focal Person") : translateInterfaceText("Agent / Buyer")}
                   </button>
                 ))}
               </div>
@@ -538,7 +538,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
 
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-stone-700">Primary Font Family</label>
+                  <label className="text-xs font-semibold text-stone-700"><InterfaceText source="Primary Font Family" /></label>
                   <select
                     value={activeRoleConfig.typography.fontFamily}
                     onChange={e => handleTypographyChange('fontFamily', '', e.target.value)}
@@ -726,10 +726,10 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-stone-800">{palette.name}</span>
-                    <span className="text-[10px] text-emerald-700 font-bold">Apply</span>
+                    <span className="text-[10px] text-emerald-700 font-bold"><InterfaceText source="Apply" /></span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.primary }} title="Primary" />
+                    <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.primary }} title={translateInterfaceText("Primary")} />
                     <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.sidebar }} title="Sidebar" />
                     <div className="w-7 h-7 rounded-lg border border-white/40 shadow-xs" style={{ backgroundColor: palette.accent }} title="Accent" />
                   </div>
@@ -787,7 +787,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
             <h3 className="font-extrabold text-base text-stone-900">Font Families & Hierarchy</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-stone-700">Primary Font Family</label>
+                <label className="text-xs font-bold text-stone-700"><InterfaceText source="Primary Font Family" /></label>
                 <select
                   value={activeRoleConfig.typography.fontFamily}
                   onChange={e => handleTypographyChange('fontFamily', '', e.target.value)}
@@ -852,7 +852,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-700">Border Radius: {activeRoleConfig.buttons.borderRadius}px</label>
+                <label className="text-xs font-bold text-stone-700"><InterfaceText source="Border Radius:" />{" "}{activeRoleConfig.buttons.borderRadius}px</label>
                 <input
                   type="range"
                   min="0"
@@ -887,7 +887,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-700">Border Radius: {activeRoleConfig.modals.borderRadius}px</label>
+                <label className="text-xs font-bold text-stone-700"><InterfaceText source="Border Radius:" />{" "}{activeRoleConfig.modals.borderRadius}px</label>
                 <input
                   type="range"
                   min="8"
@@ -1089,9 +1089,9 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 onChange={e => setPreviewRole(e.target.value as any)}
                 className="p-1.5 rounded-lg border border-stone-300 text-xs font-bold bg-white"
               >
-                <option value="admin">Admin</option>
-                <option value="focal">Focal Person</option>
-                <option value="agent">Agent / Buyer</option>
+                <option value="admin">{translateInterfaceText("Admin")}</option>
+                <option value="focal">{translateInterfaceText("Focal Person")}</option>
+                <option value="agent">{translateInterfaceText("Agent / Buyer")}</option>
               </select>
 
               <span className="text-xs font-bold text-stone-500 uppercase ml-2">Page:</span>
@@ -1100,9 +1100,9 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 onChange={e => setPreviewPage(e.target.value as any)}
                 className="p-1.5 rounded-lg border border-stone-300 text-xs font-bold bg-white"
               >
-                <option value="dashboard">Dashboard</option>
+                <option value="dashboard">{translateInterfaceText("Dashboard")}</option>
                 <option value="gis">GIS Map</option>
-                <option value="records">Swine Records</option>
+                <option value="records">{translateInterfaceText("Swine Records")}</option>
                 <option value="takeoff">Take-Off</option>
               </select>
             </div>
@@ -1117,7 +1117,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Desktop</span>
+                <span className="hidden sm:inline"><InterfaceText source="Desktop" /></span>
               </button>
               <button
                 type="button"
@@ -1206,7 +1206,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                       : previewPage === 'gis'
                       ? 'GIS Biosurveillance Map'
                       : previewPage === 'records'
-                      ? draftConfig.roles[previewRole]?.text.menuLabels?.records || 'Swine Records'
+                      ? draftConfig.roles[previewRole]?.text.menuLabels?.records || translateInterfaceText("Swine Records")
                       : 'Take-Off Queue'}
                   </h2>
 
@@ -1240,7 +1240,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                     }}
                     className="p-4 rounded-xl border border-stone-200 shadow-2xs space-y-1"
                   >
-                    <span className="text-[10px] font-bold uppercase text-stone-400">Ready for Take-Off</span>
+                    <span className="text-[10px] font-bold uppercase text-stone-400"><InterfaceText source="Ready for Take-Off" /></span>
                     <p className="text-lg font-black text-emerald-700">185 head</p>
                   </div>
                 </div>
@@ -1399,16 +1399,12 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 type="button"
                 onClick={() => setIsPublishModalOpen(false)}
                 className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs cursor-pointer hover:bg-stone-50"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handlePublish}
                 className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs cursor-pointer shadow-sm"
-              >
-                Publish Changes
-              </button>
+              ><InterfaceText source="Publish Changes" /></button>
             </div>
           </div>
         </div>
@@ -1463,9 +1459,7 @@ export const MasterConfigHub: React.FC<MasterConfigHubProps> = ({
                 type="button"
                 onClick={() => setIsResetModalOpen(false)}
                 className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs cursor-pointer hover:bg-stone-50"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleResetToDefault}

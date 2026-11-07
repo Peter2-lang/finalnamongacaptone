@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect } from 'react';
 import {
   Globe,
@@ -373,8 +374,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
                       <span className="text-xs font-black text-slate-900 block truncate">
                         {CMS_NAV_TABS.find(t => t.id === activeTab)?.label}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        Section {CMS_NAV_TABS.findIndex(t => t.id === activeTab) + 1} of {CMS_NAV_TABS.length}
+                      <span className="text-[10px] text-slate-400 font-medium"><InterfaceText source="Section" />{CMS_NAV_TABS.findIndex(t => t.id === activeTab) + 1}{" "}<InterfaceText source="of" />{" "}{CMS_NAV_TABS.length}
                       </span>
                     </div>
                   </div>
@@ -415,7 +415,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
                       className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-[0.98]"
                     >
                       <Save className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Save</span>
+                      <span><InterfaceText source="Save" /></span>
                     </button>
 
                     <button
@@ -555,7 +555,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
 
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                       <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Live Preview</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500"><InterfaceText source="Live Preview" /></span>
                     </div>
                   </div>
 
@@ -565,7 +565,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
                       <button
                         type="button"
                         onClick={() => setDeviceMode('desktop')}
-                        title="Desktop View (100%)"
+                        title={translateInterfaceText("Desktop View (100%)")}
                         className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                           deviceMode === 'desktop' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                         }`}
@@ -575,7 +575,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
                       <button
                         type="button"
                         onClick={() => setDeviceMode('tablet')}
-                        title="Tablet View (768px)"
+                        title={translateInterfaceText("Tablet View (768px)")}
                         className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                           deviceMode === 'tablet' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                         }`}
@@ -585,7 +585,7 @@ export const ManageLandingPage: React.FC<ManageLandingPageProps> = ({
                       <button
                         type="button"
                         onClick={() => setDeviceMode('mobile')}
-                        title="Mobile View (375px)"
+                        title={translateInterfaceText("Mobile View (375px)")}
                         className={`p-1.5 rounded-lg text-xs cursor-pointer transition ${
                           deviceMode === 'mobile' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
                         }`}

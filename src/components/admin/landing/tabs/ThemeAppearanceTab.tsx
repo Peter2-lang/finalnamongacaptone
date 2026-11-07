@@ -1,3 +1,4 @@
+import { translateInterfaceText } from '../../../../i18n/interfaceText';
 import React from 'react';
 import { Palette, Type, Sun, Moon, Sparkles } from 'lucide-react';
 import { LandingCmsConfig, ThemeConfig } from '../../../../types/landingCms';
@@ -293,7 +294,7 @@ export const ThemeAppearanceTab: React.FC<ThemeAppearanceTabProps> = ({ config, 
               onChange={e => updateTheme({ headingFont: e.target.value })}
               className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white"
             >
-              <option value="system-ui">System Sans-Serif</option>
+              <option value="system-ui">{translateInterfaceText("System Sans-Serif")}</option>
               <option value="Merriweather, serif">Merriweather (Editorial Serif)</option>
               <option value="Playfair Display, serif">Playfair Display (Premium Serif)</option>
               <option value="Poppins, sans-serif">Poppins (Modern Geometric)</option>
@@ -308,7 +309,7 @@ export const ThemeAppearanceTab: React.FC<ThemeAppearanceTabProps> = ({ config, 
               onChange={e => updateTheme({ bodyFont: e.target.value })}
               className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white"
             >
-              <option value="system-ui">System Sans-Serif</option>
+              <option value="system-ui">{translateInterfaceText("System Sans-Serif")}</option>
               <option value="Open Sans, sans-serif">Open Sans</option>
               <option value="Lato, sans-serif">Lato</option>
               <option value="Georgia, serif">Georgia</option>

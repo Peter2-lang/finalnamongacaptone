@@ -1,0 +1,84 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test --config=playwright.production.config.ts
+
+[WebServer] (node:23780) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]
+[WebServer] (!) Some chunks are larger than 1000 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer]
+[WebServer]   build/server.cjs      985.7kb
+[WebServer]   build/server.cjs.map    1.8mb
+[WebServer]
+[WebServer] ⚡ Done in 219ms
+[WebServer]
+[WebServer]   build/vercel.cjs  985.0kb
+[WebServer]
+[WebServer] ⚡ Done in 94ms
+[WebServer] (node:24963) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:25034) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 16 tests using 1 worker
+
+(node:25076) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (42.3s)
+  ✓   2 [desktop] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (29.2s)
+  ✓   3 [desktop] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (17.3s)
+  ✓   4 [desktop] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (18.1s)
+  ✓   5 [desktop] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.7s)
+  -   6 [desktop] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✓   7 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (12.7s)
+  ✓   8 [desktop] › tests/browser/system.spec.ts:81:1 › dashboard counters follow populated and empty API snapshots after refresh (11.7s)
+(node:29760) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [mobile] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (51.0s)
+  ✓  10 [mobile] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (46.7s)
+  ✓  11 [mobile] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (30.9s)
+  ✓  12 [mobile] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (20.9s)
+  ✓  13 [mobile] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.8s)
+  -  14 [mobile] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✘  15 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (5.1s)
+(node:35556) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  16 [mobile] › tests/browser/system.spec.ts:81:1 › dashboard counters follow populated and empty API snapshots after refresh (12.2s)
+
+
+  1) [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+
+    Error: locator.click: Element is not visible
+    Call log:
+      - waiting for locator('.leaflet-container')
+        - locator resolved to <div tabindex="0" class="w-full h-full z-10 leaflet-container leaflet-touch leaflet-retina leaflet-safari leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom">…</div>
+      - attempting click action
+        - scrolling into view if needed
+
+
+      71 |  const map=page.locator('.leaflet-container');await expect(map).toBeVisible();
+      72 |  const close=page.getByRole('button',{name:'Close map legend'});if(await close.isVisible())await close.click();
+    > 73 |  for(let n=0;n<20;n++)await map.click({position:{x:150+n,y:220},force:true});
+         |                                 ^
+      74 |  await expect(page.getByRole('heading',{name:'Hinunangan Municipal GIS Biosurveillance & Swine Map',exact:true})).toBeVisible();
+      75 |  const info=page.getByRole('button',{name:'Close barangay information'});if(await info.isVisible())await info.click();
+      76 |  await page.getByRole('button',{name:'Reset View',exact:true}).click();
+        at /workspaces/finalnamongacaptone/tests/browser/system.spec.ts:73:33
+
+    Error Context: test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/production/system-GIS-normal-clicks-a-71f23-keep-the-application-in-GIS-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS
+  2 skipped
+  13 passed (5.9m)

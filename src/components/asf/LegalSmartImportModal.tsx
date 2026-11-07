@@ -1,4 +1,6 @@
-import React, { useState, useRef } from 'react';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Upload,
   FileText,
@@ -84,6 +86,15 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
   const [activeArticleTab, setActiveArticleTab] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -268,24 +279,31 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-slate-900/70 p-2 backdrop-blur-sm sm:p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="smart-legal-import-title"
+        className="flex max-h-[calc(100dvh-16px)] w-[calc(100vw-16px)] max-w-[900px] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]"
+      >
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 px-6 py-4 text-white">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 px-3 py-3 text-white sm:gap-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
               <Sparkles className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold">Smart Legal Document Import System</h2>
+            <div className="min-w-0">
+              <h2 id="smart-legal-import-title" className="text-sm font-bold sm:text-lg">Smart Legal Document Import System</h2>
               <p className="text-xs text-emerald-200/90">
                 AI & OCR Powered Recognition, Automatic Hierarchy & Classification Engine
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close smart legal document import"
             className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
           >
             <X className="h-5 w-5" />
@@ -293,7 +311,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-6">
           
           {/* STEP 1: UPLOAD WIZARD */}
           {step === 'upload' && (
@@ -319,7 +337,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                   <Upload className="h-8 w-8" />
                 </div>
                 <h3 className="text-base font-bold text-slate-800">
-                  Drop Legal Documents Here, or <span className="text-emerald-700 underline">Browse Files</span>
+                  Drop Legal Documents Here, or <span className="text-emerald-700 underline"><InterfaceText source="Browse Files" /></span>
                 </h3>
                 <p className="mt-1 text-xs text-slate-500 max-w-lg">
                   Supported formats: PDF, Word (DOC/DOCX), Excel / Spreadsheet (XLS/XLSX/CSV), Text (TXT/RTF/ODT), and Scanned Images (JPG/PNG/TIFF/WEBP) with Automatic OCR.
@@ -488,7 +506,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         Existing Document Detected in Registry
                       </h4>
                       <p className="text-xs text-amber-800 mt-0.5">
-                        Document <strong>{activeDetection.docTypeName} No. {activeDetection.officialNumber}</strong> already exists: <em>"{activeDetection.duplicateDocTitle}"</em>.
+                        Document <strong>{activeDetection.docTypeName}{" "}<InterfaceText source="No." />{" "}{activeDetection.officialNumber}</strong> already exists: <em>"{activeDetection.duplicateDocTitle}"</em>.
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <label className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-800 border border-amber-200 cursor-pointer">
@@ -594,16 +612,16 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         }}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none"
                       >
-                        <option value="municipal_ordinance">Municipal Ordinance</option>
-                        <option value="provincial_ordinance">Provincial Ordinance</option>
+                        <option value="municipal_ordinance">{translateInterfaceText("Municipal Ordinance")}</option>
+                        <option value="provincial_ordinance">{translateInterfaceText("Provincial Ordinance")}</option>
                         <option value="resolution">Resolution</option>
                         <option value="municipal_eo">Executive Order</option>
                         <option value="memorandum">Memorandum Circular</option>
                         <option value="administrative_order">Administrative Order</option>
                         <option value="proclamation">Proclamation</option>
-                        <option value="republic_act">Republic Act</option>
-                        <option value="department_order">Department Order</option>
-                        <option value="other">Other Legal Document</option>
+                        <option value="republic_act">{translateInterfaceText("Republic Act")}</option>
+                        <option value="department_order">{translateInterfaceText("Department Order")}</option>
+                        <option value="other">{translateInterfaceText("Other Legal Document")}</option>
                       </select>
                     </div>
 
@@ -652,18 +670,18 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1">Author / Sponsor</label>
+                      <label className="block text-xs font-bold text-slate-600 mb-1"><InterfaceText source="Author / Sponsor" /></label>
                       <input
                         type="text"
                         value={activeDetection.author || ''}
                         onChange={e => updateActiveDetection({ author: e.target.value })}
-                        placeholder="e.g. Hon. Gezar S. Ngoho"
+                        placeholder={translateInterfaceText("e.g. Hon. Gezar S. Ngoho")}
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1">Date Enacted</label>
+                      <label className="block text-xs font-bold text-slate-600 mb-1"><InterfaceText source="Date Enacted" /></label>
                       <input
                         type="date"
                         value={activeDetection.dateEnacted || ''}
@@ -682,7 +700,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                         <option value="active">Active & Enacted</option>
                         <option value="draft">Draft / Under Review</option>
                         <option value="repealed">Repealed</option>
-                        <option value="archived">Archived</option>
+                        <option value="archived">{translateInterfaceText("Archived")}</option>
                       </select>
                     </div>
 
@@ -709,7 +727,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                               {art.articleNumber}: {art.articleTitle}
                             </span>
                             <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-semibold">
-                              {art.sections.length} Section{art.sections.length > 1 ? 's' : ''}
+                              {art.sections.length}{" "}<InterfaceText source="Section" />{art.sections.length > 1 ? 's' : ''}
                             </span>
                           </div>
 
@@ -731,10 +749,9 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                                     value={sec.sectionTitle}
                                     onChange={e => updateSection(aIdx, sIdx, { sectionTitle: e.target.value })}
                                     className="flex-1 font-semibold text-slate-700 border-b border-dashed border-slate-300 focus:outline-none"
-                                    placeholder="Section Title"
+                                    placeholder={translateInterfaceText("Section Title")}
                                   />
-                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                    Page {sec.scannedPageRef || 1}
+                                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded"><InterfaceText source="Page" />{sec.scannedPageRef || 1}
                                   </span>
                                 </div>
                                 <textarea
@@ -827,19 +844,19 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
           {step === 'upload' && (
             <>
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
+                className="min-h-10 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              ><InterfaceText source="Cancel" /></button>
               <button
+                type="button"
                 onClick={startProcessing}
                 disabled={files.length === 0}
-                className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex min-h-10 items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <span>Process & Recognize ({files.length})</span>
                 <ArrowRight className="h-4 w-4" />
@@ -847,24 +864,33 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
             </>
           )}
 
+          {step === 'processing' && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-10 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+            ><InterfaceText source="Cancel" /></button>
+          )}
+
           {step === 'review' && (
             <>
               <button
+                type="button"
                 onClick={() => setStep('upload')}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+                className="min-h-10 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
               >
                 Back to Upload
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cancel
-                </button>
+                  className="min-h-10 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                ><InterfaceText source="Cancel" /></button>
                 <button
+                  type="button"
                   onClick={handleConfirmAndSave}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-700 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 transition-all"
+                  className="flex min-h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 transition-all sm:px-6"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   <span>Confirm & Save to Legal Registry</span>
@@ -875,6 +901,6 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
         </div>
 
       </div>
-    </div>
+    </div>, document.body)
   );
 };

@@ -1,0 +1,50 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test --config=playwright.production.config.ts
+
+[WebServer] (node:85787) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]
+[WebServer] (!) Some chunks are larger than 1000 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer]
+[WebServer]   build/server.cjs      985.7kb
+[WebServer]   build/server.cjs.map    1.8mb
+[WebServer]
+[WebServer] ⚡ Done in 260ms
+[WebServer]
+[WebServer]   build/vercel.cjs  985.0kb
+[WebServer]
+[WebServer] ⚡ Done in 126ms
+[WebServer] (node:86181) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:86200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 16 tests using 1 worker
+
+(node:86247) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (22.9s)
+  ✓   2 [desktop] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (16.1s)
+  ✓   3 [desktop] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (9.5s)
+  ✓   4 [desktop] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (8.7s)
+  ✓   5 [desktop] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.3s)
+  -   6 [desktop] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✓   7 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (8.4s)
+  ✓   8 [desktop] › tests/browser/system.spec.ts:88:1 › dashboard counters follow populated and empty API snapshots after refresh (6.1s)
+(node:87980) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [mobile] › tests/browser/system.spec.ts:29:2 › super_admin: restore session and render authorized main navigation (26.5s)
+  ✓  10 [mobile] › tests/browser/system.spec.ts:29:2 › admin: restore session and render authorized main navigation (19.9s)
+  ✓  11 [mobile] › tests/browser/system.spec.ts:29:2 › focal: restore session and render authorized main navigation (13.0s)
+  ✓  12 [mobile] › tests/browser/system.spec.ts:29:2 › agent: restore session and render authorized main navigation (9.6s)
+  ✓  13 [mobile] › tests/browser/system.spec.ts:50:1 › anonymous deep-link cannot open administrative controls (1.1s)
+  -  14 [mobile] › tests/browser/system.spec.ts:55:1 › all frontend modules evaluate in a browser
+  ✓  15 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (6.3s)
+  ✓  16 [mobile] › tests/browser/system.spec.ts:88:1 › dashboard counters follow populated and empty API snapshots after refresh (6.1s)
+
+  2 skipped
+  14 passed (3.1m)

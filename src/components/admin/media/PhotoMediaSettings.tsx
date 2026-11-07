@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../i18n/interfaceText';
 import React, { useState, useRef, useMemo } from 'react';
 import {
   Image as ImageIcon,
@@ -93,6 +94,10 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
     return <AccessDenied403 onBackToDashboard={() => onNavigateTab && onNavigateTab('dashboard')} />;
   }
 
+  return <PhotoMediaSettingsContent onNavigateTab={onNavigateTab} onRefresh={onRefresh} initialCategory={initialCategory} />;
+};
+
+const PhotoMediaSettingsContent: React.FC<PhotoMediaSettingsProps> = ({onNavigateTab, onRefresh, initialCategory}) => {
   const [config, setConfig] = useState<LandingCmsConfig>(() => landingCmsService.getDraftConfig());
   const [publishedConfig, setPublishedConfig] = useState<LandingCmsConfig>(() =>
     landingCmsService.getPublishedConfig()
@@ -631,7 +636,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               className="py-2.5 px-4 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm border border-emerald-700/60 flex items-center gap-2 transition cursor-pointer"
             >
               <FolderOpen className="w-4 h-4 text-emerald-300" />
-              <span>Media Library</span>
+              <span><InterfaceText source="Media Library" /></span>
             </button>
 
             <button
@@ -674,7 +679,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
           onClick={() => setActiveTab('logos')}
           className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:border-emerald-500 transition cursor-pointer"
         >
-          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">Official Logos</span>
+          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Official Logos" /></span>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xl sm:text-2xl font-black text-emerald-800">
               {(config.officialLogos || []).length}
@@ -689,7 +694,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
           onClick={() => setActiveTab('background')}
           className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:border-emerald-500 transition cursor-pointer"
         >
-          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">Backgrounds</span>
+          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Backgrounds" /></span>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xl sm:text-2xl font-black text-purple-800">{counts.background || 5}</span>
             <span className="p-1.5 rounded-lg bg-purple-50 text-purple-700">
@@ -813,7 +818,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 <ImageIcon className="w-3.5 h-3.5" />
                 <span>Section 5: Portal Aesthetic</span>
               </div>
-              <h2 className="text-xl font-bold text-stone-900 mt-1">Interface Background Photo</h2>
+              <h2 className="text-xl font-bold text-stone-900 mt-1"><InterfaceText source="Interface Background Photo" /></h2>
               <p className="text-xs text-stone-500">
                 Configure background photos, device targets, overlays, brightness, and real-time blur for the portal.
               </p>
@@ -856,7 +861,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 className="py-2 px-3.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Upload Photo</span>
+                <span><InterfaceText source="Upload Photo" /></span>
               </button>
               <button
                 type="button"
@@ -895,7 +900,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 title="Delete current interface background image"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
+                <span><InterfaceText source="Delete" /></span>
               </button>
             </div>
           </div>
@@ -932,16 +937,12 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                     showToast('Interface background photo updated from URL!', 'success');
                   }}
                   className="py-2 px-4 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs cursor-pointer shadow-xs"
-                >
-                  Apply URL
-                </button>
+                ><InterfaceText source="Apply URL" /></button>
                 <button
                   type="button"
                   onClick={() => setIsBgUrlInputOpen(false)}
                   className="py-2 px-3 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
               </div>
             </div>
           )}
@@ -991,7 +992,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700 block">Background Position</label>
+                  <label className="font-bold text-stone-700 block"><InterfaceText source="Background Position" /></label>
                   <select
                     value={config.interfaceBackground?.position || 'center'}
                     onChange={e =>
@@ -1004,11 +1005,11 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                     }
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white"
                   >
-                    <option value="center">Center</option>
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
-                    <option value="left">Left</option>
-                    <option value="right">Right</option>
+                    <option value="center">{translateInterfaceText("Center")}</option>
+                    <option value="top">{translateInterfaceText("Top")}</option>
+                    <option value="bottom">{translateInterfaceText("Bottom")}</option>
+                    <option value="left">{translateInterfaceText("Left")}</option>
+                    <option value="right">{translateInterfaceText("Right")}</option>
                   </select>
                 </div>
               </div>
@@ -1039,7 +1040,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
 
                 <div className="space-y-1">
                   <div className="flex justify-between font-bold text-stone-700">
-                    <span>Brightness Level</span>
+                    <span><InterfaceText source="Brightness Level" /></span>
                     <span className="text-purple-700">{config.interfaceBackground?.brightness ?? 100}%</span>
                   </div>
                   <input
@@ -1182,8 +1183,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               </div>
               <div className="flex items-center justify-between text-xs pt-2 border-t border-blue-200/60">
                 <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" /> Visible
-                </span>
+                  <CheckCircle className="w-3.5 h-3.5" /><InterfaceText source="Visible" /></span>
                 <button
                   onClick={() => showToast('SLSU vector emblem is locked to official standard.', 'info')}
                   className="text-blue-800 font-bold hover:underline"
@@ -1245,7 +1245,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 </p>
               </div>
               <div className="flex items-center justify-between text-xs pt-2 border-t border-stone-100">
-                <span className="text-emerald-700 font-bold">About Section</span>
+                <span className="text-emerald-700 font-bold"><InterfaceText source="About Section" /></span>
                 <button
                   onClick={() => {
                     const url = prompt('Replace SLSU facility photo URL:');
@@ -1273,8 +1273,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               <span>Section 8: Professional Media Library</span>
             </div>
             <h2 className="text-xl font-bold text-stone-900 mt-1">All Uploaded Media Assets</h2>
-            <p className="text-xs text-stone-500">
-              Showing {filteredMedia.length} of {(config.mediaItems || []).length} media records.
+            <p className="text-xs text-stone-500"><InterfaceText source="Showing" />{filteredMedia.length}{" "}<InterfaceText source="of" />{" "}{(config.mediaItems || []).length} media records.
             </p>
           </div>
 
@@ -1309,8 +1308,8 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               <option value="all">All Types</option>
               <option value="image">Images</option>
               <option value="logo">Logos</option>
-              <option value="seal">Municipal Seals</option>
-              <option value="video">Videos</option>
+              <option value="seal">{translateInterfaceText("Municipal Seals")}</option>
+              <option value="video">{translateInterfaceText("Videos")}</option>
             </select>
 
             {/* Visibility Filter */}
@@ -1333,7 +1332,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
               <option value="name">Name (A-Z)</option>
-              <option value="size">File Size</option>
+              <option value="size">{translateInterfaceText("File Size")}</option>
             </select>
 
             {/* Grid / List Toggle */}
@@ -1432,7 +1431,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                         className={`p-1.5 rounded-full backdrop-blur-xs shadow-xs transition ${
                           isVisible ? 'bg-emerald-600/90 text-white' : 'bg-stone-700/80 text-stone-300'
                         }`}
-                        title={isVisible ? 'Visible on website' : 'Hidden'}
+                        title={isVisible ? 'Visible on website' : translateInterfaceText("Hidden")}
                       >
                         {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                       </button>
@@ -1465,7 +1464,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                       title="Edit Details & Adjustments"
                     >
                       <Edit className="w-3 h-3" />
-                      <span>Edit</span>
+                      <span><InterfaceText source="Edit" /></span>
                     </button>
 
                     <button
@@ -1481,7 +1480,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                         }
                       }}
                       className="py-1.5 px-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 flex items-center justify-center gap-1 cursor-pointer"
-                      title="Replace File"
+                      title={translateInterfaceText("Replace File")}
                     >
                       <RefreshCw className="w-3 h-3" />
                       <span>Swap</span>
@@ -1494,17 +1493,17 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                         showToast('Image URL copied to clipboard!', 'info');
                       }}
                       className="py-1.5 px-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 flex items-center justify-center gap-1 cursor-pointer"
-                      title="Copy URL"
+                      title={translateInterfaceText("Copy URL")}
                     >
                       <Copy className="w-3 h-3" />
-                      <span>Use</span>
+                      <span><InterfaceText source="Use" /></span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleRequestDeleteMedia(item)}
                       className="py-1.5 px-1 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 flex items-center justify-center gap-1 cursor-pointer"
-                      title="Delete Media"
+                      title={translateInterfaceText("Delete Media")}
                     >
                       <Trash2 className="w-3 h-3" />
                       <span>Del</span>
@@ -1520,14 +1519,14 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="p-3">Preview</th>
+                  <th className="p-3"><InterfaceText source="Preview" /></th>
                   <th className="p-3">Filename / Title</th>
-                  <th className="p-3">Category</th>
+                  <th className="p-3"><InterfaceText source="Category" /></th>
                   <th className="p-3">Dimensions</th>
                   <th className="p-3">Size</th>
-                  <th className="p-3">Placement</th>
+                  <th className="p-3"><InterfaceText source="Placement" /></th>
                   <th className="p-3">Visibility</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="p-3 text-right"><InterfaceText source="Actions" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -1563,21 +1562,21 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                           }`}
                         >
                           {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                          <span>{isVisible ? 'Visible' : 'Hidden'}</span>
+                          <span>{isVisible ? translateInterfaceText("Visible") : translateInterfaceText("Hidden")}</span>
                         </button>
                       </td>
                       <td className="p-3 text-right space-x-1">
                         <button
                           onClick={() => setSelectedMediaForEdit(item)}
                           className="p-1.5 rounded-lg hover:bg-stone-200 text-stone-700 cursor-pointer"
-                          title="Edit"
+                          title={translateInterfaceText("Edit")}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleRequestDeleteMedia(item)}
                           className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 cursor-pointer"
-                          title="Delete"
+                          title={translateInterfaceText("Delete")}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1627,7 +1626,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   <Share2 className="w-4 h-4 text-blue-600" />
                   <span>DA Hinunangan Facebook Page</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-md bg-blue-200 text-blue-800 font-bold text-[10px]">Active</span>
+                <span className="px-2 py-0.5 rounded-md bg-blue-200 text-blue-800 font-bold text-[10px]"><InterfaceText source="Active" /></span>
               </div>
               <p className="text-stone-600 text-[11px]">
                 Official page: facebook.com/DA.Hinunangan.MAO (Livestock advisory broadcast)
@@ -1744,13 +1743,11 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                       <Upload className="w-6 h-6" />
                     </div>
                     <div className="font-bold text-stone-800 text-sm">Drag and drop your files here</div>
-                    <p className="text-stone-500 text-xs">or</p>
+                    <p className="text-stone-500 text-xs"><InterfaceText source="or" /></p>
                     <button
                       type="button"
                       className="py-1.5 px-4 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800"
-                    >
-                      Browse Files
-                    </button>
+                    ><InterfaceText source="Browse Files" /></button>
                     <p className="text-[10px] text-stone-400 mt-1">Supported: JPG, JPEG, PNG, WEBP, SVG, MP4, WebM</p>
                   </>
                 )}
@@ -1759,22 +1756,22 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               {/* Assignment Form (Req #9 & #10) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700 block">Category</label>
+                  <label className="font-bold text-stone-700 block"><InterfaceText source="Category" /></label>
                   <select
                     value={uploadCategory}
                     onChange={e => setUploadCategory(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-semibold"
                   >
-                    <option value="logos">Official Logos</option>
-                    <option value="seals">Municipal Seals</option>
-                    <option value="hero">Hero Images</option>
-                    <option value="backgrounds">Interface Background</option>
+                    <option value="logos">{translateInterfaceText("Official Logos")}</option>
+                    <option value="seals">{translateInterfaceText("Municipal Seals")}</option>
+                    <option value="hero">{translateInterfaceText("Hero Images")}</option>
+                    <option value="backgrounds">{translateInterfaceText("Interface Background")}</option>
                     <option value="slsu">SLSU</option>
-                    <option value="extension">Extension Center</option>
-                    <option value="gallery">Gallery</option>
-                    <option value="social">Social Media</option>
-                    <option value="videos">Videos</option>
-                    <option value="other">Other</option>
+                    <option value="extension">{translateInterfaceText("Extension Center")}</option>
+                    <option value="gallery">{translateInterfaceText("Gallery")}</option>
+                    <option value="social">{translateInterfaceText("Social Media")}</option>
+                    <option value="videos">{translateInterfaceText("Videos")}</option>
+                    <option value="other">{translateInterfaceText("Other")}</option>
                   </select>
                 </div>
 
@@ -1785,21 +1782,21 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                     onChange={e => setUploadPlacement(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-semibold"
                   >
-                    <option value="Header">Header</option>
-                    <option value="Hero">Hero Section</option>
+                    <option value="Header">{translateInterfaceText("Header")}</option>
+                    <option value="Hero">{translateInterfaceText("Hero Section")}</option>
                     <option value="About">About / Academic</option>
-                    <option value="Features">Features Section</option>
-                    <option value="Gallery">Gallery Section</option>
-                    <option value="Partners">Partners & Seals</option>
+                    <option value="Features">{translateInterfaceText("Features Section")}</option>
+                    <option value="Gallery">{translateInterfaceText("Gallery Section")}</option>
+                    <option value="Partners">{translateInterfaceText("Partners & Seals")}</option>
                     <option value="Contact">Contact Section</option>
-                    <option value="Footer">Footer</option>
-                    <option value="Background">Interface Background</option>
+                    <option value="Footer">{translateInterfaceText("Footer")}</option>
+                    <option value="Background">{translateInterfaceText("Interface Background")}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-stone-700 block">Title / Name</label>
+                <label className="font-bold text-stone-700 block"><InterfaceText source="Title / Name" /></label>
                 <input
                   type="text"
                   value={uploadTitle}
@@ -1859,15 +1856,11 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   type="button"
                   onClick={() => setIsUploadModalOpen(false)}
                   className="py-2.5 px-4 rounded-xl border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="py-2.5 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer shadow-md"
-                >
-                  Upload Media
-                </button>
+                ><InterfaceText source="Upload Media" /></button>
               </div>
             </form>
           </div>
@@ -1923,7 +1916,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>📁 Import Image from Device</span>
+                  <span><InterfaceText source="📁 Import Image from Device" /></span>
                 </button>
                 <button
                   type="button"
@@ -1935,7 +1928,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   }`}
                 >
                   <LinkIcon className="w-3.5 h-3.5" />
-                  <span>🔗 Use Image URL</span>
+                  <span><InterfaceText source="🔗 Use Image URL" /></span>
                 </button>
               </div>
 
@@ -1990,9 +1983,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                       }
                     }}
                     className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer shrink-0"
-                  >
-                    Apply URL
-                  </button>
+                  ><InterfaceText source="Apply URL" /></button>
                 </div>
               )}
             </div>
@@ -2087,7 +2078,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               {/* Right Metadata Fields */}
               <div className="md:col-span-6 space-y-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700 block">Title / Name</label>
+                  <label className="font-bold text-stone-700 block"><InterfaceText source="Title / Name" /></label>
                   <input
                     type="text"
                     value={selectedMediaForEdit.name || ''}
@@ -2108,7 +2099,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700 block">Category</label>
+                    <label className="font-bold text-stone-700 block"><InterfaceText source="Category" /></label>
                     <select
                       value={selectedMediaForEdit.category}
                       onChange={e =>
@@ -2116,21 +2107,21 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                       }
                       className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white"
                     >
-                      <option value="logos">Official Logos</option>
-                      <option value="seals">Municipal Seals</option>
-                      <option value="hero">Hero Images</option>
-                      <option value="backgrounds">Backgrounds</option>
+                      <option value="logos">{translateInterfaceText("Official Logos")}</option>
+                      <option value="seals">{translateInterfaceText("Municipal Seals")}</option>
+                      <option value="hero">{translateInterfaceText("Hero Images")}</option>
+                      <option value="backgrounds">{translateInterfaceText("Backgrounds")}</option>
                       <option value="slsu">SLSU</option>
-                      <option value="extension">Extension Center</option>
-                      <option value="gallery">Gallery</option>
-                      <option value="social">Social Media</option>
-                      <option value="videos">Videos</option>
-                      <option value="other">Other</option>
+                      <option value="extension">{translateInterfaceText("Extension Center")}</option>
+                      <option value="gallery">{translateInterfaceText("Gallery")}</option>
+                      <option value="social">{translateInterfaceText("Social Media")}</option>
+                      <option value="videos">{translateInterfaceText("Videos")}</option>
+                      <option value="other">{translateInterfaceText("Other")}</option>
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700 block">Placement</label>
+                    <label className="font-bold text-stone-700 block"><InterfaceText source="Placement" /></label>
                     <select
                       value={selectedMediaForEdit.placement || 'Hero'}
                       onChange={e =>
@@ -2138,14 +2129,14 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                       }
                       className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white"
                     >
-                      <option value="Header">Header</option>
-                      <option value="Hero">Hero Section</option>
-                      <option value="About">About Section</option>
-                      <option value="Features">Features Section</option>
-                      <option value="Gallery">Gallery Section</option>
-                      <option value="Partners">Partners & Seals</option>
-                      <option value="Contact">Contact</option>
-                      <option value="Footer">Footer</option>
+                      <option value="Header">{translateInterfaceText("Header")}</option>
+                      <option value="Hero">{translateInterfaceText("Hero Section")}</option>
+                      <option value="About">{translateInterfaceText("About Section")}</option>
+                      <option value="Features">{translateInterfaceText("Features Section")}</option>
+                      <option value="Gallery">{translateInterfaceText("Gallery Section")}</option>
+                      <option value="Partners">{translateInterfaceText("Partners & Seals")}</option>
+                      <option value="Contact">{translateInterfaceText("Contact")}</option>
+                      <option value="Footer">{translateInterfaceText("Footer")}</option>
                       <option value="Background">Background</option>
                     </select>
                   </div>
@@ -2162,7 +2153,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700 block">Caption</label>
+                  <label className="font-bold text-stone-700 block"><InterfaceText source="Caption" /></label>
                   <textarea
                     rows={2}
                     value={selectedMediaForEdit.caption || ''}
@@ -2197,7 +2188,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 className="py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 font-bold hover:bg-red-100 flex items-center gap-1.5 cursor-pointer text-xs"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete Media</span>
+                <span><InterfaceText source="Delete Media" /></span>
               </button>
 
               <div className="flex items-center gap-2 text-xs">
@@ -2205,9 +2196,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   type="button"
                   onClick={() => setSelectedMediaForEdit(null)}
                   className="py-2.5 px-4 rounded-xl border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="button"
                   onClick={() => {
@@ -2219,9 +2208,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                     setSelectedMediaForEdit(null);
                   }}
                   className="py-2.5 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer shadow-md"
-                >
-                  Save Changes
-                </button>
+                ><InterfaceText source="Save Changes" /></button>
               </div>
             </div>
           </div>
@@ -2266,9 +2253,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 type="button"
                 onClick={() => setMediaToDelete(null)}
                 className="py-2.5 px-4 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteMedia}
@@ -2305,9 +2290,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 type="button"
                 onClick={() => setLogoToDelete(null)}
                 className="py-2.5 px-4 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={() => {
@@ -2317,9 +2300,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                   setLogoToDelete(null);
                 }}
                 className="py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-md"
-              >
-                Confirm Delete
-              </button>
+              ><InterfaceText source="Confirm Delete" /></button>
             </div>
           </div>
         </div>
@@ -2349,7 +2330,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
                 }`}
               >
                 <Monitor className="w-4 h-4" />
-                <span className="hidden sm:inline">Desktop</span>
+                <span className="hidden sm:inline"><InterfaceText source="Desktop" /></span>
               </button>
               <button
                 type="button"
@@ -2379,7 +2360,7 @@ export const PhotoMediaSettings: React.FC<PhotoMediaSettingsProps> = ({
               className="py-1.5 px-4 rounded-xl bg-stone-800 hover:bg-stone-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <X className="w-4 h-4" />
-              <span>Close Preview</span>
+              <span><InterfaceText source="Close Preview" /></span>
             </button>
           </div>
 

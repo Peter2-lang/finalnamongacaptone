@@ -1,0 +1,15 @@
+{
+  "deploymentId": "dpl_2xWA44MG1tiWYoLWC7KAmpWU6CEv",
+  "commit": "dbebfa3bd7e20811a1fbd94f25798683682a1dff",
+  "url": "https://lguhinunanganswineregistry-4p96ilr3p-peter2-langs-projects.vercel.app/api/health",
+  "httpStatus": 200,
+  "body": {
+    "status": "healthy",
+    "service": "hinunangan-swine-registry",
+    "database": "connected",
+    "schema": "ready",
+    "cloud": "online",
+    "authentication": "available",
+    "timestamp": "2026-11-03T19:46:46.540Z"
+  }
+}

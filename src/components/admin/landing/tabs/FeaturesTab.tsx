@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Layers, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Edit2, Check, X, FolderPlus } from 'lucide-react';
 import { FeatureCardItem, FeatureSectionItem, LandingCmsConfig } from '../../../../types/landingCms';
@@ -173,12 +174,12 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
               {(config.showFeaturesSection ?? config.featuresVisible ?? true) ? (
                 <>
                   <Eye className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Enabled</span>
+                  <span><InterfaceText source="Enabled" /></span>
                 </>
               ) : (
                 <>
                   <EyeOff className="w-3.5 h-3.5 text-stone-500" />
-                  <span>Hidden</span>
+                  <span><InterfaceText source="Hidden" /></span>
                 </>
               )}
             </button>
@@ -209,13 +210,13 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Main Section Title</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.featuresTitleColor || '#064e3b'}
                   onChange={e => onChange({ featuresTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -230,13 +231,13 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Main Section Subtitle</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.featuresSubtitleColor || '#78716c'}
                   onChange={e => onChange({ featuresSubtitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Subtitle Font Color"
+                  title={translateInterfaceText("Subtitle Font Color")}
                 />
               </div>
             </div>
@@ -298,7 +299,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                           type="button"
                           onClick={() => setEditingSectionId(null)}
                           className="p-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 cursor-pointer"
-                          title="Cancel"
+                          title={translateInterfaceText("Cancel")}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -386,8 +387,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
 
             <form onSubmit={handleCreateSection} className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-stone-700 mb-1">
-                  Section Title <span className="text-red-500">*</span>
+                <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Title" /><span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -400,7 +400,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
               </div>
 
               <div>
-                <label className="block font-semibold text-stone-700 mb-1">Section Subtitle</label>
+                <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Subtitle" /></label>
                 <input
                   type="text"
                   value={newSectionSubtitle}
@@ -411,7 +411,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
               </div>
 
               <div>
-                <label className="block font-semibold text-stone-700 mb-1">Section Description (Optional)</label>
+                <label className="block font-semibold text-stone-700 mb-1"><InterfaceText source="Section Description (Optional)" /></label>
                 <textarea
                   rows={2}
                   value={newSectionDesc}
@@ -446,15 +446,13 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   type="button"
                   onClick={() => setShowNewSectionModal(false)}
                   className="px-3.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Create Section</span>
+                  <span><InterfaceText source="Create Section" /></span>
                 </button>
               </div>
             </form>
@@ -466,7 +464,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <h3 className="font-bold text-stone-900 text-sm">System Capabilities & Modules Cards</h3>
-          <span className="text-[11px] text-stone-400">{featureCards.length} Cards</span>
+          <span className="text-[11px] text-stone-400">{featureCards.length}{" "}<InterfaceText source="Cards" /></span>
         </div>
 
         <div className="space-y-3">
@@ -489,7 +487,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   <button
                     type="button"
                     onClick={() => handleToggleVisible(card.id)}
-                    title={card.visible ? 'Hide from landing page' : 'Show on landing page'}
+                    title={card.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                     className={`p-1.5 rounded-lg border text-xs cursor-pointer transition ${
                       card.visible
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
@@ -502,7 +500,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                     type="button"
                     disabled={idx === 0}
                     onClick={() => handleMove(idx, 'up')}
-                    title="Move Card Up"
+                    title={translateInterfaceText("Move Card Up")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -511,7 +509,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                     type="button"
                     disabled={idx === featureCards.length - 1}
                     onClick={() => handleMove(idx, 'down')}
-                    title="Move Card Down"
+                    title={translateInterfaceText("Move Card Down")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -519,7 +517,7 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({ config, onChange }) =>
                   <button
                     type="button"
                     onClick={() => handleDelete(card.id)}
-                    title="Delete Card"
+                    title={translateInterfaceText("Delete Card")}
                     className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

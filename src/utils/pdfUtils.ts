@@ -2,7 +2,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 interface PdfExportOptions {
-  format?: 'a4' | 'letter' | 'legal';
+  format?: 'a4' | 'letter' | 'legal' | [number, number];
   orientation?: 'portrait' | 'landscape';
   marginMm?: number;
   scale?: number;

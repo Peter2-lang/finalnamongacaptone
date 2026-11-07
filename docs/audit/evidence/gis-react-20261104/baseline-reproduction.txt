@@ -1,0 +1,185 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test tests/browser/gis-regression.spec.ts --project=desktop --grep import modal closed|GIS 20 normal
+
+[WebServer] (node:10719) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10785) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:10906) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [desktop] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order (42.0s)
+(node:12796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [desktop] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates (8.7s)
+
+
+  1) [desktop] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Smart Swine Registry Importer').first()
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Smart Swine Registry Importer').first() with timeout 20000ms
+      - waiting for getByText('Smart Swine Registry Importer').first()
+
+
+      32 |  await mount(page,'ImportSwineModal');
+      33 |  await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+    > 34 |  await expect(page.getByText('Smart Swine Registry Importer',{exact:false}).first()).toBeVisible();
+         |                                                                                      ^
+      35 |  await page.evaluate(()=>(window as any).auditRender({isOpen:false}));
+      36 |  await expect(page.getByText('Smart Swine Registry Importer',{exact:false})).toHaveCount(0);
+      37 |  expect(errors).toEqual([]);
+        at /tmp/swine-baseline-20261104/tests/browser/gis-regression.spec.ts:34:86
+
+    Error Context: test-results/gis-regression-import-moda-2bced-closed-maintains-hook-order-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/gis-regression-import-moda-2bced-closed-maintains-hook-order-desktop/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/gis-regression-import-moda-2bced-closed-maintains-hook-order-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -   1
+    + Received  + 102
+
+    - Array []
+    + Array [
+    +   Array [
+    +     10.379957,
+    +     125.116253,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.116425,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.116596,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.116768,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.11694,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.117111,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.117283,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.117455,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.117626,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.117798,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.11797,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118141,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118313,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118484,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118656,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118828,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.118999,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.119171,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.119343,
+    +     "Lumbog",
+    +   ],
+    +   Array [
+    +     10.379957,
+    +     125.119514,
+    +     "Lumbog",
+    +   ],
+    + ]
+
+      42 |  const map=page.locator('.leaflet-container');await expect(map).toBeVisible();
+      43 |  for(let n=0;n<20;n++)await map.click({position:{x:180+n,y:400},force:true});
+    > 44 |  expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+         |                                                              ^
+      45 | });
+      46 |
+      47 | test('GIS zoom, pan, reset, GPS and explicit location selection',async({page,context},info)=>{
+        at /tmp/swine-baseline-20261104/tests/browser/gis-regression.spec.ts:44:62
+
+    Error Context: test-results/gis-regression-GIS-20-norm-9ba4f-ct-registration-coordinates-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/gis-regression-GIS-20-norm-9ba4f-ct-registration-coordinates-desktop/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/gis-regression-GIS-20-norm-9ba4f-ct-registration-coordinates-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [desktop] › tests/browser/gis-regression.spec.ts:30:1 › import modal closed/open/closed maintains hook order
+    [desktop] › tests/browser/gis-regression.spec.ts:40:1 › GIS 20 normal clicks never select registration coordinates

@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Building2,
@@ -72,6 +75,15 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [registeredBatchId, setRegisteredBatchId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -204,25 +216,25 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden my-6">
+    createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-stone-950/70 p-2 backdrop-blur-xs animate-fadeIn sm:p-4">
+      <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-16px)] min-h-0 w-[calc(100vw-16px)] max-w-2xl flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:w-[calc(100vw-32px)]">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 px-6 py-5 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 px-3 py-3 text-white sm:gap-3 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="p-2 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
               <Building2 className="w-6 h-6" />
             </div>
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-white">
-                Swine Farm Registration
-              </h2>
+            <div className="min-w-0">
+              <h2 className="text-base font-black tracking-tight text-white sm:text-xl"><InterfaceText source="Swine Farm Registration" /></h2>
               <p className="text-xs text-emerald-200">
                 DA Hinunangan Municipal Swine Registry & Biosecurity Form
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close swine farm registration"
             className="p-1.5 rounded-full hover:bg-white/10 text-emerald-200 hover:text-white transition cursor-pointer"
             title="Close modal"
           >
@@ -232,7 +244,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
 
         {/* Modal Body */}
         {isSubmitted ? (
-          <div className="p-8 text-center space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 text-center overscroll-contain sm:p-8">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -241,7 +253,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                 Farm Successfully Registered!
               </h3>
               <p className="text-sm text-stone-600 max-w-md mx-auto">
-                <strong>{farmerName}</strong> in <strong>Brgy. {selectedBarangay}</strong> has been officially logged in the Municipal Registry with <strong>{totalHeads} heads</strong>.
+                <strong>{farmerName}</strong> in <strong>Brgy. {selectedBarangay}</strong> has been officially logged in the Municipal Registry with <strong>{totalHeads}{" "}<InterfaceText source="heads" /></strong>.
               </p>
             </div>
 
@@ -256,7 +268,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold text-emerald-700">Total Swine Heads:</span>
-                <span className="font-bold">{totalHeads} Heads</span>
+                <span className="font-bold">{totalHeads}{" "}<InterfaceText source="Heads" /></span>
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold text-emerald-700">Biosecurity Clearance:</span>
@@ -275,11 +287,11 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto p-3 overscroll-contain sm:p-6">
             {errorMessage && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
-                <span>{errorMessage}</span>
+                <span>{<LocalizedFeedback value={errorMessage} />}</span>
               </div>
             )}
 
@@ -323,8 +335,8 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                     id="modal-farmer-contact-input"
                     value={farmerContact}
                     onChange={setFarmerContact}
-                    label="Contact Number"
-                    placeholder="9125918781"
+                    label={translateInterfaceText("Contact Number")}
+                    placeholder={translateInterfaceText("9125918781")}
                     required={false}
                     helpText="Enter 10 digits starting with 9; +63 is added automatically."
                   />
@@ -361,9 +373,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    RSBSA Reference Number
-                  </label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1"><InterfaceText source="RSBSA Reference Number" /></label>
                   <input
                     type="text"
                     placeholder="e.g., RSBSA-08-64-09-0021"
@@ -402,9 +412,7 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
                   <Layers className="w-4 h-4 text-emerald-600" />
                   <span>2. Current Swine Inventory</span>
                 </div>
-                <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                  Total: {totalHeads} Heads
-                </span>
+                <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full"><InterfaceText source="Total:" />{totalHeads}<InterfaceText source="Heads" /></span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -562,11 +570,11 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
               {/* Coordinates */}
               <div className="flex flex-wrap items-center gap-3 bg-stone-50 border border-stone-200 p-3 rounded-2xl">
                 <div className="flex-1 min-w-[140px]">
-                  <span className="block text-[10px] text-stone-500 font-bold uppercase">Latitude</span>
+                  <span className="block text-[10px] text-stone-500 font-bold uppercase"><InterfaceText source="Latitude" /></span>
                   <span className="font-mono text-xs font-bold text-stone-800">{latitude}</span>
                 </div>
                 <div className="flex-1 min-w-[140px]">
-                  <span className="block text-[10px] text-stone-500 font-bold uppercase">Longitude</span>
+                  <span className="block text-[10px] text-stone-500 font-bold uppercase"><InterfaceText source="Longitude" /></span>
                   <span className="font-mono text-xs font-bold text-stone-800">{longitude}</span>
                 </div>
                 <button
@@ -582,14 +590,12 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-200">
+            <div className="sticky bottom-0 -mx-3 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-stone-200 bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:gap-3 sm:px-6">
               <button
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs transition cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="submit"
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer shadow-md flex items-center gap-2"
@@ -601,6 +607,6 @@ export const SwineFarmRegistrationModal: React.FC<SwineFarmRegistrationModalProp
           </form>
         )}
       </div>
-    </div>
+    </div>, document.body)
   );
 };

@@ -3,6 +3,7 @@ import { CertificateTemplate } from '../types';
 import {
   filterCertificateTemplates,
   filterCertificateTemplatesForUser,
+  isCertificateTemplateIssuable,
 } from './certificateTemplateFilters';
 
 function createTemplate(overrides: Partial<CertificateTemplate> = {}): CertificateTemplate {
@@ -52,6 +53,14 @@ const legacyTemplate = createTemplate({
   language: '' as CertificateTemplate['language'],
   barangayId: undefined,
 });
+const importedDraft = createTemplate({ id: 'imported-draft', reviewStatus: 'draft', isActive: false });
+assert.equal(isCertificateTemplateIssuable(importedDraft), false, 'imported drafts are not issuable');
+assert.equal(isCertificateTemplateIssuable(ambacon), true, 'active legacy templates remain issuable');
+assert.equal(
+  isCertificateTemplateIssuable(createTemplate({ reviewStatus: 'approved' })),
+  true,
+  'approved templates remain issuable',
+);
 const templates = [ambacon, globalTemplate, tuburan, legacyTemplate];
 
 const byName = filterCertificateTemplates(templates, {
@@ -82,7 +91,7 @@ const clearedFilters = filterCertificateTemplates(templates, {
 });
 assert.equal(clearedFilters.length, templates.length, 'clearing filters restores the complete authorized list');
 
-const focalTemplates = filterCertificateTemplatesForUser(templates, {
+const focalTemplates = filterCertificateTemplatesForUser([...templates, importedDraft], {
   isAdmin: false,
   barangayId: 'barangay-ambacon',
   assignedBarangay: 'Ambacon',
@@ -90,7 +99,7 @@ const focalTemplates = filterCertificateTemplatesForUser(templates, {
 assert.deepEqual(
   focalTemplates.map(template => template.id),
   ['ambacon', 'global', 'legacy'],
-  'focal users receive shared, assigned, and legacy unscoped templates but not another barangay',
+  'focal users receive active shared, assigned, and legacy templates but not another barangay or an imported draft',
 );
 
 const nameScopedFocalTemplates = filterCertificateTemplatesForUser([ambacon, tuburan], {

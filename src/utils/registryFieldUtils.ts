@@ -263,7 +263,7 @@ export function formatFieldValue(value: any, field: RegistryFormField): string {
     return typeof value === 'string' ? value : '[Document Attached]';
   }
 
-  return String(value);
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
 }
 
 /**

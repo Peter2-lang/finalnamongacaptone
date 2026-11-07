@@ -1,0 +1,35 @@
+
+> hinunangan-swine-registry@1.0.0 test:browser
+> playwright test --config=playwright.production.config.ts --grep GIS normal clicks
+
+[WebServer] (node:76618) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]
+[WebServer] (!) Some chunks are larger than 1000 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer]
+[WebServer]   build/server.cjs      985.7kb
+[WebServer]   build/server.cjs.map    1.8mb
+[WebServer]
+[WebServer] ⚡ Done in 231ms
+[WebServer]
+[WebServer]   build/vercel.cjs  985.0kb
+[WebServer]
+[WebServer] ⚡ Done in 130ms
+[WebServer] (node:77610) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:77642) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:77660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (8.3s)
+(node:77949) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [mobile] › tests/browser/system.spec.ts:69:1 › GIS normal clicks and refresh keep the application in GIS (6.0s)
+
+  2 passed (1.0m)

@@ -1,3 +1,4 @@
+import { translateInterfaceText, InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   ShieldAlert,
@@ -72,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { isOnline, isSimulatedOffline, pendingQueueCount, toggleSimulateOffline } = useOfflineStatus();
   const { language, setLanguage, t } = useLanguage();
+  const displayUserName = currentUser?.fullName || currentUser?.name || currentUser?.username || '';
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false);
   const [isLandingNavOpen, setIsLandingNavOpen] = useState(false);
@@ -80,12 +82,12 @@ export const Header: React.FC<HeaderProps> = ({
   const activeHeaderLogo = logos['logo-header'] || logos['logo-system'] || logos['logo-da'] || logos['logo-website'] || '/icon.svg';
 
   const landingNavItems = [
-    { id: 'programs', label: 'Programs & Services', href: '#programs' },
-    { id: 'about', label: 'About Office', href: '#about' },
-    { id: 'barangays', label: '40 Barangays', href: '#barangays' },
-    { id: 'ordinances', label: 'Ordinances', fullLabel: 'Legal Decrees & Ordinances', href: '#ordinances' },
-    { id: 'biosecurity-map', label: 'Biosecurity GIS', href: '#biosecurity-map' },
-    { id: 'contact', label: 'Contact & Support', href: '#contact' },
+    { id: 'programs', label: t('landing_programs','Programs & Services'), href: '#programs' },
+    { id: 'about', label: t('landing_about','About Office'), href: '#about' },
+    { id: 'barangays', label: t('landing_barangays','40 Barangays'), href: '#barangays' },
+    { id: 'ordinances', label: t('landing_ordinances','Ordinances'), fullLabel: t('landing_legal','Legal Decrees & Ordinances'), href: '#ordinances' },
+    { id: 'biosecurity-map', label: t('landing_gis','Biosecurity GIS'), href: '#biosecurity-map' },
+    { id: 'contact', label: t('landing_contact','Contact & Support'), href: '#contact' },
   ];
 
   const scrollToLandingSection = (href: string) => {
@@ -97,12 +99,13 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const sectionTitle = activeTab.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+
   const getRoleBadge = () => {
     if (currentRole === 'super_admin' || currentUser?.role === 'super_admin') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-black bg-rose-50 text-rose-900 border border-rose-300 shadow-2xs">
-          <ShieldAlert className="w-3.5 h-3.5 text-rose-700" /> Super Admin
-        </span>
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-700" /><InterfaceText source="Super Admin" /></span>
       );
     }
     if (currentRole === 'admin') {
@@ -115,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
     if (currentRole === 'focal') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs">
-          <MapPin className="w-3.5 h-3.5 text-blue-700" /> {t('role_focal')} ({currentUser?.assignedBarangay || 'Barangay'})
+          <MapPin className="w-3.5 h-3.5 text-blue-700" /> {t('role_focal')} ({currentUser?.assignedBarangay || translateInterfaceText("Barangay")})
         </span>
       );
     }
@@ -150,9 +153,9 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setIsLandingNavOpen(prev => !prev)}
               className="lg:hidden p-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 transition cursor-pointer shrink-0 shadow-2xs"
-              aria-label="Toggle navigation menu"
+              aria-label={translateInterfaceText("Toggle navigation menu")}
               aria-expanded={isLandingNavOpen}
-              title="Toggle navigation menu"
+              title={translateInterfaceText("Toggle navigation menu")}
             >
               {isLandingNavOpen ? <X className="w-5 h-5 text-emerald-800" /> : <Menu className="w-5 h-5 text-stone-800" />}
             </button>
@@ -161,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onToggleSidebar}
               className="p-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 hover:text-emerald-800 transition cursor-pointer shrink-0 shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30"
-              aria-label="Toggle navigation menu"
+              aria-label={translateInterfaceText("Toggle navigation menu")}
               aria-expanded={isSidebarOpen}
               title="Toggle navigation sidebar"
             >
@@ -170,7 +173,9 @@ export const Header: React.FC<HeaderProps> = ({
           ) : null}
 
           {/* Brand Logo & Title (Immediately after menu button) */}
-          <div
+          <button
+            type="button"
+            aria-label="Go to public home page"
             onClick={() => onSelectRole('landing')}
             className="flex min-w-0 items-center gap-2.5 cursor-pointer group select-none"
           >
@@ -191,8 +196,15 @@ export const Header: React.FC<HeaderProps> = ({
                 {t('header_da_sub')}
               </p>
             </div>
-          </div>
+          </button>
         </div>
+
+        {currentRole !== 'landing' && (
+          <div className="workspace-breadcrumb hidden xl:flex items-center gap-2 text-xs text-stone-500 mr-auto pl-5 border-l border-stone-200" aria-label={translateInterfaceText("Current section")}>
+            <span><InterfaceText source="Workspace" /></span><ChevronRight className="w-3 h-3" />
+            <span className="font-semibold text-emerald-900">{sectionTitle}</span>
+          </div>
+        )}
 
         {/* Center: Landing Page Navigation Links */}
         {currentRole === 'landing' && (
@@ -212,6 +224,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Actions & User Account */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <select aria-label={t('common_language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'ceb'|'fil')} className="rounded-lg border border-stone-200 bg-white px-1 py-1.5 text-xs text-stone-700">
+            <option value="en">EN</option><option value="ceb">CEB</option><option value="fil">FIL</option>
+          </select>
           <PWAInstallButton compact />
 
           {/* Messages Alert */}
@@ -234,11 +249,11 @@ export const Header: React.FC<HeaderProps> = ({
           {currentUser && currentRole !== 'landing' && (
             <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-stone-200">
               <div className="w-8 h-8 rounded-xl bg-emerald-800 text-white font-black text-xs flex items-center justify-center shadow-2xs">
-                {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
+                {displayUserName ? displayUserName.charAt(0).toUpperCase() : 'U'}
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-stone-900 truncate max-w-[150px]">
-                  {currentUser.fullName}
+                  {displayUserName}
                 </p>
                 <p className="text-[10px] text-stone-500 font-medium">
                   {currentUser.role === 'super_admin'
@@ -246,7 +261,7 @@ export const Header: React.FC<HeaderProps> = ({
                     : currentUser.role === 'admin'
                     ? 'Municipal Admin'
                     : currentUser.assignedBarangay
-                    ? `Brgy. ${currentUser.assignedBarangay}`
+                    ? translateInterfaceText("Brgy. {arg0}", {arg0: currentUser.assignedBarangay})
                     : 'Field Focal'}
                 </p>
               </div>
@@ -294,7 +309,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* Bottom Gold/Amber Accent Line as in official reference */}
-      <div className="h-1 bg-amber-500 w-full" />
+      <div className="header-accent h-px w-full" />
 
       {/* Sync Center Modal */}
       <SyncCenterModal

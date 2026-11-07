@@ -1,3 +1,4 @@
+import { requireSyncAuthorization, assertQueueOwnership } from './syncAuthorization.ts';
 import { getConnectivityState } from './connectivityState.ts';
 import { supabase } from '../lib/supabase.ts';
 import { getSyncSessionToken } from './syncAuth.ts';
@@ -13,9 +14,11 @@ import { storageService } from './storageService';
 import { SwineRecord, IssuedCertificate, MessageItem, Barangay } from '../types';
 
 export type SyncState = 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'SYNCED' | 'ERROR';
+export type CloudConnectionState = 'initializing' | 'checking' | 'connected' | 'disconnected' | 'offline';
 
 export interface SyncEngineStatus {
   state: SyncState;
+  connectionStatus: CloudConnectionState;
   isOnline: boolean;
   isBackendReachable: boolean;
   pendingCount: number;
@@ -24,12 +27,25 @@ export interface SyncEngineStatus {
   syncedThisSession: number;
 }
 
-class OfflineSyncEngine {
-  private syncState: SyncState = 'ERROR';
+export class OfflineSyncEngine {
+  private syncState: SyncState = 'ONLINE';
+  private connectionStatus: CloudConnectionState = 'initializing';
   private isBackendReachable: boolean = false;
   private healthFailures = 0;
   private nextHealthCheckAt = 0;
-  private readonly checkBackendHealth = createBackendHealthCheck();
+  private readonly checkBackendHealth = createBackendHealthCheck({
+    endpoint: '/api/connectivity',
+    fetcher: async (_input, init) => {
+      try {
+        const authorization = await requireSyncAuthorization();
+        const headers = new Headers(init?.headers);
+        for (const [name, value] of Object.entries(authorization.headers)) headers.set(name, value);
+        return fetch('/api/connectivity', { ...init, headers });
+      } catch {
+        return fetch('/api/health', init);
+      }
+    },
+  });
   private lastHealthError: string | null = null;
   private isSyncInProgress: boolean = false;
   private lastSyncedAt: string | null = null;
@@ -95,14 +111,18 @@ class OfflineSyncEngine {
 
   public getStatus(): SyncEngineStatus {
     const isSimulated = storageService.getSimulatedOffline();
+    const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    const connectionStatus = !browserOnline || isSimulated ? 'offline' : this.connectionStatus;
     const { isOnline, state } = getConnectivityState({
-      browserOnline: typeof navigator === 'undefined' || navigator.onLine,
+      browserOnline,
       simulatedOffline: isSimulated, backendReachable: this.isBackendReachable,
+      connectionInitializing: connectionStatus === 'initializing',
       syncing: this.isSyncInProgress, state: this.syncState,
     });
 
     return {
       state,
+      connectionStatus,
       isOnline,
       isBackendReachable: this.isBackendReachable && !isSimulated,
       pendingCount: 0, // dynamic
@@ -130,6 +150,7 @@ class OfflineSyncEngine {
 
   private setOfflineState(reason?: string) {
     this.syncState = 'OFFLINE';
+    this.connectionStatus = 'offline';
     this.isBackendReachable = false;
     if (reason === 'Browser offline event triggered') this.lastHealthError = 'Your browser is offline. Reconnect to the internet before synchronizing.';
     if (reason === 'Simulated offline active') this.lastHealthError = 'Offline simulation is enabled. End offline simulation in Sync settings.';
@@ -140,20 +161,41 @@ class OfflineSyncEngine {
    * Health Ping to check actual backend reachability
    */
   public async pingBackend(): Promise<boolean> {
-    const result = storageService.getSimulatedOffline()
-      ? { healthy: false, error: 'Offline simulation is enabled. End offline simulation in Sync settings.' }
-      : typeof navigator !== 'undefined' && !navigator.onLine
-        ? { healthy: false, error: 'Your browser is offline. Reconnect to the internet before synchronizing.' }
-        : await this.checkBackendHealth();
+    this.connectionStatus = 'checking';
+    this.lastHealthError = null;
+    if (storageService.getSimulatedOffline()) {
+      this.connectionStatus = 'offline';
+      this.isBackendReachable = false;
+      this.lastHealthError = 'Offline simulation is enabled. End offline simulation in Sync settings.';
+      return false;
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.connectionStatus = 'offline';
+      this.isBackendReachable = false;
+      this.lastHealthError = 'Your browser is offline. Reconnect to the internet before synchronizing.';
+      return false;
+    }
+
+    let result = await this.checkBackendHealth();
+    for (let attempt = 0; result.connectionFailure && attempt < 2; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+      if (typeof navigator !== 'undefined' && !navigator.onLine) break;
+      result = await this.checkBackendHealth();
+    }
+
     // A user may switch simulation on while the network request is still pending.
     const simulated = storageService.getSimulatedOffline();
     const browserOnline = typeof navigator === 'undefined' || navigator.onLine;
+    this.connectionStatus = simulated || !browserOnline
+      ? 'offline'
+      : result.connectionFailure ? 'disconnected' : 'connected';
     this.isBackendReachable = result.healthy && !simulated && browserOnline;
     this.lastHealthError = simulated ? 'Offline simulation is enabled. End offline simulation in Sync settings.'
       : !browserOnline ? 'Your browser is offline. Reconnect to the internet before synchronizing.' : result.error;
-    this.healthFailures = this.isBackendReachable ? 0 : this.healthFailures + 1;
+    this.healthFailures = result.healthy ? 0 : this.healthFailures + 1;
     this.nextHealthCheckAt = Date.now() + Math.min(25000 * 2 ** Math.min(this.healthFailures, 4), 300000);
-    return this.isBackendReachable;
+    this.broadcastStatus();
+    return result.healthy && !simulated && browserOnline;
   }
 
   public async checkConnectivityAndAutoSync(triggerSource: string = 'manual'): Promise<void> {
@@ -177,7 +219,12 @@ class OfflineSyncEngine {
         this.broadcastStatus(0);
       }
     } else {
-      this.setOfflineState(`Connectivity check failed from ${triggerSource}`);
+      if (this.connectionStatus === 'offline') {
+        this.setOfflineState(`Connectivity check failed from ${triggerSource}`);
+      } else {
+        this.syncState = this.connectionStatus === 'disconnected' ? 'OFFLINE' : 'ERROR';
+        this.broadcastStatus();
+      }
     }
   }
 
@@ -188,7 +235,7 @@ class OfflineSyncEngine {
 
     const isReachable = await this.pingBackend();
     if (!isReachable) {
-      this.syncState = 'OFFLINE';
+      this.syncState = this.connectionStatus === 'disconnected' || this.connectionStatus === 'offline' ? 'OFFLINE' : 'ERROR';
       this.broadcastStatus();
       return { success: false, pushedCount: 0, pulledCount: 0, error: this.lastHealthError || 'The backend health check failed. Open /api/health to inspect the deployment.' };
     }
@@ -203,18 +250,15 @@ class OfflineSyncEngine {
     let pulledCount = 0;
 
     try {
-      // Do not upload device-local operations without an authenticated profile.
-      const sessionToken = await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
+      const authorization = await requireSyncAuthorization();
       // -------------------------------------------------------------
       // STEP 1: PUSH PENDING OPERATIONS QUEUE
       // -------------------------------------------------------------
       const pendingQueue = await indexedDbService.getPendingSyncQueue();
 
       if (pendingQueue.length > 0) {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken}`,
-        };
+        assertQueueOwnership(pendingQueue, authorization.userId);
+        const headers = authorization.headers;
 
         const pushPayload = {
           operations: pendingQueue.map(item => ({
@@ -269,12 +313,7 @@ class OfflineSyncEngine {
       // -------------------------------------------------------------
       // STEP 2: PULL AUTHORITATIVE SERVER DATA
       // -------------------------------------------------------------
-      // Refresh again before pull because uploads may have taken time.
-      const pullToken = await getSyncSessionToken(supabase?.auth || null, storageService.getCurrentUser());
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${pullToken}`,
-      };
+      const headers = authorization.headers;
 
       const pullRes = await fetch('/api/sync/pull', { method: 'GET', headers });
       if (!pullRes.ok) {
@@ -324,7 +363,9 @@ class OfflineSyncEngine {
         pendingCount: 0,
       });
 
-      this.broadcastStatus(0);
+      const remaining = (await indexedDbService.getPendingSyncQueue()).length;
+      await indexedDbService.updateSyncMetadata({pendingCount:remaining});
+      this.broadcastStatus(remaining);
 
       return { success: true, pushedCount, pulledCount };
     } catch (err: any) {
@@ -343,15 +384,20 @@ class OfflineSyncEngine {
   // QUEUE OPERATIONS FOR OFFLINE ACTIONS
   // =========================================================================
 
+  private queueOwner(): string {
+    const user=storageService.getCurrentUser();
+    if(!user)throw new Error('Sign in before creating offline changes.');
+    return user.authUserId || user.id;
+  }
+
   public async queueSwineCreate(record: SwineRecord): Promise<void> {
     const localRecord: SwineRecord = {
       ...record,
       isSynced: false,
       updatedAt: new Date().toISOString(),
     };
-    await indexedDbService.put('swineRecords', localRecord);
 
-    await indexedDbService.enqueueSyncItem('create', 'swine', localRecord.id, localRecord, 2);
+    await indexedDbService.enqueueSyncItem('create', 'swine', localRecord.id, localRecord, 2, this.queueOwner(), {record:localRecord});
 
     const currentList = storageService.getSwineRecords();
     const updated = [localRecord, ...currentList.filter(s => s.id !== localRecord.id)];
@@ -370,8 +416,7 @@ class OfflineSyncEngine {
       isSynced: false,
       updatedAt: new Date().toISOString(),
     };
-    await indexedDbService.put('swineRecords', localRecord);
-    await indexedDbService.enqueueSyncItem('update', 'swine', localRecord.id, localRecord, 2);
+    await indexedDbService.enqueueSyncItem('update', 'swine', localRecord.id, localRecord, 2, this.queueOwner(), {record:localRecord});
 
     const currentList = storageService.getSwineRecords();
     const updated = currentList.map(s => (s.id === localRecord.id ? localRecord : s));
@@ -385,8 +430,7 @@ class OfflineSyncEngine {
   }
 
   public async queueSwineDelete(id: string): Promise<void> {
-    await indexedDbService.delete('swineRecords', id);
-    await indexedDbService.enqueueSyncItem('delete', 'swine', id, { id }, 2);
+    await indexedDbService.enqueueSyncItem('delete', 'swine', id, { id }, 2, this.queueOwner(), {deleteId:id});
 
     const currentList = storageService.getSwineRecords();
     const updated = currentList.filter(s => s.id !== id);
@@ -410,8 +454,7 @@ class OfflineSyncEngine {
         isSynced: false,
         updatedAt: new Date().toISOString(),
       };
-      await indexedDbService.put('swineRecords', updated);
-      await indexedDbService.enqueueSyncItem('sell', 'swine', id, { readyToSell, priceEstimate }, 2);
+      await indexedDbService.enqueueSyncItem('sell', 'swine', id, { readyToSell, priceEstimate }, 2, this.queueOwner(), {record:updated});
 
       const currentList = storageService.getSwineRecords();
       const updatedList = currentList.map(s => (s.id === id ? updated : s));
@@ -426,7 +469,7 @@ class OfflineSyncEngine {
 
   public async queueMediaUpload(media: OfflineMediaRecord): Promise<void> {
     await indexedDbService.put('media', media);
-    await indexedDbService.enqueueSyncItem('upload_media', 'media', media.id, media, 1);
+    await indexedDbService.enqueueSyncItem('upload_media', 'media', media.id, media, 1, this.queueOwner());
     this.checkConnectivityAndAutoSync('media_upload');
   }
 
@@ -434,13 +477,13 @@ class OfflineSyncEngine {
     const certId = cert.id || cert.certificateNo;
     const certToSave = { ...cert, id: certId };
     await indexedDbService.put('certificates', certToSave);
-    await indexedDbService.enqueueSyncItem('create', 'certificate', certId, certToSave, 2);
+    await indexedDbService.enqueueSyncItem('create', 'certificate', certId, certToSave, 2, this.queueOwner());
     this.checkConnectivityAndAutoSync('certificate_create');
   }
 
   public async queueMessage(msg: MessageItem): Promise<void> {
     await indexedDbService.put('messages', msg);
-    await indexedDbService.enqueueSyncItem('create', 'message', msg.id, msg, 3);
+    await indexedDbService.enqueueSyncItem('create', 'message', msg.id, msg, 3, this.queueOwner());
     this.checkConnectivityAndAutoSync('message_create');
   }
 }

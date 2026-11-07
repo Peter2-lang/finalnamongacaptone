@@ -1,3 +1,7 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import {csvCell, escapeHtml} from '../../utils/exportEncoding';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
@@ -118,7 +122,7 @@ const SwinePhoto: React.FC<{ src?: string; className: string }> = ({ src, classN
       {imageSrc && !imageFailed ? (
         <img
           src={imageSrc}
-          alt="Swine"
+          alt={translateInterfaceText("Swine")}
           className="h-full w-full object-cover"
           onError={() => setImageFailed(true)}
         />
@@ -352,6 +356,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   const [activePrintColumns, setActivePrintColumns] = useState<ActiveFieldItem[]>([]);
   const [printRecordScope, setPrintRecordScope] = useState<'all' | 'selected'>('all');
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
+  const [moreActionsPosition, setMoreActionsPosition] = useState<React.CSSProperties>({});
+  const [customColumnFilters, setCustomColumnFilters] = useState<Record<string,string>>({});
   const [importSuccessMsg, setImportSuccessMsg] = useState<string>('');
 
   const triggerScopedPrint = (target: 'swine-record' | 'registry-report') => {
@@ -399,6 +405,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [
+    customColumnFilters,
     searchTerm,
     searchScope,
     selectedBarangay,
@@ -629,9 +636,14 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         }
       }
 
+      if (activeFields.some(item => {
+        const query = customColumnFilters[item.field.id]?.trim().toLowerCase();
+        return query && !formatFieldValue(getFieldValue(s,item.field),item.field).toLowerCase().includes(query);
+      })) return false;
       return true;
     });
   }, [
+    customColumnFilters,
     enhancedSwineList,
     selectedBarangay,
     currentRole,
@@ -796,6 +808,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     registeredFrom !== '',
     registeredTo !== '',
     showArchived,
+    ...Object.values(customColumnFilters).map(value => Boolean(value.trim())),
   ].filter(Boolean).length;
 
   useEffect(() => {
@@ -1016,13 +1029,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       </p>
                       <p className="text-xs font-semibold text-stone-800">{record.breed || record.swineType || 'Breed not recorded'}</p>
                       <p className="text-[11px] text-stone-600">
-                        {sexLabel} · Brgy. {record.barangay || 'Not recorded'} · DOB: {record.birthDate ? formatDobDisplay(record.birthDate) : 'Not recorded'} · Age: {record.computedAgeLabel || 'Unavailable'}
+                        {sexLabel} · Brgy. {record.barangay || translateInterfaceText("Not recorded")} · DOB: {record.birthDate ? formatDobDisplay(record.birthDate) : translateInterfaceText("Not recorded")} · Age: {record.computedAgeLabel || 'Unavailable'}
+                      </p>
+                      <p className="text-[10px] text-stone-500"><InterfaceText source="Status:" />{getStatusLabel(record.status)} · Type: {getSwineTypeLabel(record.swineType)} · Est. weight: {record.computedEstimatedWeight || '—'} · Actual weight: {record.computedActualWeight ? `${record.computedActualWeight} kg` : '—'}
                       </p>
                       <p className="text-[10px] text-stone-500">
-                        Status: {getStatusLabel(record.status)} · Type: {getSwineTypeLabel(record.swineType)} · Est. weight: {record.computedEstimatedWeight || '—'} · Actual weight: {record.computedActualWeight ? `${record.computedActualWeight} kg` : '—'}
-                      </p>
-                      <p className="text-[10px] text-stone-500">
-                        Farm scale: {getFarmScaleLabel(record.computedFarmScale)} · ASF zone: {record.computedAsfZone || getBarangayASFZone(record.barangay || '')} · Biosecurity: {record.computedHasWarning ? 'Warning' : 'No warning'}
+                        Farm scale: {getFarmScaleLabel(record.computedFarmScale)} · ASF zone: {record.computedAsfZone || getBarangayASFZone(record.barangay || '')} · Biosecurity: {record.computedHasWarning ? translateInterfaceText("Warning") : 'No warning'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 sm:ml-auto">
@@ -1057,7 +1069,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           <option value="print">Print swine record</option>
                           <option value="certificate">Generate certificate</option>
                         </optgroup>
-                        {currentRole !== 'agent' && <optgroup label="Record status">
+                        {currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
                           {record.status !== 'sold' && <>
                             <option value="ready">{record.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
                             <option value="sold">Mark as sold</option>
@@ -1072,7 +1084,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     <div className="mt-2 grid grid-cols-1 gap-2 border-t border-stone-100 pt-2 sm:grid-cols-2 lg:grid-cols-3">
                       {customDynamicColumns.map(item => (
                         <div key={item.field.id} className="text-[10px] text-stone-600">
-                          <span className="font-bold">{item.field.label}: </span>
+                          <span className="font-bold">{registryFieldLabel(item.field)}: </span>
                           {formatFieldValue(getFieldValue(record, item.field), item.field)}
                         </div>
                       ))}
@@ -1123,41 +1135,18 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       'Registered Date',
     ];
 
-    const dynamicHeaders = customDynamicColumns.map(c => `"${c.field.label.replace(/"/g, '""')}"`);
-    const allHeaders = [...headers, ...dynamicHeaders];
-
-    const rows = sortedRecords.map(s => {
-      const standardVals = [
-        `"${s.computedPigId}"`,
-        `"${s.farmerName.replace(/"/g, '""')}"`,
-        `"${s.farmerContact || ''}"`,
-        `"${s.barangay}"`,
-        `"${(s.breed || 'Standard Commercial').replace(/"/g, '""')}"`,
-        `"${s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '')}"`,
-        `"${s.computedDobFormatted || ''}"`,
-        `"${s.computedAgeLabel.replace(/"/g, '""')}"`,
-        s.computedAgeDays,
-        s.computedAgeMonths,
-        `"${s.computedEstimatedWeight}"`,
-        s.computedActualWeight !== null ? s.computedActualWeight : '""',
-        `"${s.swineType.toUpperCase()}"`,
-        `"${s.computedFarmScale}"`,
-        `"${s.computedAsfZone}"`,
-        `"${s.computedHasWarning ? 'WARNING' : 'SAFE'}"`,
-        `"${s.status.toUpperCase()}"`,
-        `"${s.computedIsReady ? 'YES' : 'NO'}"`,
-        s.estimatedPricePhp || 0,
-        `"${new Date(s.registeredAt).toISOString().split('T')[0]}"`,
-      ];
-      const dynamicVals = customDynamicColumns.map(c => {
-        const v = getFieldValue(s, c.field);
-        const formatted = formatFieldValue(v, c.field);
-        return `"${formatted.replace(/"/g, '""')}"`;
-      });
-      return [...standardVals, ...dynamicVals];
-    });
-
-    const csvContent = [allHeaders.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const allHeaders = [...headers, ...customDynamicColumns.map(c => c.field.label)];
+    const rows = sortedRecords.map(s => [
+      s.computedPigId, s.farmerName, s.farmerContact, s.barangay,
+      s.breed || 'Standard Commercial', (s.gender || s.sex || '').toUpperCase(),
+      s.computedDobFormatted, s.computedAgeLabel, s.computedAgeDays, s.computedAgeMonths,
+      s.computedEstimatedWeight, s.computedActualWeight, (s.swineType || '').toUpperCase(),
+      s.computedFarmScale, s.computedAsfZone, s.computedHasWarning ? 'WARNING' : 'SAFE',
+      (s.status || '').toUpperCase(), s.computedIsReady ? 'YES' : 'NO', s.estimatedPricePhp || 0,
+      s.registeredAt && !Number.isNaN(Date.parse(s.registeredAt)) ? new Date(s.registeredAt).toISOString().split('T')[0] : '',
+      ...customDynamicColumns.map(c => formatFieldValue(getFieldValue(s, c.field), c.field)),
+    ]);
+    const csvContent = [allHeaders, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1175,25 +1164,25 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           .map(c => {
             const v = getFieldValue(s, c.field);
             const formatted = formatFieldValue(v, c.field);
-            return `<td style="padding: 6px; border: 1px solid #ccc;">${formatted}</td>`;
+            return `<td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(formatted)}</td>`;
           })
           .join('');
 
         return `
         <tr style="border-bottom: 1px solid #ddd;">
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; font-family: monospace;">${s.computedPigId}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.farmerName}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.barangay}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.breed || 'Standard'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '—')}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedDobFormatted || '—'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${s.computedAgeLabel}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedEstimatedWeight}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedActualWeight ? `${s.computedActualWeight} kg` : '—'}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.swineType.toUpperCase()}</td>
-          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedFarmScale}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; color: ${s.computedAsfZone === 'RED' ? '#b91c1c' : s.computedAsfZone === 'PINK' ? '#db2777' : s.computedAsfZone === 'YELLOW' ? '#d97706' : '#15803d'};">${s.computedAsfZone}</td>
-          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${s.computedIsReady ? 'READY FOR SALE' : s.status.toUpperCase()}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; font-family: monospace;">${escapeHtml(s.computedPigId)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.farmerName)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.barangay)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.breed || 'Standard')}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.gender ? s.gender.toUpperCase() : (s.sex ? s.sex.toUpperCase() : '—'))}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedDobFormatted || '—')}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${escapeHtml(s.computedAgeLabel)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedEstimatedWeight)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${s.computedActualWeight ? `${escapeHtml(s.computedActualWeight)} kg` : '—'}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.swineType.toUpperCase())}</td>
+          <td style="padding: 6px; border: 1px solid #ccc;">${escapeHtml(s.computedFarmScale)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold; color: ${s.computedAsfZone === 'RED' ? '#b91c1c' : s.computedAsfZone === 'PINK' ? '#db2777' : s.computedAsfZone === 'YELLOW' ? '#d97706' : '#15803d'};">${escapeHtml(s.computedAsfZone)}</td>
+          <td style="padding: 6px; border: 1px solid #ccc; font-weight: bold;">${escapeHtml(s.computedIsReady ? 'READY FOR SALE' : s.status.toUpperCase())}</td>
           ${customCells}
         </tr>
       `;
@@ -1201,7 +1190,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       .join('');
 
     const customWordHeaders = customDynamicColumns
-      .map(c => `<th style="padding: 6px; border: 1px solid #15803d;">${c.field.label}</th>`)
+      .map(c => `<th style="padding: 6px; border: 1px solid #15803d;">${escapeHtml(c.field.label)}</th>`)
       .join('');
 
     const wordContent = `
@@ -1218,7 +1207,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <p style="margin: 0; font-size: 10pt;">Republic of the Philippines • Province of Southern Leyte</p>
           <h2 style="margin: 4px 0;">MUNICIPALITY OF HINUNANGAN</h2>
           <h3 style="margin: 0;">DEPARTMENT OF AGRICULTURE - SWINE REGISTRY RECORDS</h3>
-          <p style="margin-top: 4px; font-size: 9pt; color: #555;">Official Swine Registry Summary • Generated: ${new Date().toLocaleDateString()}</p>
+          <p style="margin-top: 4px; font-size: 9pt; color: #555;">Official Swine Registry Summary • Generated: ${escapeHtml(new Date().toLocaleDateString())}</p>
         </div>
         <table>
           <thead>
@@ -1247,7 +1236,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <div style="width: 250px; text-align: center;">
             <p>Prepared by:</p>
             <br/><br/>
-            <p style="border-top: 1px solid #000; font-weight: bold; margin-top: 20px;">${currentUser?.name || 'Authorized DA Focal Person'}</p>
+            <p style="border-top: 1px solid #000; font-weight: bold; margin-top: 20px;">${escapeHtml(currentUser?.name || 'Authorized DA Focal Person')}</p>
             <p style="font-size: 9pt; margin: 0;">Agricultural Extension Worker</p>
           </div>
         </div>
@@ -1259,7 +1248,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `DA_Hinunangan_Swine_Records_${new Date().toISOString().split('T')[0]}.doc`;
+    link.download = `DA_Hinunangan_Swine_Records_${escapeHtml(new Date().toISOString().split('T')[0])}.doc`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1344,8 +1333,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </span>
             {currentRole === 'focal' && currentUser?.assignedBarangay && (
               <span className="bg-stone-100 text-stone-700 text-xs font-semibold px-2 py-0.5 rounded-full border border-stone-200">
-                Brgy. {currentUser.assignedBarangay} Scope
-              </span>
+                Brgy. {currentUser.assignedBarangay}<InterfaceText source="Scope" /></span>
             )}
           </div>
           <p className="text-xs text-stone-500 mt-1">
@@ -1365,11 +1353,19 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </button>
           )}
 
-          <details className="relative" ref={moreActionsRef}>
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden">
-              More actions <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          <details className="relative" ref={moreActionsRef} onToggle={event => {
+            if (!event.currentTarget.open) return;
+            const bounds = event.currentTarget.querySelector('summary')!.getBoundingClientRect();
+            const workspace = event.currentTarget.closest('main')?.getBoundingClientRect();
+            const leftEdge = (workspace?.left || 0) + 12;
+            const rightEdge = Math.min(window.innerWidth, workspace?.right || window.innerWidth) - 12;
+            const width = Math.min(384,rightEdge - leftEdge);
+            const top = Math.min(bounds.bottom + 8,window.innerHeight - 160);
+            setMoreActionsPosition({position:'fixed',left:Math.max(leftEdge,Math.min(bounds.right - width,rightEdge - width)),top,width,maxHeight:Math.max(120,window.innerHeight - top - 12)});
+          }}>
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"><InterfaceText source="More actions" /><ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
             </summary>
-            <div className="absolute right-0 z-40 mt-2 max-h-[min(70vh,36rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
+            <div style={moreActionsPosition} className="absolute right-0 z-40 max-h-[min(70vh,36rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
               <div className="space-y-1 border-b border-stone-100 pb-2">
                 <p className="px-2 text-[10px] font-bold uppercase tracking-wide text-stone-500">Records</p>
                 <button
@@ -1397,7 +1393,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-semibold text-stone-800 hover:bg-amber-50"
                 >
                   <Sparkles className="h-4 w-4 text-amber-600" />
-                  {readyFilter === 'ready' ? 'Show all records' : 'Ready to Sell'}
+                  {readyFilter === 'ready' ? 'Show all records' : translateInterfaceText("Ready to Sell")}
                 </button>
                 <button
                   type="button"
@@ -1418,7 +1414,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   {([
                     ['csv', 'Import CSV', FileSpreadsheet],
                     ['xlsx', 'Import Excel Spreadsheet', FileSpreadsheet],
-                    ['all', 'Import Records File', Upload],
+                    ['all', 'Import JSON / Records File', Upload],
                   ] as const).map(([fileType, label, Icon]) => (
                     <button
                       key={fileType}
@@ -1558,8 +1554,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     onChange={() => toggleColumnVisibility(item.field.id)}
                     className="w-3.5 h-3.5 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
                   />
-                  <span className="truncate text-[11px]" title={item.field.label}>
-                    {item.field.label}
+                  <span className="truncate text-[11px]" title={registryFieldLabel(item.field)}>
+                    {registryFieldLabel(item.field)}
                   </span>
                 </label>
               );
@@ -1589,8 +1585,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0" />
             <div>
-              <p className="font-bold text-xs text-rose-950">Unable to load Swine Records.</p>
-              <p className="text-[11px] text-rose-700 font-medium">The system could not retrieve records from the database. {dbError}</p>
+              <p className="font-bold text-xs text-rose-950"><InterfaceText source="Unable to load Swine Records." /></p>
+              <p className="text-[11px] text-rose-700 font-medium"><InterfaceText source="The system could not retrieve records from the database." />{" "}{<LocalizedFeedback value={dbError} />}</p>
             </div>
           </div>
           <button
@@ -1599,7 +1595,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             className="px-3 py-1.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs shrink-0 shadow-2xs transition cursor-pointer flex items-center gap-1.5 ml-4"
           >
             <RotateCw className="w-3.5 h-3.5" />
-            <span>Retry</span>
+            <span><InterfaceText source="Retry" /></span>
           </button>
         </div>
       )}
@@ -1608,7 +1604,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold rounded-2xl flex items-center justify-between shadow-2xs animate-fadeIn">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{importSuccessMsg}</span>
+            <span>{<LocalizedFeedback value={importSuccessMsg} />}</span>
           </div>
           <button
             type="button"
@@ -1755,7 +1751,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2 border-t border-stone-100">
           {/* Barangay Filter */}
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-stone-600">Barangay</label>
+            <label className="mb-1 block text-[11px] font-semibold text-stone-600"><InterfaceText source="Barangay" /></label>
             <select
               value={selectedBarangay}
               disabled={currentRole === 'focal'}
@@ -1772,17 +1768,17 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-stone-600">Record status</label>
+            <label className="mb-1 block text-[11px] font-semibold text-stone-600"><InterfaceText source="Record status" /></label>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
               className="min-h-11 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
             >
-              <option value="all">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="ready">Ready for Sale</option>
-              <option value="sold">Sold</option>
-              <option value="quarantined">Quarantined</option>
+              <option value="all">{translateInterfaceText("All Statuses")}</option>
+              <option value="active">{translateInterfaceText("Active")}</option>
+              <option value="ready">{translateInterfaceText("Ready for Sale")}</option>
+              <option value="sold">{translateInterfaceText("Sold")}</option>
+              <option value="quarantined">{translateInterfaceText("Quarantined")}</option>
               <option value="sick">Suspected / Sick</option>
             </select>
           </div>
@@ -1790,11 +1786,16 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
         <details className="group border-t border-stone-100 pt-2">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-xs font-bold text-stone-700 focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden">
-            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-            Advanced filters
-            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-600">{activeFilterCount} active</span>
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" /><InterfaceText source="Advanced filters" /><span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-600">{activeFilterCount} active</span>
           </summary>
           <div className="mt-3 space-y-3">
+            {customDynamicColumns.some(item => item.field.filterable !== false) && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {customDynamicColumns.filter(item => item.field.filterable !== false).map(item => <label key={item.field.id} className="text-[11px] font-semibold text-stone-600">
+                {registryFieldLabel(item.field)}
+                <input type="search" aria-label={`Filter ${registryFieldLabel(item.field)}`} placeholder={`Filter ${registryFieldLabel(item.field)}…`} value={customColumnFilters[item.field.id] || ''} onChange={event => setCustomColumnFilters(previous => ({...previous,[item.field.id]:event.target.value}))} className="mt-1 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs" />
+              </label>)}
+            </div>}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
 
           {/* Swine Type Filter */}
@@ -1895,15 +1896,15 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <option value="farmerName">{t('records_sort_farmer', 'Sort: Farmer Name')}</option>
               <option value="breed">Sort: Breed</option>
               <option value="gender">Sort: Sex</option>
-              <option value="birthDate">Sort: {t('form_birth_date', 'Birth Date')}</option>
+              <option value="birthDate">{translateInterfaceText("Sort:")}{t('form_birth_date', 'Birth Date')}</option>
               <option value="age">{t('records_sort_age', 'Sort: Age')}</option>
-              <option value="estimatedWeight">Sort: {t('records_th_est_weight', 'Est. Weight')}</option>
-              <option value="actualWeight">Sort: {t('records_th_actual_weight', 'Actual Weight')}</option>
-              <option value="barangay">Sort: {t('records_th_barangay', 'Barangay')}</option>
-              <option value="swineType">Sort: {t('records_th_swine_type', 'Swine Type')}</option>
-              <option value="farmScale">Sort: {t('records_th_farm_scale', 'Farm Scale')}</option>
-              <option value="asfZone">Sort: {t('records_th_asf_zone', 'ASF Zone')}</option>
-              <option value="status">Sort: {t('records_th_status', 'Status')}</option>
+              <option value="estimatedWeight">{translateInterfaceText("Sort:")}{t('records_th_est_weight', 'Est. Weight')}</option>
+              <option value="actualWeight">{translateInterfaceText("Sort:")}{t('records_th_actual_weight', 'Actual Weight')}</option>
+              <option value="barangay">{translateInterfaceText("Sort:")}{t('records_th_barangay', 'Barangay')}</option>
+              <option value="swineType">{translateInterfaceText("Sort:")}{t('records_th_swine_type', 'Swine Type')}</option>
+              <option value="farmScale">{translateInterfaceText("Sort:")}{t('records_th_farm_scale', 'Farm Scale')}</option>
+              <option value="asfZone">{translateInterfaceText("Sort:")}{t('records_th_asf_zone', 'ASF Zone')}</option>
+              <option value="status">{translateInterfaceText("Sort:")}{t('records_th_status', 'Status')}</option>
             </select>
             <button
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
@@ -1978,6 +1979,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   setRegisteredFrom('');
                   setRegisteredTo('');
                   setShowArchived(false);
+                  setCustomColumnFilters({});
                 }}
                 className="min-h-11 text-emerald-700 hover:underline font-bold cursor-pointer"
               >
@@ -2001,7 +2003,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <div>
               <div className="font-bold text-xs flex items-center gap-1.5">
                 <span>
-                  {selectedRecordIds.size} swine {selectedRecordIds.size === 1 ? 'record' : 'records'} selected
+                  {selectedRecordIds.size}{" "}<InterfaceText source="swine" />{" "}{selectedRecordIds.size === 1 ? translateInterfaceText("record") : translateInterfaceText("records")} selected
                 </span>
                 <span className="text-[10px] text-stone-400 font-normal">
                   (out of {totalRecords} filtered)
@@ -2128,7 +2130,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Pig ID Tag</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500"><InterfaceText source="Pig ID Tag" /></p>
                   <p className="break-all font-mono text-base font-black leading-snug text-emerald-950">
                     {swine.computedPigId || swine.pigIdTag || swine.earTagNo || 'ID unavailable'}
                   </p>
@@ -2139,14 +2141,10 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 <div className="flex shrink-0 items-start gap-1.5">
                   {swine.isSynced === false ? (
                     <span className="mt-1 inline-flex min-h-6 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 text-[10px] font-bold text-amber-900">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                      Pending
-                    </span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-600" /><InterfaceText source="Pending" /></span>
                   ) : (
                     <span className="mt-1 inline-flex min-h-6 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 text-[10px] font-semibold text-emerald-800">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Synced
-                    </span>
+                      <CheckCircle2 className="h-3 w-3" /><InterfaceText source="Synced" /></span>
                   )}
                   <div className="relative" data-record-actions>
                     <button
@@ -2205,12 +2203,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </button>
                   {farmerSwineCount > 1 && (
                     <span className="ml-2 inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold text-stone-700">
-                      {farmerSwineCount} swine
-                    </span>
+                      {farmerSwineCount}<InterfaceText source="swine" /></span>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500">Barangay</span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500"><InterfaceText source="Barangay" /></span>
                   <span className="break-words font-medium text-stone-800">{swine.barangay || '—'}</span>
                 </div>
                 <div className="min-w-0">
@@ -2218,11 +2215,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   <span className="break-words font-medium text-stone-800">{swine.farmName || swine.farmType || '—'}</span>
                 </div>
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500">Breed</span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500"><InterfaceText source="Breed" /></span>
                   <span className="break-words font-medium text-stone-800">{swine.breed || 'Large White Cross'}</span>
                 </div>
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500">Sex</span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500"><InterfaceText source="Sex" /></span>
                   <span className="break-words font-medium capitalize text-stone-800">
                     {swine.gender === 'male' ? 'Male (Intact)' : swine.gender === 'female' ? 'Female (Gilt/Sow)' : 'Castrated'}
                   </span>
@@ -2234,7 +2231,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500">Status</span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-stone-500"><InterfaceText source="Status" /></span>
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     swine.status === 'sold'
                       ? 'bg-stone-200 text-stone-800'
@@ -2310,7 +2307,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   ))}
                   {activeFields.map(item => (
                     <div key={item.field.id} className="min-w-0 break-words rounded-lg bg-stone-50 p-2">
-                      <span className="font-semibold text-stone-600">{item.field.label}: </span>
+                      <span className="font-semibold text-stone-600">{registryFieldLabel(item.field)}: </span>
                       <span className="text-stone-800">
                         {formatFieldValue(getFieldValue(swine, item.field), item.field) || '—'}
                       </span>
@@ -2324,9 +2321,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   type="button"
                   onClick={() => setViewingRecord(swine)}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-700"
-                >
-                  View Details
-                </button>
+                ><InterfaceText source="View Details" /></button>
               </div>
             </article>
           );
@@ -2585,7 +2580,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     }}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>{item.field.label}</span>
+                      <span>{registryFieldLabel(item.field)}</span>
                       {sortFieldKey === item.field.id && (
                         <span className="text-emerald-700 font-bold">{sortOrder === 'asc' ? '↑' : '↓'}</span>
                       )}
@@ -2621,7 +2616,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       <div>
                         <h4 className="font-bold text-rose-900 text-sm">{t('records_load_error', 'Unable to load Swine Records.')}</h4>
                         <p className="text-xs text-rose-700 font-medium mt-1">{t('records_db_error_generic', 'The system could not retrieve records from the database.')}</p>
-                        <p className="text-[11px] text-rose-600/80 mt-1">{dbError}</p>
+                        <p className="text-[11px] text-rose-600/80 mt-1">{<LocalizedFeedback value={dbError} />}</p>
                       </div>
                       <button
                         type="button"
@@ -2849,8 +2844,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           {farmerKey && (
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold text-stone-600">
-                                {farmerSwineCount} swine
-                              </span>
+                                {farmerSwineCount}<InterfaceText source="swine" /></span>
                             </div>
                           )}
                         </div>
@@ -3011,7 +3005,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                         }}
                         className="min-h-11 w-full max-w-36 rounded-lg border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-800 focus-visible:outline-2 focus-visible:outline-emerald-700"
                       >
-                        <option value="" disabled>Actions</option>
+                        <option value="" disabled>{translateInterfaceText("Actions")}</option>
                         <optgroup label="Record">
                           <option value="view">View details</option>
                           <option value="farmer">View farmer&apos;s swine</option>
@@ -3022,7 +3016,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           <option value="print">Print swine record</option>
                           <option value="certificate">Generate certificate</option>
                         </optgroup>
-                        {currentRole !== 'agent' && <optgroup label="Record status">
+                        {currentRole !== 'agent' && <optgroup label={translateInterfaceText("Record status")}>
                           {swine.status !== 'sold' && <>
                             <option value="ready">{swine.readyToSell ? 'Remove ready to sell' : 'Mark ready to sell'}</option>
                             <option value="sold">Mark as sold</option>
@@ -3118,7 +3112,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <div className="flex items-center gap-3">
                 <img
                   src={viewingRecord.photoUrl || '/icon.svg'}
-                  alt="Swine"
+                  alt={translateInterfaceText("Swine")}
                   className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-400/50 shadow-md"
                 />
                 <div>
@@ -3137,7 +3131,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     </span>
                   </div>
                   <h3 className="text-sm font-bold text-white mt-1">
-                    {viewingRecord.farmerName} • Brgy. {viewingRecord.barangay}
+                    {viewingRecord.farmerName}{" "}<InterfaceText source="• Brgy." />{" "}{viewingRecord.barangay}
                   </h3>
                 </div>
               </div>
@@ -3188,31 +3182,31 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Farmer / Raiser</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Farmer / Raiser" /></span>
                     <span className="font-bold text-stone-900 block mt-0.5">{viewingRecord.farmerName}</span>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Barangay</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Barangay" /></span>
                     <span className="font-bold text-stone-900 block mt-0.5">Brgy. {viewingRecord.barangay}</span>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Date of Birth</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Date of Birth" /></span>
                     <span className="font-bold text-stone-900 block mt-0.5">
                       {formatDobDisplay(viewingRecord.birthDate || viewingRecord.dateOfBirth || viewingRecord.date_of_birth || viewingRecord.dob)}
                     </span>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Breed</span>
-                    <span className="font-bold text-stone-900 block mt-0.5">{viewingRecord.breed || 'Standard Commercial'}</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Breed" /></span>
+                    <span className="font-bold text-stone-900 block mt-0.5">{viewingRecord.breed || translateInterfaceText("Standard Commercial")}</span>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Sex</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Sex" /></span>
                     <span className="font-bold text-stone-900 block mt-0.5">
-                      {viewingRecord.gender ? viewingRecord.gender.toUpperCase() : (viewingRecord.sex ? viewingRecord.sex.toUpperCase() : 'Not recorded')}
+                      {viewingRecord.gender ? viewingRecord.gender.toUpperCase() : (viewingRecord.sex ? viewingRecord.sex.toUpperCase() : translateInterfaceText("Not recorded"))}
                     </span>
                   </div>
 
@@ -3259,9 +3253,9 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Actual Weight</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Actual Weight" /></span>
                     <span className="font-bold text-stone-900 block mt-0.5">
-                      {viewingRecord.actualWeightKg ? `${viewingRecord.actualWeightKg} kg` : viewingRecord.weightKg ? `${viewingRecord.weightKg} kg` : 'Not recorded'}
+                      {viewingRecord.actualWeightKg ? `${viewingRecord.actualWeightKg} kg` : viewingRecord.weightKg ? `${viewingRecord.weightKg} kg` : translateInterfaceText("Not recorded")}
                     </span>
                   </div>
 
@@ -3273,7 +3267,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   </div>
 
                   <div className="bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs sm:col-span-2 md:col-span-3">
-                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">Market Status</span>
+                    <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider"><InterfaceText source="Market Status" /></span>
                     <span className="font-bold text-amber-900 block mt-0.5">
                       {viewingRecord.readyToSell ? '🌟 Ready for Market Sale' : viewingRecord.status.toUpperCase()}
                     </span>
@@ -3293,7 +3287,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
                         <Layers className="w-4 h-4 text-emerald-700" />
                         <h4 className="font-black text-stone-900 text-xs uppercase tracking-wide">
-                          {section.title}
+                          {registrySectionTitle(section)}
                         </h4>
                       </div>
 
@@ -3305,7 +3299,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                           return (
                             <div key={field.id} className="bg-white p-2.5 rounded-xl border border-stone-200/80 shadow-2xs">
                               <span className="text-[10px] text-stone-500 font-bold block">
-                                {field.label}
+                                {registryFieldLabel(field)}
                               </span>
                               <span className="font-semibold text-stone-900 block mt-0.5 break-words">
                                 {formatted}
@@ -3362,8 +3356,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     }}
                     className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
                   >
-                    <Edit className="w-3.5 h-3.5" /> Edit Record
-                  </button>
+                    <Edit className="w-3.5 h-3.5" /><InterfaceText source="Edit Record" /></button>
                 )}
 
                 <button
@@ -3375,8 +3368,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   }}
                   className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer text-xs"
                 >
-                  <FileText className="w-3.5 h-3.5" /> Issue Certificate
-                </button>
+                  <FileText className="w-3.5 h-3.5" /><InterfaceText source="Issue Certificate" /></button>
               </div>
             </div>
           </div>
@@ -3415,16 +3407,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 type="button"
                 onClick={() => setDeleteConfirmRecord(null)}
                 className="flex-1 py-2 rounded-xl border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 transition cursor-pointer text-xs"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition cursor-pointer text-xs shadow-sm"
-              >
-                Delete
-              </button>
+              ><InterfaceText source="Delete" /></button>
             </div>
           </div>
         </div>
@@ -3445,7 +3433,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <p className="text-xs text-stone-500 font-medium">
                 You are about to permanently remove{' '}
                 <strong className="text-red-700 font-bold">
-                  {selectedRecordIds.size} swine {selectedRecordIds.size === 1 ? 'record' : 'records'}
+                  {selectedRecordIds.size}{" "}<InterfaceText source="swine" />{" "}{selectedRecordIds.size === 1 ? translateInterfaceText("record") : translateInterfaceText("records")}
                 </strong>{' '}
                 from the Hinunangan database.
               </p>
@@ -3478,11 +3466,11 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                         🔒 {record.computedPigId || record.pigIdTag || record.earTagNo}
                       </span>
                       <span className="text-[10px] text-stone-500 block truncate">
-                        {record.farmerName} &bull; Brgy. {record.barangay}
+                        {record.farmerName}{" "}<InterfaceText source="• Brgy." />{" "}{record.barangay}
                       </span>
                     </div>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase bg-stone-200 text-stone-700 shrink-0">
-                      {record.swineType || 'Swine'}
+                      {record.swineType || translateInterfaceText("Swine")}
                     </span>
                   </div>
                 ))}
@@ -3500,16 +3488,14 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 type="button"
                 onClick={() => setShowBulkDeleteModal(false)}
                 className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 transition cursor-pointer text-xs"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={handleConfirmBulkDelete}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition cursor-pointer text-xs shadow-sm flex items-center justify-center gap-1.5"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete {selectedRecordIds.size} Records</span>
+                <span><InterfaceText source="Delete" />{" "}{selectedRecordIds.size} Records</span>
               </button>
             </div>
           </div>
@@ -3549,19 +3535,15 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               {/* Header */}
               <div className="text-center border-b-2 border-emerald-800 pb-4">
                 <div className="flex items-center justify-between gap-4 mb-2">
-                  <img src={reportLeftLogo} alt="Left Seal" className="w-16 h-16 object-contain" />
+                  <img src={reportLeftLogo} alt={translateInterfaceText("Left Seal")} className="w-16 h-16 object-contain" />
                   <div className="flex-1">
-                    <p className="text-[11px] uppercase tracking-wider text-stone-600 font-medium">
-                      Republic of the Philippines • Province of Southern Leyte
-                    </p>
+                    <p className="text-[11px] uppercase tracking-wider text-stone-600 font-medium"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></p>
                     <h2 className="text-base font-black text-emerald-950 tracking-tight">
                       MUNICIPALITY OF HINUNANGAN
                     </h2>
-                    <h3 className="text-xs font-bold text-emerald-800">
-                      OFFICE OF THE MUNICIPAL AGRICULTURIST
-                    </h3>
+                    <h3 className="text-xs font-bold text-emerald-800"><InterfaceText source="OFFICE OF THE MUNICIPAL AGRICULTURIST" /></h3>
                   </div>
-                  <img src={reportRightLogo} alt="Right Seal" className="w-16 h-16 object-contain" />
+                  <img src={reportRightLogo} alt={translateInterfaceText("Right Seal")} className="w-16 h-16 object-contain" />
                 </div>
                 <h4 className="text-sm font-black uppercase text-stone-900 mt-3 tracking-wide">
                   HINUNANGAN SWINE REGISTRY - OFFICIAL SWINE RECORD
@@ -3601,28 +3583,28 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Barangay</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Barangay" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">Brgy. {printSingleRecord.barangay}</span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Date of Birth</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Date of Birth" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">
                     {formatDobDisplay(printSingleRecord.birthDate || printSingleRecord.dateOfBirth || printSingleRecord.date_of_birth || printSingleRecord.dob)}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Breed</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Breed" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">
-                    {printSingleRecord.breed || 'Standard Commercial'}
+                    {printSingleRecord.breed || translateInterfaceText("Standard Commercial")}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Sex</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Sex" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">
-                    {printSingleRecord.gender ? printSingleRecord.gender.toUpperCase() : (printSingleRecord.sex ? printSingleRecord.sex.toUpperCase() : 'Not recorded')}
+                    {printSingleRecord.gender ? printSingleRecord.gender.toUpperCase() : (printSingleRecord.sex ? printSingleRecord.sex.toUpperCase() : translateInterfaceText("Not recorded"))}
                   </span>
                 </div>
 
@@ -3639,7 +3621,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Swine Type</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Swine Type" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5 uppercase">
                     {printSingleRecord.swineType === 'boar' ? 'BREEDING_BOAR' : printSingleRecord.swineType.toUpperCase()}
                   </span>
@@ -3659,12 +3641,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 <div>
                   <span className="text-[10px] text-stone-500 font-bold block uppercase">Actual Measured Weight</span>
                   <span className="font-bold text-stone-900 block mt-0.5">
-                    {printSingleRecord.actualWeightKg ? `${printSingleRecord.actualWeightKg} kg` : printSingleRecord.weightKg ? `${printSingleRecord.weightKg} kg` : 'Not recorded'}
+                    {printSingleRecord.actualWeightKg ? `${printSingleRecord.actualWeightKg} kg` : printSingleRecord.weightKg ? `${printSingleRecord.weightKg} kg` : translateInterfaceText("Not recorded")}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-stone-500 font-bold block uppercase">Farm Classification</span>
+                  <span className="text-[10px] text-stone-500 font-bold block uppercase"><InterfaceText source="Farm Classification" /></span>
                   <span className="font-bold text-stone-900 block mt-0.5">
                     {printSingleRecord.farmScale || classifyFarmScale(printSingleRecord.penCapacity || (printSingleRecord.farmType === 'commercial' ? 50 : 5))}
                   </span>
@@ -3673,8 +3655,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 <div>
                   <span className="text-[10px] text-stone-500 font-bold block uppercase">Current ASF Zone</span>
                   <span className="font-bold text-stone-900 block mt-0.5">
-                    {getBarangayASFZone(printSingleRecord.barangay, barangays)} ZONE
-                  </span>
+                    {getBarangayASFZone(printSingleRecord.barangay, barangays)}<InterfaceText source="ZONE" /></span>
                 </div>
 
                 <div>
@@ -3723,8 +3704,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <button
               type="button"
               onClick={() => setShowPrintModal(false)}
-              aria-label="Close"
-              title="Close"
+              aria-label={translateInterfaceText("Close")}
+              title={translateInterfaceText("Close")}
               className="absolute right-4 top-4 z-10 inline-flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition focus:outline-hidden focus:ring-2 focus:ring-emerald-400/70"
             >
               <X className="w-5 h-5" />
@@ -3789,8 +3770,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     name="registry-print-scope"
                     checked={printRecordScope === 'all'}
                     onChange={() => setPrintRecordScope('all')}
-                  />
-                  All {sortedRecords.length} filtered records
+                  /><InterfaceText source="All" />{sortedRecords.length} filtered records
                 </label>
                 <label className={`inline-flex min-h-11 items-center gap-2 font-semibold ${
                   selectedFilteredRecords.length ? 'text-stone-800' : 'text-stone-400'
@@ -3806,13 +3786,13 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 </label>
               </fieldset>
               <p className="font-semibold text-stone-700" role="status">
-                Print preview: {registryPrintRecords.length} record{registryPrintRecords.length === 1 ? '' : 's'}
+                Print preview: {registryPrintRecords.length}{" "}<InterfaceText source="record" />{registryPrintRecords.length === 1 ? '' : 's'}
               </p>
             </div>
 
             {printValidationError && (
               <p role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-xs font-semibold text-rose-800">
-                {printValidationError}
+                {<LocalizedFeedback value={printValidationError} />}
               </p>
             )}
 
@@ -3903,9 +3883,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                       setReportRightLogo('/icon.svg');
                     }}
                     className="px-3 py-1 text-[11px] rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-stone-600 font-semibold cursor-pointer"
-                  >
-                    Reset Defaults
-                  </button>
+                  ><InterfaceText source="Reset Defaults" /></button>
                   <button
                     type="button"
                     onClick={handleSaveReportLogos}
@@ -3922,26 +3900,22 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               {/* Official Header */}
               <div className="text-center border-b-2 border-emerald-800 pb-4">
                 <div className="flex items-center justify-between gap-4 mb-2">
-                  <img src={reportLeftLogo} alt="Left Seal" className="w-16 h-16 object-contain" />
+                  <img src={reportLeftLogo} alt={translateInterfaceText("Left Seal")} className="w-16 h-16 object-contain" />
                   <div className="flex-1">
-                    <p className="text-[11px] uppercase tracking-wider text-stone-600 font-medium">
-                      Republic of the Philippines • Province of Southern Leyte
-                    </p>
+                    <p className="text-[11px] uppercase tracking-wider text-stone-600 font-medium"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></p>
                     <h2 className="text-base font-black text-emerald-950 tracking-tight">
                       MUNICIPALITY OF HINUNANGAN
                     </h2>
-                    <h3 className="text-xs font-bold text-emerald-800">
-                      OFFICE OF THE MUNICIPAL AGRICULTURIST
-                    </h3>
+                    <h3 className="text-xs font-bold text-emerald-800"><InterfaceText source="OFFICE OF THE MUNICIPAL AGRICULTURIST" /></h3>
                   </div>
-                  <img src={reportRightLogo} alt="Right Seal" className="w-16 h-16 object-contain" />
+                  <img src={reportRightLogo} alt={translateInterfaceText("Right Seal")} className="w-16 h-16 object-contain" />
                 </div>
                 <h4 className="text-sm font-black uppercase text-stone-900 mt-3 tracking-wide">
                   OFFICIAL SWINE REGISTRY & MONITORING SUMMARY REPORT
                 </h4>
                 <p className="text-[10px] text-stone-500">
                   Report Generated on: {new Date().toLocaleDateString()} • Hinunangan, Southern Leyte
-                  {' • '}Barangay: {selectedBarangay === 'all' ? 'All authorized barangays' : selectedBarangay}
+                  {' • '}<InterfaceText source="Barangay:" />{" "}{selectedBarangay === 'all' ? 'All authorized barangays' : selectedBarangay}
                 </p>
               </div>
 
@@ -3949,13 +3923,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <div className="grid grid-cols-4 gap-3 text-center">
                 <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                   <span className="text-stone-500 text-[10px] block">Total Listed Swine</span>
-                  <span className="font-bold text-base text-stone-900">{registryPrintRecords.length} Heads</span>
+                  <span className="font-bold text-base text-stone-900">{registryPrintRecords.length}{" "}<InterfaceText source="Heads" /></span>
                 </div>
                 <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                  <span className="text-amber-700 text-[10px] block">Ready for Market</span>
+                  <span className="text-amber-700 text-[10px] block"><InterfaceText source="Ready for Market" /></span>
                   <span className="font-bold text-base text-amber-900">
-                    {registryPrintRecords.filter(s => s.computedIsReady).length} Heads
-                  </span>
+                    {registryPrintRecords.filter(s => s.computedIsReady).length}<InterfaceText source="Heads" /></span>
                 </div>
                 <div className="bg-red-50 p-2.5 rounded-xl border border-red-200">
                   <span className="text-red-700 text-[10px] block">Biosecurity Alerts</span>
@@ -3977,9 +3950,9 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   <thead className="bg-stone-100 font-bold text-stone-800 border-b border-stone-300">
                     <tr>
                       <th className="p-1.5 border border-stone-300 text-center w-8">#</th>
-                      <th className="p-1.5 border border-stone-300">Pig ID Tag</th>
+                      <th className="p-1.5 border border-stone-300"><InterfaceText source="Pig ID Tag" /></th>
                       {activePrintColumns.map(item => (
-                        <th key={item.field.id} className="p-1.5 border border-stone-300">{item.field.label}</th>
+                        <th key={item.field.id} className="p-1.5 border border-stone-300">{registryFieldLabel(item.field)}</th>
                       ))}
                     </tr>
                   </thead>
@@ -4014,7 +3987,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 <div>
                   <p className="text-stone-500 mb-8">Prepared & Inspected by:</p>
                   <p className="font-bold border-t border-stone-400 pt-1 text-stone-900 uppercase">
-                    {currentUser?.name || 'Authorized DA Inspector'}
+                    {currentUser?.name || translateInterfaceText("Authorized DA Inspector")}
                   </p>
                   <p className="text-[10px] text-stone-500">Barangay Agricultural Focal Officer</p>
                 </div>
@@ -4040,8 +4013,8 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             <button
               type="button"
               onClick={() => setShowPrintSelectModal(false)}
-              aria-label="Close"
-              title="Close"
+              aria-label={translateInterfaceText("Close")}
+              title={translateInterfaceText("Close")}
               className="absolute right-4 top-4 z-10 inline-flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition focus:outline-hidden focus:ring-2 focus:ring-emerald-400/70"
             >
               <X className="w-5 h-5" />
@@ -4050,7 +4023,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <div className="flex items-center gap-2.5">
                 <Printer className="w-5 h-5 text-emerald-300" />
                 <div>
-                  <h3 className="font-bold text-sm">Select Columns to Print</h3>
+                  <h3 className="font-bold text-sm"><InterfaceText source="Select Columns to Print" /></h3>
                   <p className="text-[11px] text-emerald-200/80">
                     Choose which fields appear on the printed official summary report
                   </p>
@@ -4068,7 +4041,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             {printValidationError && (
               <div className="mx-6 mt-4 p-3 rounded-2xl bg-red-50 border border-red-200 flex items-center gap-2 text-red-800 text-xs font-bold">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>{printValidationError}</span>
+                <span>{<LocalizedFeedback value={printValidationError} />}</span>
               </div>
             )}
 
@@ -4076,7 +4049,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <span className="font-bold text-stone-700">
                 Selected Columns:{' '}
                 <span className="text-emerald-700 font-extrabold">
-                  {activeFields.filter(f => printSelectedColumnIds[f.field.id]).length} of {activeFields.length}
+                  {activeFields.filter(f => printSelectedColumnIds[f.field.id]).length}{" "}<InterfaceText source="of" />{" "}{activeFields.length}
                 </span>
               </span>
               <div className="flex items-center gap-2">
@@ -4091,9 +4064,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     setPrintValidationError(null);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 font-semibold cursor-pointer text-xs transition"
-                >
-                  Select All
-                </button>
+                ><InterfaceText source="Select All" /></button>
                 <button
                   type="button"
                   onClick={() => setPrintSelectedColumnIds({})}
@@ -4140,7 +4111,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                                 }}
                                 className="w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500"
                               />
-                              <span className="flex-1 truncate">{item.field.label}</span>
+                              <span className="flex-1 truncate">{registryFieldLabel(item.field)}</span>
                             </label>
                           );
                         })}
@@ -4155,9 +4126,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 type="button"
                 onClick={() => setShowPrintSelectModal(false)}
                 className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold cursor-pointer transition"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={() => {

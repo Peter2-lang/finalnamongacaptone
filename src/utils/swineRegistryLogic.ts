@@ -419,15 +419,6 @@ export function validateSwineRecordForSave(
     }
   }
 
-  // 4. Biosecurity Warning Acknowledgment (Breeding Boar in RED/PINK Zone)
-  const zone = data.asfZone || getBarangayASFZone(data.barangay || '');
-  if (shouldShowASFWarning(data.swineType, zone)) {
-    if (!data.biosecurityWarningAcknowledged) {
-      errors.biosecurityWarning =
-        'Biosecurity warning must be acknowledged for breeding boars in high-risk ASF zones.';
-    }
-  }
-
   const isValid = Object.keys(errors).length === 0;
   return {
     isValid,

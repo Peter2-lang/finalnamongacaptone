@@ -1,3 +1,5 @@
+import { InterfaceText } from '../../i18n/interfaceText';
+import { useLanguage } from '../../context/LanguageContext';
 import React, { useState } from 'react';
 import {
   ArrowRight,
@@ -23,8 +25,6 @@ import { LandingCmsConfig } from '../../types/landingCms';
 interface LandingHeaderNavProps {
   cmsConfig?: LandingCmsConfig;
   barangayCount?: number;
-  currentLanguage: 'EN' | 'CEB';
-  onLanguageChange: (lang: 'EN' | 'CEB') => void;
   onOpenLogin: () => void;
   isEmbeddedPreview?: boolean;
 }
@@ -32,11 +32,12 @@ interface LandingHeaderNavProps {
 export const LandingHeaderNav: React.FC<LandingHeaderNavProps> = ({
   cmsConfig,
   barangayCount = 40,
-  currentLanguage,
-  onLanguageChange,
   onOpenLogin,
   isEmbeddedPreview = false,
 }) => {
+  const {language,setLanguage,t} = useLanguage();
+  const currentLanguage=language.toUpperCase();
+  const onLanguageChange=(value:string)=>setLanguage(value.toLowerCase() as 'en'|'ceb'|'fil');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const logos = useOfficialLogos();
 
@@ -55,25 +56,11 @@ export const LandingHeaderNav: React.FC<LandingHeaderNavProps> = ({
     }
   };
 
-  // Cebuano & English translations
   const navLabels = {
-    EN: {
-      programs: 'Programs & Services',
-      about: 'About Office',
-      barangays: `${barangayCount || 40} Barangays`,
-      ordinances: 'Ordinances',
-      contact: 'Contact & Support',
-      signIn: 'Sign In (Staff Portal)',
-    },
-    CEB: {
-      programs: 'Mga Programa ug Serbisyo',
-      about: 'Mahitungod sa Opisina',
-      barangays: `${barangayCount || 40} ka Barangay`,
-      ordinances: 'Mga Ordinansa',
-      contact: 'Kontak ug Tabang',
-      signIn: 'Sulod (Staff Portal)',
-    },
-  }[currentLanguage];
+    programs:t('landing_programs','Programs & Services'),about:t('landing_about','About Office'),
+    barangays:`${barangayCount} ${t('nav_barangays','Barangays')}`,ordinances:t('landing_ordinances','Ordinances'),
+    contact:t('landing_contact','Contact & Support'),signIn:t('btn_login','Official Login'),
+  };
 
   return (
     <header
@@ -181,6 +168,7 @@ export const LandingHeaderNav: React.FC<LandingHeaderNavProps> = ({
               >
                 CEB
               </button>
+              <button type="button" onClick={()=>setLanguage('fil')} title="Filipino / Tagalog" className={`px-2 py-1 text-xs font-bold rounded-md ${language==='fil'?'bg-blue-600 text-white':'text-stone-600'}`}>FIL</button>
             </div>
 
             {/* Primary Sign In Button */}
@@ -248,7 +236,7 @@ export const LandingHeaderNav: React.FC<LandingHeaderNavProps> = ({
           </div>
 
           <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
-            <span className="text-xs text-stone-500 font-medium">Select Language:</span>
+            <span className="text-xs text-stone-500 font-medium"><InterfaceText source="Select Language:" /></span>
             <div className="bg-stone-100 p-0.5 rounded-lg border border-stone-300 flex items-center">
               <button
                 type="button"

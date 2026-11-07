@@ -1,12 +1,5 @@
 import React from 'react';
 import {
-  SealBagongPilipinas,
-  SealBarangay,
-  SealDA,
-  SealMunicipality,
-  SealProvince,
-} from '../common/OfficialSeals';
-import {
   CertificateDynamicSignatory,
   CertificateLogoItem,
   CertificateTemplate,
@@ -24,77 +17,28 @@ interface DynamicCertificateViewProps {
 // Helper to render a specific logo item
 const RenderLogoItem: React.FC<{ logo: CertificateLogoItem; defaultBarangay?: string }> = ({
   logo,
-  defaultBarangay,
 }) => {
   if (!logo.visible) return null;
 
   const width = logo.widthPx || 70;
   const height = logo.heightPx || 70;
-
-  if (logo.type === 'barangay') {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
-        <SealBarangay
-          barangayName={logo.barangayName || defaultBarangay || 'Barangay'}
-          className="w-full h-full object-contain"
-          customUrl={logo.customUrl}
-        />
-      </div>
-    );
-  }
-  if (logo.type === 'municipality') {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
-        <SealMunicipality
-          className="w-full h-full object-contain"
-          customUrl={logo.customUrl}
-        />
-      </div>
-    );
-  }
-  if (logo.type === 'province') {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
-        <SealProvince
-          className="w-full h-full object-contain"
-          customUrl={logo.customUrl}
-        />
-      </div>
-    );
-  }
-  if (logo.type === 'da') {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
-        <SealDA
-          className="w-full h-full object-contain"
-          customUrl={logo.customUrl}
-        />
-      </div>
-    );
-  }
-  if (logo.type === 'bagong_pilipinas') {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
-        <SealBagongPilipinas
-          className="w-full h-full object-contain"
-          customUrl={logo.customUrl}
-        />
-      </div>
-    );
-  }
-  if (logo.type === 'custom' && logo.customUrl) {
-    return (
-      <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
+  const label = logo.type === 'barangay' ? `Barangay ${logo.barangayName || 'logo'}` : `${logo.type.replaceAll('_', ' ')} logo`;
+  return (
+    <div style={{ width: `${width}px`, height: `${height}px` }} className="flex items-center justify-center shrink-0">
+      {logo.customUrl ? (
         <img
           src={logo.customUrl}
-          alt="Official Seal"
-          className="w-full h-full object-contain rounded-full shadow-2xs"
+          alt={label}
+          className="w-full h-full object-contain"
           referrerPolicy="no-referrer"
         />
-      </div>
-    );
-  }
-  return null;
+      ) : (
+        <div className="grid h-full w-full place-items-center border border-dashed border-stone-400 p-1 text-center text-[8px] uppercase text-stone-500">
+          {label} not uploaded
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Component for rendering an individual signatory with a clear horizontal signature line
@@ -106,7 +50,6 @@ export const RenderSignatoryBlock: React.FC<{
   const alignment = sig.lineAlignment || sig.alignment || 'center';
   const rawLineWidth = sig.lineWidth || '220px';
   const lineWidth = rawLineWidth.endsWith('%') || rawLineWidth.endsWith('px') ? rawLineWidth : `${rawLineWidth}px`;
-  const signatureWidth = sig.signatureWidth || '130px';
 
   const alignClass =
     alignment === 'left'
@@ -135,19 +78,7 @@ export const RenderSignatoryBlock: React.FC<{
 
       {/* Signature & Line Container */}
       <div className={`flex flex-col justify-end w-full relative ${alignClass}`} style={{ minHeight: '52px' }}>
-        {/* Uploaded Digital Signature Image */}
-        {sig.showSignatureImage && sig.signatureImageUrl ? (
-          <div className={`flex items-center justify-center mb-[-14px] z-10 pointer-events-none ${lineAlignClass}`}>
-            <img
-              src={sig.signatureImageUrl}
-              alt="Digital Signature"
-              className="h-14 object-contain"
-              style={{ maxWidth: signatureWidth }}
-            />
-          </div>
-        ) : (
-          <div className="h-6" />
-        )}
+        <div className="h-6" aria-hidden="true" />
 
         {/* Clear Horizontal Signature Line directly ABOVE printed name */}
         {showLine && (
@@ -183,6 +114,14 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
   const templateBarangay = template.barangay.toLowerCase() === 'all' ? '' : template.barangay;
   const rawBrgy = data.barangay || templateBarangay || '—';
   const brgyDisplay = rawBrgy.toUpperCase();
+  const isLandscape = template.orientation === 'landscape';
+  const pageDimensions = template.pageSize === 'Folio'
+    ? { width: 816, height: 1248 }
+    : template.pageSize === 'Letter'
+      ? { width: 816, height: 1056 }
+      : { width: 794, height: 1123 };
+  const pageWidth = isLandscape ? pageDimensions.height : pageDimensions.width;
+  const pageHeight = isLandscape ? pageDimensions.width : pageDimensions.height;
 
   // Separate and sort logos by position
   const visibleLogos = (template.logos || []).filter(l => l.visible);
@@ -192,6 +131,9 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
 
   // Parse rendered body text with replaced placeholders
   const fullContext: TemplateDataContext = {
+    ...Object.fromEntries((template.templateFields || [])
+      .filter(field => field.defaultValue)
+      .map(field => [field.key, field.defaultValue])),
     ...data,
     barangay: rawBrgy,
     municipality: data.municipality || 'Hinunangan',
@@ -289,11 +231,15 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
       ref={containerRef}
       id="printable-certificate-root"
       data-print-document={previewOnly ? 'certificate-template-preview' : 'certificate'}
-      className="printable-certificate-container mx-auto w-full max-w-[820px] overflow-hidden rounded-xl border border-stone-300 bg-white p-8 font-serif text-stone-900 shadow-xl relative select-text transition-all sm:p-12"
+      className={`printable-certificate-container certificate-page-${template.pageSize.toLowerCase()}-${template.orientation} mx-auto overflow-hidden rounded-xl border border-stone-300 bg-white p-8 font-serif text-stone-900 shadow-xl relative select-text transition-all sm:p-12`}
       style={{
-        minHeight: '1050px',
+        width: `${pageWidth}px`,
+        maxWidth: '100%',
+        minHeight: `${pageHeight}px`,
         backgroundColor: '#ffffff',
         color: '#000000',
+        fontFamily: template.bodyFontFamily || 'serif',
+        padding: `${(template.pageMarginMm ?? 14) * (96 / 25.4)}px`,
       }}
     >
       {previewOnly && (
@@ -302,40 +248,20 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
         </div>
       )}
       {/* Background Watermark */}
-      {template.watermark && template.watermark.enabled && (
+      {template.watermark?.enabled && template.watermark.customUrl && (
         <div
           className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0"
           style={{
-            opacity: template.watermark.opacity || 0.12,
+            opacity: template.watermark.opacity ?? 0.12,
             filter: template.watermark.grayscale ? 'grayscale(100%)' : 'none',
           }}
         >
-          {template.watermark.type === 'da' ? (
-            <SealDA className={`${watermarkSizeClass} max-w-[80vw]`} customUrl={template.watermark.customUrl} />
-          ) : template.watermark.type === 'barangay' ? (
-            <SealBarangay
-              barangayName={template.watermark.barangayName || rawBrgy}
-              className={`${watermarkSizeClass} max-w-[80vw]`}
-              customUrl={template.watermark.customUrl}
-            />
-          ) : template.watermark.type === 'province' ? (
-            <SealProvince
-              className={`${watermarkSizeClass} max-w-[80vw]`}
-              customUrl={template.watermark.customUrl}
-            />
-          ) : template.watermark.type === 'custom' && template.watermark.customUrl ? (
-            <img
-              src={template.watermark.customUrl}
-              alt="Watermark"
-              className={`${watermarkSizeClass} object-contain rounded-full`}
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <SealMunicipality
-              className={`${watermarkSizeClass} max-w-[80vw]`}
-              customUrl={template.watermark.customUrl}
-            />
-          )}
+          <img
+            src={template.watermark.customUrl}
+            alt="User-uploaded watermark"
+            className={`${watermarkSizeClass} object-contain`}
+            referrerPolicy="no-referrer"
+          />
         </div>
       )}
 
@@ -431,7 +357,14 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
         {/* ========================================================================= */}
         {/* 3. CERTIFICATE BODY (Dynamic Placeholder Replacement) */}
         {/* ========================================================================= */}
-        <div className="space-y-4 text-xs sm:text-sm leading-relaxed text-stone-900 font-serif text-justify pt-2 select-text">
+        <div
+          className="flex flex-col leading-relaxed text-stone-900 text-justify pt-2 select-text"
+          style={{
+            fontFamily: template.bodyFontFamily || 'serif',
+            fontSize: `${template.bodyFontSizePt || 12}pt`,
+            gap: `${template.paragraphSpacingPx ?? 16}px`,
+          }}
+        >
           {bodyParagraphs.map((para, index) => {
             if (
               para.toUpperCase() === 'TO WHOM IT MAY CONCERN:' ||
@@ -439,7 +372,7 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
               para.toUpperCase().startsWith('TO ALL CONCERNED')
             ) {
               return (
-                <p key={index} className="font-bold tracking-wide text-xs sm:text-sm not-italic pt-1">
+                <p key={index} className="font-bold tracking-wide not-italic pt-1">
                   {para}
                 </p>
               );
@@ -453,7 +386,7 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
           })}
 
           {template.noteText && (
-            <p className="italic text-xs text-stone-600 font-sans pt-2">
+            <p className="italic text-stone-600 pt-2">
               {template.noteText}
             </p>
           )}
@@ -476,8 +409,8 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
                 <>
                   <p className="font-bold">
                     Official Receipt Paid:{' '}
-                    <span className="font-mono">{data.or_number || template.receipt.orNumber || '—'}</span> / ₱
-                    {data.amount_paid || template.receipt.amountPaid || '—'}
+                    <span className="font-mono">{data.or_number || '—'}</span> / ₱
+                    {data.amount_paid !== '' && data.amount_paid != null ? data.amount_paid : '—'}
                   </p>
                   <p className="font-bold uppercase">
                     Issued on: {data.date_issued || '—'}
@@ -489,7 +422,7 @@ export const DynamicCertificateView: React.FC<DynamicCertificateViewProps> = ({
               ) : (
                 <>
                   <p className="font-bold">
-                    O. R. # : <span className="font-mono">{data.or_number || template.receipt.orNumber || '—'}</span>
+                    O. R. # : <span className="font-mono">{data.or_number || '—'}</span>
                   </p>
                   <p className="font-bold">
                     Issued On : {data.date_issued || '—'}

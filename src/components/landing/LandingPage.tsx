@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
@@ -86,7 +87,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const cmsConfig = overrideCmsConfig || publishedConfig;
   const [selectedVideo, setSelectedVideo] = useState<VideoMediaItem | null>(null);
-  const [currentLanguage, setCurrentLanguage] = useState<'EN' | 'CEB'>('EN');
 
   // Interactive 15 Barangays & Biosecurity Directory State
   const [barangaySearch, setBarangaySearch] = useState('');
@@ -247,7 +247,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div
-      className={`relative ${isEmbeddedPreview ? 'w-full' : 'min-h-screen'} text-stone-900 selection:bg-emerald-500 selection:text-white`}
+      className={`landing-redesign relative ${isEmbeddedPreview ? 'w-full' : 'min-h-screen'} text-stone-900 selection:bg-emerald-500 selection:text-white`}
       style={{
         fontFamily: theme.bodyFont || 'system-ui',
         backgroundColor: theme.backgroundColor || '#ffffff',
@@ -305,9 +305,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         )}
 
         {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+        <section className="landing-hero max-w-7xl mx-auto px-4 sm:px-6 pt-6">
           <div
-            className="relative rounded-3xl overflow-hidden text-white p-8 sm:p-14 shadow-2xl border border-white/20"
+            className="landing-hero-panel relative rounded-3xl overflow-hidden text-white p-8 sm:p-14 shadow-2xl border border-white/20"
             style={{
               backgroundImage: cmsConfig.heroBackgroundUrl ? `url(${cmsConfig.heroBackgroundUrl})` : undefined,
               backgroundSize: 'cover',
@@ -324,7 +324,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               }}
             />
 
-            <div className="relative z-10 max-w-3xl space-y-6">
+            <div className="landing-hero-copy relative z-10 max-w-3xl space-y-6">
               {/* Badges & Official Seals */}
               <div className="flex flex-wrap items-center gap-3">
                 <span className="bg-emerald-800/90 border border-emerald-400/40 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase flex items-center gap-1.5 shadow-sm">
@@ -383,6 +383,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 {cmsConfig.heroSubtitle}
               </p>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <button type="button" onClick={onOpenLogin} className="hero-primary-action inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm">
+                  Open registry <ArrowRight className="w-4 h-4" />
+                </button>
+                <a href="#barangays" className="hero-secondary-action inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm">
+                  Explore our barangays <MapPin className="w-4 h-4" />
+                </a>
+              </div>
 
               {cmsConfig.heroDescription && (
                 <p
@@ -443,15 +452,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ) : (
                 <>
                   <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                      Registered Swine
-                    </span>
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Swine" /></span>
                     <span
                       className="text-3xl sm:text-4xl font-black mt-1 block"
                       style={{ color: theme.headingColor || '#064e3b' }}
                     >
-                      {totalSwine || cmsConfig.statSwineCount || '3,850+'} Heads
-                    </span>
+                      {totalSwine || cmsConfig.statSwineCount || '3,850+'}<InterfaceText source="Heads" /></span>
                     <span className="text-[11px] text-stone-400 mt-1 block">Actively monitored</span>
                   </div>
 
@@ -460,8 +466,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       Incoming Ready to Sell
                     </span>
                     <span className="text-3xl sm:text-4xl font-black text-amber-900 mt-1 block">
-                      {readyToSellCount || cmsConfig.statMarketReadyCount || '142'} Heads
-                    </span>
+                      {readyToSellCount || cmsConfig.statMarketReadyCount || '142'}<InterfaceText source="Heads" /></span>
                     <span className="text-[11px] text-amber-700 mt-1 block">Market harvest ready</span>
                   </div>
 
@@ -479,9 +484,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                      Registered Raisers
-                    </span>
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Raisers" /></span>
                     <span
                       className="text-3xl sm:text-4xl font-black mt-1 block"
                       style={{ color: theme.headingColor || '#064e3b' }}
@@ -633,7 +636,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             <span className="text-xs font-black text-emerald-950 block">{bg.swineCount}</span>
                           </div>
                           <div className="border-l border-stone-200 pl-1">
-                            <span className="text-[10px] text-amber-800 font-semibold block">Ready to Sell</span>
+                            <span className="text-[10px] text-amber-800 font-semibold block"><InterfaceText source="Ready to Sell" /></span>
                             <span className="text-xs font-black text-amber-900 block">{bg.readyToSellCount}</span>
                           </div>
                         </div>
@@ -1024,7 +1027,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   color: theme.headingColor || '#064e3b',
                 }}
               >
-                {legalLandingConfig.sectionTitle || 'Legal Decrees & Ordinances'}
+                {legalLandingConfig.sectionTitle || translateInterfaceText("Legal Decrees & Ordinances")}
               </h2>
               <p className="text-xs sm:text-sm text-stone-600 mt-2 leading-relaxed">
                 {legalLandingConfig.sectionSubtitle ||
@@ -1091,9 +1094,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     type="button"
                     onClick={() => setLegalDocSearch('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-bold"
-                  >
-                    Clear
-                  </button>
+                  ><InterfaceText source="Clear" /></button>
                 )}
               </div>
             )}
@@ -1117,7 +1118,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         {legalLandingConfig.showCategory !== false && (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
                             {doc.category === 'ordinance' || doc.type === 'municipal_ordinance'
-                              ? 'Municipal Ordinance'
+                              ? translateInterfaceText("Municipal Ordinance")
                               : doc.category === 'resolution'
                               ? 'SB Resolution'
                               : (doc.category || doc.type).replace('_', ' ')}
@@ -1145,7 +1146,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       {doc.author && (
                         <div className="text-[11px] text-stone-500 pt-1 border-t border-stone-100 flex items-center justify-between">
-                          <span>Author: {doc.author}</span>
+                          <span><InterfaceText source="Author:" />{" "}{doc.author}</span>
                           <span className="font-bold text-emerald-700">{doc.status.toUpperCase()}</span>
                         </div>
                       )}
@@ -1368,7 +1369,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       <div className="pt-3 border-t border-stone-100 mt-4 flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-[10px] font-medium text-stone-400 truncate">
-                          {post.noticeLabel || 'Official Municipal Notice'}
+                          {post.noticeLabel || translateInterfaceText("Official Municipal Notice")}
                         </span>
                         <a
                           href={post.postUrl}
@@ -1379,10 +1380,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           <span>
                             {post.buttonText ||
                               (isYouTube
-                                ? 'Watch on YouTube'
+                                ? translateInterfaceText("Watch on YouTube")
                                 : isFacebook
-                                ? 'View on Facebook'
-                                : 'Official Link')}
+                                ? translateInterfaceText("View on Facebook")
+                                : translateInterfaceText("Official Link"))}
                           </span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
@@ -1575,14 +1576,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     }`}
                   >
                     {selectedBarangayDetail.riskLevel === 'green'
-                      ? 'Green Zone (Free)'
+                      ? translateInterfaceText("Green Zone (Free)")
                       : selectedBarangayDetail.riskLevel === 'yellow'
-                      ? 'Yellow Zone (Buffer)'
+                      ? translateInterfaceText("Yellow Zone (Buffer)")
                       : 'Red Zone (Surveillance)'}
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black mt-1.5 text-white">
-                  Barangay {selectedBarangayDetail.name}
+                <h3 className="text-xl sm:text-2xl font-black mt-1.5 text-white"><InterfaceText source="Barangay" />{selectedBarangayDetail.name}
                 </h3>
                 <p className="text-xs text-emerald-100/80">
                   Hinunangan, Southern Leyte • {selectedBarangayDetail.isUrban ? 'Urban Zone' : 'Rural Agricultural Zone'}
@@ -1611,7 +1611,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-center">
-                  <span className="text-[11px] font-bold text-amber-800 uppercase block">Ready for Market</span>
+                  <span className="text-[11px] font-bold text-amber-800 uppercase block"><InterfaceText source="Ready for Market" /></span>
                   <span className="text-2xl sm:text-3xl font-black text-amber-900 block mt-0.5">
                     {selectedBarangayDetail.readyToSellCount}
                   </span>
@@ -1671,9 +1671,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={() => setSelectedBarangayDetail(null)}
                 className="px-5 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>
@@ -1690,8 +1688,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-emerald-400 text-emerald-950">
                     {selectedOrdinance.type.replace('_', ' ')}
                   </span>
-                  <span className="text-[11px] text-emerald-300 font-semibold">
-                    Enacted: {selectedOrdinance.dateEnacted}
+                  <span className="text-[11px] text-emerald-300 font-semibold"><InterfaceText source="Enacted:" />{selectedOrdinance.dateEnacted}
                   </span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-black text-white leading-snug">
@@ -1826,9 +1823,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={() => setSelectedOrdinance(null)}
                 className="px-5 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs transition cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
             </div>
           </div>
         </div>

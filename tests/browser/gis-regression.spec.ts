@@ -1,0 +1,318 @@
+import {test,expect,type Page} from '@playwright/test';
+import * as XLSX from 'xlsx';
+
+// Component fixtures exercise actual React components and Leaflet, without touching a database.
+async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMediaSettings',props:Record<string,unknown>={}){
+ await page.route('**/api/**',r=>r.fulfill({json:{success:true,data:{},settings:{}}}));
+ await page.goto('/tests/browser/component-harness.html');
+ await page.waitForLoadState('networkidle');
+ await page.evaluate(async({component,props})=>{
+  const load=(path:string)=>import(/* @vite-ignore */ path);
+  const React=(window as any).auditReact;
+  const createRoot=(window as any).auditCreateRoot;
+  const paths={GisMap:'/src/components/gis/GisMap.tsx',ImportSwineModal:'/src/components/records/ImportSwineModal.tsx',PhotoMediaSettings:'/src/components/admin/media/PhotoMediaSettings.tsx'};
+  const mod=await load(paths[component]);
+  const host=document.createElement('div');host.style.cssText='height:800px;width:100%';document.body.replaceChildren(host);
+  const root=createRoot(host);const win=window as any;
+  win.auditPicks=[];win.auditViews=[];win.auditSuccess=[];
+  if(component==='GisMap'){
+   const source=await (await fetch('/src/components/gis/GisMap.tsx')).text();
+   const leafletPath=source.match(/from ["']([^"']*\/leaflet\.js[^"']*)["']/)![1];
+   const L=(await load(leafletPath)).default;
+   L.Map.addInitHook(function(this:any){win.auditMap=this;});
+  }
+  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:(count:number)=>win.auditSuccess.push(count)}:{currentUserRole:'focal'};
+  win.auditRender=(next:any)=>root.render(React.createElement(mod[component],{...base,...props,...next}));
+  win.auditRender({});
+  await new Promise(resolve=>setTimeout(resolve,150));
+ },{component,props});
+}
+
+test('import modal closed/open/closed maintains hook order',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await mount(page,'ImportSwineModal');
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await expect(page.getByText('Smart Swine Registry Importer',{exact:false}).first()).toBeVisible();
+ await page.evaluate(()=>(window as any).auditRender({isOpen:false}));
+ await expect(page.getByText('Smart Swine Registry Importer',{exact:false})).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+
+test('CSV import parses headers, detects custom columns and previews valid and invalid rows',async({page})=>{
+ await mount(page,'ImportSwineModal');
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({
+  name:'registry.csv',mimeType:'text/csv',
+  buffer:Buffer.from('Farmer Name,Barangay,Latitude,Longitude,Cage Number\nTest Farmer,Ambacon,10.4,125.2,C-01\n,Ambacon,10.4,125.2,C-02'),
+ });
+ await expect(page.getByText('Detected Columns in Spreadsheet',{exact:false})).toBeVisible();
+ await expect(page.getByText('Cage Number',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await expect(page.getByText('Total Rows',{exact:true})).toBeVisible();
+ await expect(page.getByText('Valid Rows',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByText('Fatal Errors',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByText(/Farmer Name is required/i).first()).toBeVisible();
+});
+
+test('XLSX import parses the first worksheet and maps its headers',async({page})=>{
+ const workbook=XLSX.utils.book_new();
+ const worksheet=XLSX.utils.aoa_to_sheet([['Farmer Name','Barangay'],['XLSX Farmer','Ambacon']]);
+ XLSX.utils.book_append_sheet(workbook,worksheet,'Registry');
+ const buffer=XLSX.write(workbook,{bookType:'xlsx',type:'buffer'}) as Buffer;
+ await mount(page,'ImportSwineModal');
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({
+  name:'registry.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer,
+ });
+ await expect(page.getByText('Detected Columns in Spreadsheet',{exact:false})).toBeVisible();
+ await expect(page.getByText('Farmer Name',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await expect(page.getByText('Total Rows',{exact:true}).locator('..').getByText('1',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Commit 1 Records to Database/})).toBeEnabled();
+});
+
+test('swine import sends a commit only once when the commit action is double-clicked',async({page})=>{
+ let importRequests=0;
+ await mount(page,'ImportSwineModal');
+ await page.route('**/api/swine-records/import',async route=>{
+  importRequests++;
+  const body=route.request().postDataJSON();
+  await route.fulfill({json:{success:true,data:body.records.map((record:any,index:number)=>({...record,id:`server-id-${index}`,pigIdTag:`HIN-2026-${String(index+100).padStart(4,'0')}`}))}});
+ });
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'one-row.csv',mimeType:'text/csv',buffer:Buffer.from('Farmer Name,Barangay\nTest Farmer,Ambacon')});
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ const commit=page.getByRole('button',{name:/Commit 1 Records to Database/});
+ await commit.evaluate(button=>{
+  button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  button.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+ });
+ await expect(page.getByRole('heading',{name:'Import Results',exact:true})).toBeVisible();
+ expect(importRequests).toBe(1);
+ expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([1]);
+});
+
+test('GIS 20 normal clicks never select registration coordinates',async({page})=>{
+ await mount(page,'GisMap');
+ const map=page.locator('.leaflet-container');await expect(map).toBeVisible();
+ for(let n=0;n<20;n++)await map.click({position:{x:180+n,y:400},force:true});
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('GIS manual pin appears, moves, and remains a separate explicit action',async({page})=>{
+ await mount(page,'GisMap');
+ await page.getByRole('button',{name:'Select Location for Registration',exact:false}).click();
+ await page.evaluate(()=>{
+  const win=window as any;const L=win.auditMap;
+  L.fire('click',{latlng:{lat:10.4018,lng:125.1845}});
+ });
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ await expect(page.locator('.custom-manual-pin')).toContainText('10.4018');
+ await page.evaluate(()=>{(window as any).auditMap.fire('click',{latlng:{lat:10.4019,lng:125.1846}})});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ await expect(page.locator('.custom-manual-pin')).toContainText('10.4019');
+ expect(await page.evaluate(()=>(window as any).auditPicks.length)).toBe(2);
+});
+
+test('GIS denied GPS permission preserves viewing mode',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
+  getCurrentPosition:(_success:unknown,fail:(error:{code:number})=>void)=>fail({code:1}),
+ }}));
+ await mount(page,'GisMap');
+ await page.getByRole('button',{name:'Locate Me',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Location permission was denied.');
+ expect(await page.evaluate(()=>(window as any).auditMap.getZoom())).toBe(13);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('GIS mouse wheel zoom preserves viewing mode',async({page},info)=>{
+ test.skip(info.project.name==='mobile','Mouse wheel is a desktop interaction.');
+ await mount(page,'GisMap');
+ await page.getByRole('button',{name:'Close map legend'}).click();
+ const bounds=(await page.locator('.leaflet-container').boundingBox())!;
+ await page.mouse.move(bounds.x+bounds.width*0.6,bounds.y+350);
+ await page.mouse.wheel(0,-500);
+ await expect.poll(()=>page.evaluate(()=>(window as any).auditMap.getZoom())).toBeGreaterThan(13);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('GIS zoom, pan, reset, GPS and explicit location selection',async({page,context},info)=>{
+ await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:10.42,longitude:125.20});
+ await mount(page,'GisMap');await expect(page.locator('.leaflet-container')).toBeVisible();
+ const initialLegend=page.getByRole('button',{name:'Close map legend'});if(await initialLegend.isVisible())await initialLegend.click();
+ const zoom=()=>page.evaluate(()=>(window as any).auditMap.getZoom());
+ await page.getByRole('button',{name:'Zoom In (+)',exact:true}).click();await expect.poll(zoom).toBe(14);
+ await page.getByRole('button',{name:'Zoom Out (−)',exact:true}).click();await expect.poll(zoom).toBe(13);
+ if(info.project.name==='desktop'){
+ await page.locator('.leaflet-container').dblclick({position:{x:210,y:360},force:true});await expect.poll(zoom).toBe(14);
+ await expect.poll(()=>page.evaluate(()=>(window as any).auditMap._animatingZoom || false)).toBe(false);
+ const close=page.getByRole('button',{name:'Close barangay information'});if(await close.isVisible())await close.click();
+ const legend=page.getByRole('button',{name:'Close map legend'});if(await legend.isVisible())await legend.click();
+ const before=await page.evaluate(()=>(window as any).auditMap.getCenter().lng);
+ const bounds=(await page.locator('.leaflet-container').boundingBox())!;
+ await page.mouse.move(bounds.x+bounds.width*0.55,bounds.y+280);await page.mouse.down();await page.mouse.move(bounds.x+bounds.width*0.55+80,bounds.y+280,{steps:10});await page.mouse.up();
+ await expect.poll(()=>page.evaluate(()=>(window as any).auditMap.getCenter().lng)).not.toBe(before);
+ }
+ await page.getByRole('button',{name:'Reset View',exact:true}).click();await expect.poll(zoom).toBe(13);
+ await page.getByRole('button',{name:'Locate Me',exact:true}).click();await expect.poll(zoom).toBe(16);
+ expect(await page.evaluate(()=>(window as any).auditMap.getCenter().lat)).toBeCloseTo(10.42,3);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+ await page.getByRole('button',{name:'Select Location for Registration',exact:false}).click();
+ await page.locator('.leaflet-container').click({position:{x:160,y:360},force:true});
+ expect(await page.evaluate(()=>(window as any).auditPicks.length)).toBe(1);
+});
+
+test('GIS swine markers open popup without edit or coordinate selection',async({page})=>{
+ await mount(page,'GisMap',{swineList:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]});
+ await page.locator('.swine-map-marker').first().click();
+ await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ await expect(page.locator('.leaflet-popup')).toContainText('Fixture Farmer');
+ // Parent counter/session renders supply fresh callbacks and must not close the popup.
+ await page.evaluate(()=>(window as any).auditRender({onViewSwineRecord:()=>{}}));
+ await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ await page.evaluate(()=>(window as any).auditRender({swineList:[{id:'fixture-pig',pigIdTag:'HIN-2026-0001',farmerName:'Fixture Farmer',barangay:'Ambacon',latitude:10.39,longitude:125.195,swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true}]}));
+ await expect(page.locator('.leaflet-popup')).toContainText('HIN-2026-0001');
+ await page.getByRole('button',{name:'View Swine Record',exact:true}).click();
+ expect(await page.evaluate(()=>(window as any).auditViews)).toEqual(['fixture-pig']);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('photo settings role transitions maintain hook order',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await mount(page,'PhotoMediaSettings');
+ await page.evaluate(()=>(window as any).auditRender({currentUserRole:'admin'}));
+ await expect(page.getByText('All Media',{exact:true}).first()).toBeVisible();
+ await page.evaluate(()=>(window as any).auditRender({currentUserRole:'focal'}));
+ await expect(page.getByText('All Media',{exact:true})).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+
+test('print utility isolates intended document and restores after printing',async({page})=>{
+ await page.goto('/tests/browser/component-harness.html');
+ await page.waitForLoadState('networkidle');
+ const result=await page.evaluate(async()=>{
+  const path='/src/utils/printUtils.ts';
+  const {printDocument}=await import(/* @vite-ignore */ path);
+  const host=document.createElement('div');
+  host.innerHTML='<div data-print-document="certificate">Certificate</div><div data-print-document="masterlist">Masterlist</div>';
+  host.id='root';document.body.append(host);
+  window.print=()=>{};printDocument('certificate');
+  const active=document.querySelector('[data-print-document="certificate"]')!.getAttribute('data-print-selected');
+  const excluded=document.querySelector('[data-print-document="masterlist"]')!.getAttribute('data-print-selected');
+  return {active,excluded,target:document.body.dataset.printTarget};
+ });
+ expect(result).toEqual({active:'true',excluded:'false',target:'certificate'});
+ await page.emulateMedia({media:'print'});
+ await expect(page.locator('[data-print-document="certificate"]')).toBeVisible();
+ await expect(page.locator('[data-print-document="masterlist"]')).toBeHidden();
+ await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
+ expect(await page.evaluate(()=>document.body.dataset.printTarget)).toBeUndefined();
+});
+
+for(const role of ['admin','focal','agent'])test(`GIS ${role} markers obey visibility scope`,async({page})=>{
+ const record={swineType:'piglet',gender:'female',status:'active',registeredAt:'2026-01-01',readyToSell:true,latitude:10.4015,longitude:125.195};
+ await mount(page,'GisMap',{currentRole:role,currentUser:{role,assignedBarangay:'Ambacon'},swineList:[
+  {...record,id:'a',pigIdTag:'HIN-2026-0001',farmerName:'Authorized Farmer',barangay:'Ambacon'},
+  {...record,id:'b',pigIdTag:'HIN-2026-0002',farmerName:'Other Farmer',barangay:'Bangcas A'},
+  {...record,id:'c',pigIdTag:'HIN-2026-0003',farmerName:'Not Ready Farmer',barangay:'Ambacon',readyToSell:false},
+ ]});
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(role==='admin'?3:2);
+ if(role==='agent')await expect(page.getByRole('button',{name:'Select Location for Registration',exact:false})).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('GIS boundaries, heatmap and base layers stay in viewing mode',async({page})=>{
+ await mount(page,'GisMap');await expect(page.locator('.leaflet-container')).toBeVisible();
+ const boundary=page.locator('.leaflet-overlay-pane path.leaflet-interactive').first();
+ await boundary.dispatchEvent('click');
+ await expect(page.getByText('Total Swine Heads',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Close barangay information'}).click();
+ await page.getByRole('checkbox',{name:'Heatmap',exact:true}).check();
+ for(const layer of ['Satellite','Terrain','Street'])await page.getByRole('button',{name:layer,exact:true}).click();
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+test('mobile touch dragging and pinch zoom operate on Leaflet',async({page,context},info)=>{
+ test.skip(info.project.name!=='mobile','Touch gestures require the mobile project.');
+ await mount(page,'GisMap');await expect(page.locator('.leaflet-container')).toBeVisible();
+ const legend=page.getByRole('button',{name:'Close map legend'});if(await legend.isVisible())await legend.click();
+ const bounds=(await page.locator('.leaflet-container').boundingBox())!;
+ const x=bounds.x+130,y=bounds.y+350;
+ const cdp=await context.newCDPSession(page);
+ const touch=(id:number,x:number,y:number)=>({id,x,y,radiusX:1,radiusY:1,force:1});
+ const center=await page.evaluate(()=>(window as any).auditMap.getCenter().lng);
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(0,x,y)]});
+ for(let n=1;n<=6;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(0,x+n*10,y)]});await page.waitForTimeout(40);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect.poll(()=>page.evaluate(()=>(window as any).auditMap.getCenter().lng)).not.toBe(center);
+ const zoom=await page.evaluate(()=>(window as any).auditMap.getZoom());
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(0,x-35,y),touch(1,x+35,y)]});
+ for(let n=1;n<=6;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(0,x-35-n*10,y),touch(1,x+35+n*10,y)]});await page.waitForTimeout(40);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect.poll(()=>page.evaluate(()=>(window as any).auditMap.getZoom())).toBeGreaterThan(zoom);
+ expect(await page.evaluate(()=>(window as any).auditPicks)).toEqual([]);
+});
+
+
+test('manual selection preserves exact coordinates and camera through parent feedback and double taps',async({page})=>{
+ await mount(page,'GisMap',{isLocationPicker:true,initialCenter:[10.4018,125.1845]});
+ const legend=page.getByRole('button',{name:'Close map legend'});if(await legend.isVisible())await legend.click();
+ await page.evaluate(()=>{
+  const win=window as any;
+  win.auditCamera={lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};
+  win.auditRender({isLocationPicker:true,initialCenter:[10.4018,125.1845],onPickLocation:(lat:number,lng:number,barangay:string)=>{
+   win.auditPicks.push([lat,lng,barangay]);
+   win.auditRender({isLocationPicker:true,initialCenter:[lat,lng],selectedBarangay:barangay});
+  }});
+ });
+ const map=page.locator('.leaflet-container');
+ const bounds=(await map.boundingBox())!;
+ const point={x:Math.min(170,bounds.width-25),y:330};
+ await page.evaluate(()=>document.addEventListener('click',event=>{const win=window as any;win.auditExpectedPoint=win.auditMap.mouseEventToLatLng(event);},{capture:true,once:true}));
+ if(page.viewportSize()!.width<600)await map.tap({position:point});else await map.click({position:point});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ const expected=await page.evaluate(()=>(window as any).auditExpectedPoint);
+ const first=await page.evaluate(()=>(window as any).auditPicks[0]);
+ expect(first[0]).toBeCloseTo(expected.lat,10);expect(first[1]).toBeCloseTo(expected.lng,10);
+ await expect.poll(()=>page.evaluate(()=>{const win=window as any;return {lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};})).toEqual(await page.evaluate(()=>(window as any).auditCamera));
+ await map.dblclick({position:{x:point.x+25,y:point.y+30}});
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ expect(await page.evaluate(()=>{const win=window as any;return {lat:win.auditMap.getCenter().lat,lng:win.auditMap.getCenter().lng,zoom:win.auditMap.getZoom()};})).toEqual(await page.evaluate(()=>(window as any).auditCamera));
+ expect(await page.evaluate(()=>(window as any).auditMap.doubleClickZoom.enabled())).toBe(false);
+ await page.evaluate(()=>(window as any).auditRender({isLocationPicker:false,isManualPinMode:false}));
+ await page.getByRole('button',{name:'Pin Mode Active',exact:false}).click();
+ expect(await page.evaluate(()=>(window as any).auditMap.doubleClickZoom.enabled())).toBe(true);
+});
+
+test('JSON import detects late fields, confirms definitions and waits for persistence',async({page})=>{
+ await mount(page,'ImportSwineModal',{currentUser:{id:'fixture-admin',role:'admin',name:'Fixture Admin'}});
+ let submissions:any[]=[];
+ await page.route('**/api/swine-records/import',async route=>{
+  const body=route.request().postDataJSON();submissions.push(body);
+  const schema={version:1,sections:[{id:'imported',title:'Imported',visible:true,fields:body.newFields}]};
+  await route.fulfill({json:{success:true,data:body.records.map((record:any,index:number)=>({...record,id:`saved-${index}`,pigIdTag:`HIN-2026-00${index+20}`})),schema,newFieldsCreated:body.newFields.map((field:any)=>field.fieldKey),failures:[],skipped:[]}});
+ });
+ await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'records.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({records:[{farmer_name:'Fixture One',barangay:'Ambacon',weight:65,color:'White',vaccinated:true},{farmer_name:'Fixture Two',barangay:'Ambacon',weight:70,color:'Black',vaccinated:false,feeding_type:'Mixed Feeds'}]}))});
+ await expect(page.getByText('feeding_type',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await page.getByRole('button',{name:'Create Custom Fields & Import'}).click();
+ await expect(page.getByRole('heading',{name:'Import Results'})).toBeVisible();
+ expect(submissions).toHaveLength(1);expect(submissions[0].records[0].customFields.vaccinated).toBe(true);
+ expect(submissions[0].newFields.some((field:any)=>field.fieldKey==='feeding_type')).toBe(true);
+ const cache=await page.evaluate(()=>Object.entries(localStorage).filter(([key])=>key.includes('swine')||key.includes('registry_form')));
+ expect(JSON.stringify(cache)).toContain('Mixed Feeds');expect(JSON.stringify(cache)).toContain('feeding_type');
+});
+
+test('invalid JSON and backend rejection never show a successful import',async({page})=>{
+ await mount(page,'ImportSwineModal');await page.evaluate(()=>(window as any).auditRender({isOpen:true}));
+ await page.locator('input[type="file"]').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{bad')});
+ await expect(page.getByText(/JSON|Unexpected token|Expected property/i).filter({visible:true}).first()).toBeVisible();
+ await page.locator('input[type="file"]').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify([{farmer_name:'Fixture',barangay:'Ambacon'}]))});
+ await page.route('**/api/swine-records/import',route=>route.fulfill({status:500,json:{success:false,error:'Isolated persistence rejection'}}));
+ await page.getByRole('button',{name:'Proceed to Data Validation'}).click();
+ await page.getByRole('button',{name:/Commit 1 Records/}).click();
+ await expect(page.getByText(/Isolated persistence rejection/)).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Import Results'})).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([]);
+});

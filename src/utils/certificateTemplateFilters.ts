@@ -13,6 +13,11 @@ export interface CertificateTemplateUserScope {
   assignedBarangay: string;
 }
 
+export function isCertificateTemplateIssuable(template: CertificateTemplate): boolean {
+  return template.isActive !== false &&
+    (template.reviewStatus === undefined || template.reviewStatus === 'approved');
+}
+
 const normalize = (value: string | undefined) => (value || '').trim().toLocaleLowerCase();
 
 export function filterCertificateTemplates(
@@ -47,6 +52,7 @@ export function filterCertificateTemplatesForUser(
 
   const assignedBarangay = normalize(user.assignedBarangay);
   return templates.filter(template => {
+    if (!isCertificateTemplateIssuable(template)) return false;
     const scope = normalize(template.barangay);
     if (template.barangayId && user.barangayId === template.barangayId) return true;
     if (template.barangayId) {

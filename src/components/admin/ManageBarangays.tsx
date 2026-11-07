@@ -1,3 +1,5 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   MapPin,
@@ -158,7 +160,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
 
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
-      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{saveError}</div>}
+      {saveError && <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{<LocalizedFeedback value={saveError} />}</div>}
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -325,9 +327,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
                   setIsEditing(null);
                 }}
                 className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 font-semibold text-stone-700 cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="submit"
                 className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-md hover:shadow-lg transition cursor-pointer"
@@ -352,8 +352,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
             />
           </div>
-          <span className="text-xs text-stone-500 font-medium">
-            Total: <strong>{filtered.length}</strong> barangays
+          <span className="text-xs text-stone-500 font-medium"><InterfaceText source="Total:" /><strong>{filtered.length}</strong> barangays
           </span>
         </div>
 
@@ -366,8 +365,8 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
                 <th className="py-3 px-4">Boundary & Measured Area</th>
                 <th className="py-3 px-4">Center Coordinates</th>
                 <th className="py-3 px-4">Extension Focal Person</th>
-                <th className="py-3 px-4">Contact</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4"><InterfaceText source="Contact" /></th>
+                <th className="py-3 px-4 text-right"><InterfaceText source="Actions" /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
@@ -390,8 +389,7 @@ export const ManageBarangays: React.FC<ManageBarangaysProps> = ({ barangays, onR
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {b.riskLevel.toUpperCase()} ZONE
-                      </span>
+                        {b.riskLevel.toUpperCase()}<InterfaceText source="ZONE" /></span>
                     </td>
                     <td className="py-3 px-4">
                       {area && area > 0 ? (

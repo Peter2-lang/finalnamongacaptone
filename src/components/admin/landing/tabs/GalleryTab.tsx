@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Image as ImageIcon, Plus, Trash2, Eye, EyeOff, LayoutGrid, Layers, Columns } from 'lucide-react';
 import { GalleryPhotoItem, LandingCmsConfig } from '../../../../types/landingCms';
@@ -132,7 +133,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                 <button
                   type="button"
                   onClick={() => handleToggleVisible(photo.id)}
-                  title={photo.showOnLanding ? 'Visible on Landing' : 'Hidden'}
+                  title={photo.showOnLanding ? 'Visible on Landing' : translateInterfaceText("Hidden")}
                   className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black text-white cursor-pointer"
                 >
                   {photo.showOnLanding ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -159,7 +160,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                     className="px-2 py-1 rounded-lg border border-stone-300 bg-white text-[11px]"
                   >
                     <option value="Field Operations">Field Operations</option>
-                    <option value="Biosecurity">Biosecurity</option>
+                    <option value="Biosecurity">{translateInterfaceText("Biosecurity")}</option>
                     <option value="Training">Training</option>
                     <option value="Marketing">Marketing</option>
                     <option value="Facilities">Facilities</option>
@@ -202,9 +203,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ config, onChange, onOpen
                   type="button"
                   onClick={() => onOpenMediaPicker('newGalleryPhoto')}
                   className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 cursor-pointer"
-                >
-                  Media
-                </button>
+                ><InterfaceText source="Media" /></button>
               )}
             </div>
           </div>

@@ -9,6 +9,7 @@ export const DB_VERSION = 2;
 export interface OfflineSyncQueueRecord {
   id: string;
   clientOperationId: string;
+  ownerUserId?: string;
   operation: 'create' | 'update' | 'delete' | 'archive' | 'sell' | 'upload_media';
   entity: 'swine' | 'farmer' | 'barangay' | 'media' | 'message' | 'certificate' | 'setting' | 'user';
   entityId: string;
@@ -306,8 +307,11 @@ class IndexedDbService {
         if (++ready !== 2) return;
         const pending = new Set((queueRequest.result as OfflineSyncQueueRecord[])
           .filter(item => item.entity === 'swine' && item.status !== 'SYNCED').map(item => item.entityId));
-        const byId = new Map(cloudRecords.map(record => [record.id, { ...record, isSynced: true } as T]));
+        const deleted=new Set((queueRequest.result as OfflineSyncQueueRecord[])
+          .filter(item=>item.entity==='swine' && item.operation==='delete' && item.status!=='SYNCED').map(item=>item.entityId));
+        const byId = new Map(cloudRecords.filter(record=>!deleted.has(record.id)).map(record => [record.id, { ...record, isSynced: true } as T]));
         for (const local of localRequest.result as T[]) {
+          if(deleted.has(local.id))continue;
           if (pending.has(local.id) || !local.isSynced) byId.set(local.id, local);
           else if (!byId.has(local.id)) records.delete(local.id);
         }
@@ -357,13 +361,16 @@ class IndexedDbService {
     entity: OfflineSyncQueueRecord['entity'],
     entityId: string,
     payload: any,
-    priority: number = 2
+    priority: number = 2,
+    ownerUserId?: string,
+    localMutation?: { record?: unknown; deleteId?: string }
   ): Promise<OfflineSyncQueueRecord> {
     const now = new Date().toISOString();
     const clientOperationId = `op-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const queueRecord: OfflineSyncQueueRecord = {
       id: `sync-q-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       clientOperationId,
+      ownerUserId,
       operation,
       entity,
       entityId,
@@ -375,7 +382,18 @@ class IndexedDbService {
       priority,
     };
 
-    await this.put('syncQueue', queueRecord);
+    if(localMutation){
+      const db=await this.getDB();
+      await new Promise<void>((resolve,reject)=>{
+        const tx=db.transaction(['swineRecords','syncQueue'],'readwrite');
+        if(localMutation.record)tx.objectStore('swineRecords').put(localMutation.record);
+        if(localMutation.deleteId)tx.objectStore('swineRecords').delete(localMutation.deleteId);
+        tx.objectStore('syncQueue').put(queueRecord);
+        tx.oncomplete=()=>resolve();
+        tx.onabort=()=>reject(tx.error || new Error('Offline change was not saved; retry.'));
+        tx.onerror=()=>reject(tx.error);
+      });
+    } else await this.put('syncQueue', queueRecord);
     this.broadcastQueueChange();
     return queueRecord;
   }
@@ -422,8 +440,7 @@ class IndexedDbService {
     return (
       data || {
         key: 'global_sync_state',
-        lastSyncedAt: new Date().toISOString(),
-        lastSyncStatus: 'SUCCESS',
+        lastSyncStatus: undefined,
         totalSyncedCount: 0,
         pendingCount: 0,
         schemaVersion: DB_VERSION,

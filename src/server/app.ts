@@ -1,5 +1,16 @@
+import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
+import { answerAssistant, type Generate } from './assistantEngine.ts';
+import type { ASFRegulatoryDocument } from '../types.ts';
+import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
+import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
+import { persistSwineImportBatch } from '../db/swine.ts';
+import { farmerIdentity } from '../utils/farmerIdentity.ts';
+import { authorizeMessagePayload } from './messageAuthorization.ts';
+import { normalizeBiosecurityAudits, scopeBiosecurityItems } from './biosecurityValidation.ts';
+import { CLOUD_ITEM_KEYS, mutateModuleItem, visibleModuleItems } from './moduleItems.ts';
+import { assertImmutableSwineIdentity, validateSwineMutation } from './swineMutationValidation.ts';
 import { resolveSwineReadFilters, agentMayReadSwine } from './swineReadScope.ts';
-import { isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
+import { hasVerifiableSourceAttachment, isLegalDocument, mutateLegalDocument } from '../db/legalDocuments.ts';
 import express from 'express';
 import { getDatabaseDiagnostic } from '../db/diagnostics.ts';
 import { getDatabaseConnectionInfo, getDatabasePoolConfig } from '../db/poolConfig.ts';
@@ -17,7 +28,7 @@ import {
 } from '../db/swine.ts';
 import { archiveCertificateByControlNumber, getAllCertificates, getCertificateByIdOrControlNumber, upsertCertificate } from '../db/certificates.ts';
 import { getCertificateTemplates, saveCertificateTemplate } from '../db/certificateTemplates.ts';
-import { filterCertificateTemplatesForUser } from '../utils/certificateTemplateFilters.ts';
+import { filterCertificateTemplatesForUser, isCertificateTemplateIssuable } from '../utils/certificateTemplateFilters.ts';
 import { formatCertificateTemplateDatabaseError } from '../utils/certificateTemplateDatabaseError.ts';
 import { getAllUsers, getUserByAuthUserId, getUserByUsernameOrEmail, insertUserProfile, upsertUser, deleteUserByUid } from '../db/users.ts';
 import { getAllMessages, createMessage, markMessageRead, deleteMessageById } from '../db/messages.ts';
@@ -38,7 +49,11 @@ import { DEFAULT_MASTER_CONFIG } from '../data/defaultMasterConfig.ts';
 import { INITIAL_LANDING_CMS_CONFIG } from '../data/initialLandingCmsData.ts';
 import {
   createCertificateAssetSignedUrl,
+  createCertificateTemplateSourceSignedUrl,
+  createLegalDocumentSignedUrl,
+  verifyDirectCertificateTemplateSource,
   verifyDirectImage,
+  verifyDirectLegalDocument,
   deleteLandingCmsAsset,
   uploadCertificateAsset,
   uploadLandingCmsAsset,
@@ -47,7 +62,7 @@ import { interpretSuperAdminConfigCommand } from '../utils/configCommandInterpre
 import { isValidPhilippinePhoneNumber, normalizePhilippinePhoneNumber, toFieldKey } from '../utils/registryFieldUtils.ts';
 import { getSupabaseProjectConfigurationError, getSupabaseAdminConfigError, getSupabaseAuthConfigStatus, supabaseAdminClient, supabaseAuthClient, supabaseAuthProjectRef } from '../lib/supabaseServer.ts';
 
-export function createApp() {
+export function createApp(options: { assistantGenerate?: Generate } = {}) {
   const app = express();
   app.set('case sensitive routing', true);
 
@@ -173,6 +188,10 @@ export function createApp() {
           status: profile?.status || null,
         });
         return res.status(403).json({ success: false, error: 'No active application profile is linked to this Supabase account.' });
+      }
+      if (!['super_admin', 'admin', 'focal', 'agent'].includes(profile.role)) {
+        if (isPublicRoute) return next();
+        return res.status(403).json({ success: false, error: 'This account does not have an authorized application role.' });
       }
 
       (req as any).authenticatedUser = {
@@ -305,6 +324,40 @@ export function createApp() {
     });
   });
 
+  app.get('/api/connectivity', async (req, res) => {
+    if (!(req as any).authenticatedUser?.userId) {
+      return res.status(401).json({ success: false, error: 'An active authenticated session is required.' });
+    }
+
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT 1');
+      } finally {
+        client.release();
+      }
+      res.set('Cache-Control', 'no-store');
+      return res.json({
+        connection_check: true,
+        service: 'hinunangan-swine-registry',
+        database: 'connected',
+      });
+    } catch (error) {
+      const diagnostic = getDatabaseDiagnostic(error);
+      console.error('[CONNECTIVITY] authorized_database_probe_failed', {
+        kind: diagnostic.kind,
+        code: diagnostic.code,
+      });
+      res.set('Cache-Control', 'no-store');
+      return res.status(503).json({
+        connection_check: true,
+        service: 'hinunangan-swine-registry',
+        database: 'error',
+        database_error_kind: diagnostic.kind,
+      });
+    }
+  });
+
   // Regex patterns
   const PIG_ID_TAG_REGEX = /^HIN-\d{4}-\d{4,}$/;
 
@@ -325,6 +378,79 @@ export function createApp() {
     const isFocal = role === 'focal';
     const isAuthenticated = role !== 'guest';
     return { role, barangayId, assignedBarangay, userId, username, isSuperAdmin, isAdmin, isAgent, isFocal, isAuthenticated };
+  }
+
+  async function validateCertificateSwineSelection(
+    certificate: Record<string, any>,
+    user: ReturnType<typeof getUserSecurityContext>,
+    required: boolean,
+  ): Promise<string | null> {
+    const swineIds = certificate.swineIds;
+    if (!Array.isArray(swineIds) || swineIds.length === 0) {
+      return required ? 'Select at least one registered swine before issuing a certificate.' : null;
+    }
+    if (swineIds.length > 200 || swineIds.some(id => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) ||
+        new Set(swineIds).size !== swineIds.length) {
+      return 'The selected swine list is invalid.';
+    }
+    if (user.isFocal && !user.assignedBarangay.trim()) {
+      return 'Your account must be assigned to a barangay to issue certificates.';
+    }
+
+    const result = await pool.query<{
+      id: string;
+      farmerName: string;
+      farmerAddress: string | null;
+      barangay: string;
+      isArchived: boolean;
+    }>(
+      `SELECT sr.id, sr.farmer_name AS "farmerName", f.farm_address AS "farmerAddress",
+              b.name AS barangay, sr.is_archived AS "isArchived"
+       FROM public.swine_records sr
+       JOIN public.barangays b ON b.id = sr.barangay_id
+       LEFT JOIN public.farmers f ON f.id = sr.farmer_id
+       WHERE sr.id = ANY($1::uuid[])`,
+      [swineIds],
+    );
+    if (result.rows.length !== swineIds.length || result.rows.some(row => row.isArchived)) {
+      return 'One or more selected swine are unavailable or archived.';
+    }
+    const first = result.rows[0];
+    if (result.rows.some(row =>
+      row.farmerName.trim().toLowerCase() !== first.farmerName.trim().toLowerCase() ||
+      row.barangay.trim().toLowerCase() !== first.barangay.trim().toLowerCase()
+    )) {
+      return 'A certificate may include only swine belonging to one farmer in one barangay.';
+    }
+    if (certificate.farmerName?.trim().toLowerCase() !== first.farmerName.trim().toLowerCase()) {
+      return 'The selected swine do not belong to the displayed farmer.';
+    }
+    if (user.isFocal && first.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
+      return 'Only swine from your assigned barangay may be included in a certificate.';
+    }
+    if (certificate.barangay?.trim().toLowerCase() !== first.barangay.trim().toLowerCase()) {
+      return 'The certificate barangay must match the selected swine records.';
+    }
+    if (Number(certificate.numberOfHeads) !== swineIds.length) {
+      return 'The certificate head count must match the number of selected swine.';
+    }
+    certificate.farmerAddress = first.farmerAddress || certificate.farmerAddress || '';
+    return null;
+  }
+
+  async function validateCertificateTemplateIssuance(
+    certificate: Record<string, any>,
+    user: ReturnType<typeof getUserSecurityContext>,
+  ): Promise<string | null> {
+    if (typeof certificate.templateId !== 'string' || !certificate.templateId.trim()) return null;
+    const storedTemplates = await getCertificateTemplates();
+    const template = filterCertificateTemplatesForUser(storedTemplates, user)
+      .find(item => item.id === certificate.templateId);
+    if (!template) return 'The certificate template is unavailable or outside your authorized barangay.';
+    if (!isCertificateTemplateIssuable(template)) {
+      return 'This certificate template is still a draft or inactive and cannot be issued.';
+    }
+    return null;
   }
 
   async function signTemplateAssetUrls(template: Awaited<ReturnType<typeof getCertificateTemplates>>[number], user: ReturnType<typeof getUserSecurityContext>) {
@@ -360,8 +486,14 @@ export function createApp() {
         ])
         : Promise.resolve(undefined),
     ]);
+    const sourceUrl = user.isAdmin && template.sourceDocument?.storagePath && supabaseAdminClient
+      ? await createCertificateTemplateSourceSignedUrl(supabaseAdminClient, template.sourceDocument.storagePath)
+      : undefined;
     return {
       ...template,
+      sourceDocument: template.sourceDocument
+        ? { ...template.sourceDocument, url: sourceUrl }
+        : undefined,
       logos,
       watermark: {
         ...template.watermark,
@@ -967,6 +1099,7 @@ export function createApp() {
   });
 
   const sharedModuleDataKeys = new Set([
+    ...CLOUD_ITEM_KEYS,
     'biosecurity_audits',
     'biosecurity_incidents',
     'official_reports_config',
@@ -998,6 +1131,11 @@ export function createApp() {
         return res.json({ success: true, data: signedTemplates });
       }
       let value = await getStoredSystemSetting(req.params.key);
+      if (CLOUD_ITEM_KEYS.has(req.params.key)) value = visibleModuleItems(Array.isArray(value)?value:[],req.params.key,user);
+      if (req.params.key.startsWith('biosecurity_') && !user.isAdmin) {
+        if (!user.isFocal || !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned focal person or administrator is required.'});
+        value = scopeBiosecurityItems(Array.isArray(value) ? value : [], user.assignedBarangay);
+      }
       return res.json({ success: true, data: value ?? (sharedModuleArrayKeys.has(req.params.key) ? [] : {}) });
     } catch (error) {
       const failure = formatCertificateTemplateDatabaseError(error);
@@ -1018,9 +1156,13 @@ export function createApp() {
 
   app.put('/api/module-data/:key', async (req, res) => {
     const user = getUserSecurityContext(req);
+    if (CLOUD_ITEM_KEYS.has(req.params.key)) return res.status(400).json({success:false,error:'Save one module item at a time.'});
+    if (req.params.key.startsWith('biosecurity_') && !user.isAdmin && (!user.isFocal || !user.assignedBarangay)) {
+      return res.status(403).json({success:false,error:'An assigned focal person or administrator is required.'});
+    }
     if (!sharedModuleDataKeys.has(req.params.key) ||
       (req.params.key === 'certificate_templates'
-        ? !(user.isAdmin || user.isFocal)
+        ? !user.isAdmin
         : adminOnlyModuleDataKeys.has(req.params.key) ? !user.isAdmin : !user.isAuthenticated)) {
       return res.status(403).json({ success: false, error: 'You do not have permission to update this resource.' });
     }
@@ -1038,6 +1180,53 @@ export function createApp() {
       return res.status(400).json({ success: false, error: 'This module data must be an object.' });
     }
     try {
+      if (req.params.key === 'certificate_templates' && req.body.data.sourceDocument) {
+        const source = req.body.data.sourceDocument;
+        if (!user.isAdmin || !supabaseAdminClient ||
+            typeof source.fileName !== 'string' || typeof source.mimeType !== 'string' ||
+            typeof source.storagePath !== 'string') {
+          return res.status(user.isAdmin ? 503 : 403).json({
+            success: false,
+            error: user.isAdmin ? 'Certificate source storage is unavailable or its metadata is invalid.' : 'Administrator access is required.',
+          });
+        }
+        try {
+          await verifyDirectCertificateTemplateSource(supabaseAdminClient, source.storagePath, source.fileName, source.mimeType);
+        } catch (error) {
+          console.error('[certificate-template] persisted source validation failed', error);
+          return res.status(400).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'The imported source file is unavailable.',
+          });
+        }
+      }
+      if (req.params.key.startsWith('biosecurity_')) {
+        let items = req.body.data;
+        if (user.isFocal && scopeBiosecurityItems(items,user.assignedBarangay).length !== items.length) {
+          return res.status(403).json({success:false,error:'Biosecurity records must stay within your assigned barangay.'});
+        }
+        try { if (req.params.key === 'biosecurity_audits') items = normalizeBiosecurityAudits(items); }
+        catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[req.params.key]);
+          const stored = await client.query('SELECT setting_value FROM public.system_settings WHERE setting_key = $1 FOR UPDATE',[req.params.key]);
+          const existing = stored.rows[0]?.setting_value || [];
+          if (user.isFocal) {
+            const other = existing.filter((item:any)=>!scopeBiosecurityItems([item],user.assignedBarangay).length);
+            if (items.some((item:any)=>other.some((row:any)=>row.id===item.id))) {
+              await client.query('ROLLBACK');
+              return res.status(403).json({success:false,error:'A biosecurity record ID belongs to another barangay.'});
+            }
+            items = [...other,...items];
+          }
+          await client.query('INSERT INTO public.system_settings (id, setting_key, setting_value, updated_at) VALUES ($1,$2,$3::jsonb,NOW()) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()',[randomUUID(),req.params.key,JSON.stringify(items)]);
+          await client.query('COMMIT');
+          return res.json({success:true,data:user.isFocal?scopeBiosecurityItems(items,user.assignedBarangay):items});
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
+        finally { client.release(); }
+      }
       const saved = req.params.key === 'certificate_templates'
         ? await saveCertificateTemplate(req.body.data, {
           role: user.role,
@@ -1070,13 +1259,80 @@ export function createApp() {
     }
   });
 
+  const handleModuleItem = async (req: express.Request,res: express.Response) => {
+    const user=getUserSecurityContext(req);
+    if (!user.isAdmin && (!user.isFocal || !user.assignedBarangay || req.params.key==='marketing_alerts')) return res.status(403).json({success:false,error:'You do not have permission to change this module.'});
+    try { return res.json({success:true,data:await mutateModuleItem(req.params.key,req.params.id,req.body,req.method==='DELETE',user)}); }
+    catch(error) { return res.status(400).json({success:false,error:error instanceof Error?error.message:'Module save failed.'}); }
+  };
+  app.put('/api/module-data/:key/items/:id',handleModuleItem);
+  app.delete('/api/module-data/:key/items/:id',handleModuleItem);
+
   // =========================================================================
   // 2. SWINE RECORDS - STRICT DATABASE SOURCE OF TRUTH
   // =========================================================================
 
   app.post('/api/storage/upload-url', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const { target, fileName, mimeType } = req.body || {};
+    const { target, fileName, mimeType, documentId } = req.body || {};
+    if (target === 'certificate-template') {
+      if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can import certificate templates.' });
+      if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+      const extension = typeof fileName === 'string' ? fileName.split('.').pop()?.toLowerCase() : '';
+      const extensionsByType: Record<string, string[]> = {
+        'application/pdf': ['pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+        'image/jpeg': ['jpg', 'jpeg'],
+        'image/png': ['png'],
+      };
+      if (typeof fileName !== 'string' || !extensionsByType[mimeType]?.includes(extension || '')) {
+        return res.status(400).json({ success: false, error: 'Choose a PDF, DOCX, JPEG, or PNG certificate.' });
+      }
+      try {
+        const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'certificate-source';
+        const filePath = `shared/certificate-imports/${randomUUID()}-${safeFileName}`;
+        const signed = await supabaseAdminClient.storage.from('certificates').createSignedUploadUrl(filePath);
+        if (signed.error) throw signed.error;
+        return res.json({ success: true, bucket: 'certificates', filePath, token: signed.data.token });
+      } catch (error) {
+        console.error('[certificate-template] unable to prepare source upload', error);
+        return res.status(503).json({ success: false, error: 'Unable to prepare a private certificate source upload.' });
+      }
+    }
+    if (target === 'legal-document') {
+      if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can upload legal documents.' });
+      if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+      const legalTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+      ];
+      const extension = typeof fileName === 'string' ? fileName.split('.').pop()?.toLowerCase() : '';
+      const extensionsByType: Record<string, string[]> = {
+        'application/pdf': ['pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+        'image/jpeg': ['jpg', 'jpeg'],
+        'image/png': ['png'],
+      };
+      if (typeof documentId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(documentId) ||
+          typeof fileName !== 'string' || !extensionsByType[mimeType]?.includes(extension || '') ||
+          !legalTypes.includes(mimeType)) {
+        return res.status(400).json({ success: false, error: 'Choose a PDF, DOCX, JPEG, or PNG file and a valid legal document.' });
+      }
+      try {
+        const existing = await pool.query('SELECT id FROM public.legal_documents WHERE id = $1', [documentId]);
+        if (!existing.rows.length) return res.status(404).json({ success: false, error: 'Save the legal document record before uploading an attachment.' });
+        const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'legal-document';
+        const filePath = `legal-documents/${documentId}/${randomUUID()}-${safeFileName}`;
+        const signed = await supabaseAdminClient.storage.from('documents').createSignedUploadUrl(filePath);
+        if (signed.error) throw signed.error;
+        return res.json({ success: true, bucket: 'documents', filePath, token: signed.data.token });
+      } catch (error) {
+        console.error('[legal-documents] unable to prepare upload', error);
+        return res.status(503).json({ success: false, error: 'Unable to prepare a private legal document upload.' });
+      }
+    }
     if (!user.isAdmin && !(target === 'certificate' && user.isFocal && user.assignedBarangay)) return res.status(403).json({ success: false, error: 'Upload permission denied.' });
     if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
     if (!['certificate', 'landing', 'media'].includes(target) || typeof fileName !== 'string' || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mimeType)) return res.status(400).json({ success: false, error: 'Choose a supported image and upload target.' });
@@ -1090,6 +1346,24 @@ export function createApp() {
       if (signed.error) throw signed.error;
       return res.json({ success: true, bucket, filePath, token: signed.data.token });
     } catch { return res.status(503).json({ success: false, error: 'Unable to prepare a Storage upload.' }); }
+  });
+
+  app.post('/api/certificate-template-sources/complete', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can import certificate templates.' });
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: getSupabaseAdminConfigError() });
+    const { filePath, fileName, mimeType } = req.body || {};
+    if (typeof filePath !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') {
+      return res.status(400).json({ success: false, error: 'Uploaded certificate source metadata is incomplete.' });
+    }
+    try {
+      const result = await verifyDirectCertificateTemplateSource(supabaseAdminClient, filePath, fileName, mimeType);
+      return res.status(201).json({ success: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify the uploaded certificate source.';
+      return res.status(/invalid|choose|empty|large|match/i.test(message) ? 400 : 503)
+        .json({ success: false, error: message });
+    }
   });
 
   async function completedDirectImage(req: express.Request, certificate = false) {
@@ -1277,11 +1551,16 @@ export function createApp() {
     }
 
     const record = req.body;
+    try { validateSwineMutation(record); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
     if (!record || typeof record !== 'object') {
       return res.status(400).json({ success: false, error: 'Invalid record payload' });
     }
 
     const { farmerContact, pigIdTag, earTagNo, birthDate } = record;
+    if (!record.farmerName?.trim() || (!user.isFocal && !record.barangay?.trim())) {
+      return res.status(400).json({success:false,error:'Farmer name and barangay are required.'});
+    }
     if (farmerContact && !isValidPhilippinePhoneNumber(farmerContact)) {
       return res.status(400).json({
         success: false,
@@ -1294,11 +1573,9 @@ export function createApp() {
     let tag = (pigIdTag || earTagNo || '').trim();
     if (!tag) {
       // Auto-generate authoritative ID if not supplied
-      const currentYear = new Date().getFullYear();
-      const { total } = await getAllSwineRecords();
-      tag = `HIN-${currentYear}-${String(total + 1).padStart(4, '0')}`;
       // Auto-generate authoritative ID atomically from database sequence
-      tag = await getNextAuthoritativePigIdTag();
+      try { tag = await getNextAuthoritativePigIdTag(); }
+      catch { return res.status(503).json({success:false,error:'Swine tag allocation is unavailable. Please retry after the database connection is restored.'}); }
     }
 
     if (tag && !PIG_ID_TAG_REGEX.test(tag)) {
@@ -1336,7 +1613,7 @@ export function createApp() {
 
     const newRec = {
       ...record,
-      id: record.id || `swine-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: randomUUID(),
       pigIdTag: tag,
       earTagNo: tag,
       registeredBy: user.username,
@@ -1361,9 +1638,25 @@ export function createApp() {
         column: err?.column || err?.cause?.column,
       });
 
-      return res.status(500).json({
+      const userMessage = code === '23502'
+        ? 'A required database field is missing. Please select a valid barangay and complete the required fields.'
+        : code === '23503'
+          ? 'The selected barangay or related record is no longer valid. Please reselect it and try again.'
+          : code === '23505'
+            ? 'A record with this unique identifier already exists. Check the Pig ID Tag and try again.'
+            : code === '23514'
+              ? 'One or more values do not meet the database validation rules. Review the form and try again.'
+              : /^(08|53|57)/.test(String(code || '')) || ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT'].includes(String(code || ''))
+                ? 'Unable to connect to the database. Your form data is preserved; please retry when the connection is restored.'
+                : /barangay .* is not registered/i.test(message)
+                  ? 'Please select a valid barangay before saving the swine record.'
+                  : message;
+      const status = code === '23505' ? 409
+        : ['23502', '23503', '23514'].includes(String(code)) || userMessage.startsWith('Please select') ? 400
+          : userMessage.startsWith('Unable to connect') ? 503 : 500;
+      return res.status(status).json({
         success: false,
-        error: code ? `Database save failed (${code}): ${message}` : message,
+        error: code ? `Database save failed (${code}): ${userMessage}` : userMessage,
         ...(code ? { database_error_code: code } : {}),
         ...(detail ? { database_error_detail: detail } : {}),
         ...(hint ? { database_error_hint: hint } : {}),
@@ -1386,6 +1679,11 @@ export function createApp() {
 
     const { id } = req.params;
     const record = req.body;
+    try { validateSwineMutation(record); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      return res.status(400).json({ success: false, error: 'Invalid record payload.' });
+    }
 
     const { farmerContact, birthDate } = record || {};
     if (farmerContact && !isValidPhilippinePhoneNumber(farmerContact)) {
@@ -1432,6 +1730,8 @@ export function createApp() {
         }
       }
 
+      try { assertImmutableSwineIdentity(existing, record); }
+      catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
       // Preserve immutable Pig ID
       const preservedPigId = existing.pigIdTag || (existing as any).computedPigId || existing.earTagNo;
       const updated = {
@@ -1552,133 +1852,89 @@ export function createApp() {
       return res.status(403).json({ success: false, error: 'Access Denied: Agent accounts cannot import records.' });
     }
 
-    const { records, fileName, duplicateHandling, newFieldsCreated } = req.body;
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.status(400).json({ success: false, error: 'No swine records provided for import.' });
-    }
-    if (records.some((record: any) => !record || typeof record !== 'object' || Array.isArray(record))) {
-      return res.status(400).json({ success: false, error: 'Import records must be JSON objects.' });
-    }
-    if (user.isFocal && !user.assignedBarangay) {
-      return res.status(403).json({ success: false, error: 'Your account must be assigned to a barangay before importing records.' });
-    }
-    if (user.isFocal && records.some((record: any) => record.barangay &&
-      record.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase())) {
-      return res.status(403).json({ success: false, error: 'Focal persons can only import records for their assigned barangay.' });
-    }
-    const scopedRecords = user.isFocal
-      ? records.map((record: any) => ({
-          ...record,
-          barangay: user.assignedBarangay,
-          barangay_id: user.barangayId || record.barangay_id,
-        }))
-      : records;
-
+    const { records, fileName, duplicateHandling = 'skip', newFields, sectionId, batchId } = req.body;
+    if (!Array.isArray(records) || !records.length || records.length > IMPORT_LIMITS.batch) return res.status(400).json({success:false,error:`Send 1–${IMPORT_LIMITS.batch} records per batch.`});
+    if (!['skip','update','rename','error'].includes(duplicateHandling)) return res.status(400).json({success:false,error:'Invalid duplicate policy.'});
+    let fields;
+    try { fields = validateImportFieldDefinitions(newFields); }
+    catch (error) { return res.status(400).json({success:false,error:(error as Error).message}); }
+    if (fields.length && !user.isAdmin) return res.status(403).json({success:false,error:'Only administrators can create custom registry fields. Ask an administrator to publish these fields first.'});
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'Your account must be assigned to a barangay before importing records.'});
+    if (user.isFocal && records.some((record:any) => typeof record?.barangay !== 'string' || record.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase())) return res.status(403).json({success:false,error:'Focal persons can only import records for their assigned barangay.'});
+    if (typeof batchId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(batchId)) return res.status(400).json({success:false,error:'A stable import batch ID is required.'});
     try {
-      // Priority 8: Auto-register unknown JSON fields as dynamic registry fields without altering PostgreSQL columns
-      try {
-        const knownBaseKeys = new Set([
-          'id', 'computedPigId', 'computed_pig_id', 'pigIdTag', 'pig_id_tag',
-          'earTagNo', 'ear_tag_no', 'farmerName', 'farmer_name', 'farmName', 'farm_name',
-          'farmerContact', 'farmer_contact', 'farmerAddress', 'farmer_address',
-          'barangay', 'barangay_id', 'birthDate', 'birth_date', 'dateOfBirth', 'date_of_birth',
-          'dob', 'ageDays', 'age_days', 'ageMonths', 'age_months', 'estimatedWeightKg', 'estimated_weight_kg',
-          'actualWeightKg', 'actual_weight_kg', 'weightKg', 'weight_kg', 'swineType', 'swine_type',
-          'farmScale', 'farm_scale', 'farmType', 'farm_type', 'asfZone', 'asf_zone',
-          'biosecurityWarning', 'biosecurity_warning', 'status', 'readyToSell', 'ready_to_sell',
-          'priceEstimate', 'price_estimate', 'estimatedPricePhp', 'photoUrl', 'photo_url',
-          'isArchived', 'is_archived', 'registeredAt', 'registered_at', 'registeredBy', 'registered_by',
-          'createdAt', 'created_at', 'updatedAt', 'updated_at', 'customFields', 'custom_fields',
-          'biosecurity', 'notes', 'breed', 'gender', 'latitude', 'longitude', 'penCapacity',
-          'rsbsaId', 'registry_id', 'isSynced', 'age', 'setbackCompliant',
-          'distanceToWaterSourceMeters', 'distanceToTourismSchoolMeters', 'distanceToBuiltUpMeters'
-        ]);
-
-        const incomingUnknownKeys = new Set<string>();
-        for (const rec of scopedRecords) {
-          if (rec && typeof rec === 'object') {
-            for (const key of Object.keys(rec)) {
-              if (!knownBaseKeys.has(key) && rec[key] !== undefined && typeof rec[key] !== 'function') {
-                incomingUnknownKeys.add(key);
-              }
-            }
-            if (rec.customFields && typeof rec.customFields === 'object' && !Array.isArray(rec.customFields)) {
-              for (const cKey of Object.keys(rec.customFields)) {
-                if (!knownBaseKeys.has(cKey)) {
-                  incomingUnknownKeys.add(cKey);
-                }
-              }
-            }
-          }
-        }
-
-        if (incomingUnknownKeys.size > 0) {
-          const existingDbFields = await getAllSchemaFieldsFromDb();
-          const existingKeys = new Set(existingDbFields.map(f => f.fieldKey.toLowerCase()));
-          const existingIds = new Set(existingDbFields.map(f => f.id.toLowerCase()));
-
-          for (const rawKey of incomingUnknownKeys) {
-            const fieldKey = toFieldKey(rawKey);
-            const fieldId = `field_${fieldKey}`;
-            if (!existingKeys.has(fieldKey.toLowerCase()) && !existingIds.has(fieldId.toLowerCase())) {
-              const sampleVal = scopedRecords.find((r: any) => r[rawKey] !== undefined)?.[rawKey];
-              const fieldType = typeof sampleVal === 'number' ? 'number' : typeof sampleVal === 'boolean' ? 'boolean' : 'text';
-              const label = rawKey
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/[_-]/g, ' ')
-                .trim()
-                .replace(/^\w/, c => c.toUpperCase());
-
-              await upsertSchemaFieldInDb({
-                id: fieldId,
-                fieldKey,
-                label,
-                fieldType,
-                required: false,
-                visible: true,
-                sectionId: 'sec_custom',
-                sectionTitle: 'Dynamic Custom Fields',
-                fieldOrder: existingDbFields.length + 1,
-              });
-            }
-          }
-        }
-      } catch (schemaErr) {
-        console.warn('Auto-registering dynamic fields notice:', schemaErr);
+      const requestHash = createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
+      const receiptKey = `swine_import:${createHash('sha256').update(`${user.userId}:${batchId}`).digest('hex')}`;
+      const previous = await getStoredSystemSetting<any>(receiptKey);
+      if (previous) {
+        if (previous.requestHash !== requestHash) return res.status(409).json({success:false,error:'Batch ID was already used with different data.'});
+        return res.json({success:true,count:previous.result.data.length,...previous.result,newFieldsCreated:previous.result.newFields,schema:await getFullRegistrySchemaFromDb()});
       }
-
-      const savedRecords = await batchUpsertSwineRecords(scopedRecords);
-
-      // Record audit history if system settings table is available
-      try {
-        const histKey = 'swine_import_audit_history';
-        const existingHist = (await getSystemSetting(histKey)) || [];
-        const newHistEntry = {
-          batchId: `BATCH-${Date.now()}`,
-          fileName: fileName || 'Import.xlsx',
-          importedBy: user.username || 'System Admin',
-          importedAt: new Date().toISOString(),
-          recordCount: savedRecords.length,
-          newFields: newFieldsCreated || [],
-          duplicatePolicy: duplicateHandling || 'update',
-        };
-        await setSystemSetting(histKey, [newHistEntry, ...(Array.isArray(existingHist) ? existingHist.slice(0, 30) : [])]);
-      } catch (histErr) {
-        console.warn('Import audit history recording notice:', histErr);
+      const schema = await getFullRegistrySchemaFromDb();
+      const definitions = [...schema.sections.flatMap(section => section.fields), ...fields];
+      const preparedRecords: any[] = [];
+      const sourceIndexes: number[] = [];
+      const failures: {index:number; reason:string; duplicate?:boolean}[] = [];
+      const skipped: number[] = [];
+      const seenTags = new Set<string>(), seenIds = new Set<string>(), seenRows = new Set<string>();
+      for (let index = 0; index < records.length; index++) {
+        const record = records[index];
+        try {
+          validateImportRecordShape(record);
+          validateSwineMutation(record);
+          for (const [key, value] of Object.entries(record.customFields || {})) {
+            const definition = definitions.find(field => field.fieldKey === key || field.id === key);
+            if (!definition) throw new Error(`Custom field ${key} has not been registered. Review mappings and confirm field creation.`);
+            const converted = coerceImportValue(value, definition.type);
+            record.customFields[key] = converted;
+            if (definition.type === 'dropdown' && converted != null && converted !== '' && definition.options?.length && !definition.options.includes(String(converted))) throw new Error(`Invalid option for ${definition.label}.`);
+          }
+          const identityTags = [record.pigIdTag, record.earTagNo].filter(Boolean).map((tag:string) => tag.trim().toUpperCase());
+          const fingerprint = stableImportFingerprint({...record, id: undefined, registeredAt:undefined, updatedAt:undefined, isSynced:undefined});
+          if ((record.id && seenIds.has(record.id)) || identityTags.some((tag:string) => seenTags.has(tag)) || seenRows.has(fingerprint)) {
+            failures.push({index, reason:'Duplicate record within this batch.', duplicate:true}); continue;
+          }
+          identityTags.forEach((tag:string) => seenTags.add(tag));
+          if (record.id) seenIds.add(record.id);
+          seenRows.add(fingerprint);
+          const matches = (await Promise.all([record.id, ...identityTags].filter(Boolean).map(id => getSwineRecordById(id)))).filter(Boolean);
+          if (new Set(matches.map(match => match!.id)).size > 1) throw new Error('Record ID and ear tag refer to different existing swine.');
+          const existing = matches[0];
+          const candidateCustomFields = {...existing?.customFields,...record.customFields};
+          for (const definition of definitions.filter(field => field.isCustom && field.required && field.visible !== false)) {
+            const value = candidateCustomFields[definition.fieldKey || definition.id] ?? candidateCustomFields[definition.id];
+            if (value === undefined || value === null || value === '') throw new Error(`${definition.label} is required.`);
+          }
+          if (existing) {
+            if (user.isFocal && existing.barangay.trim().toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) throw new Error('Existing record is outside your assigned barangay.');
+            if (duplicateHandling === 'skip') { skipped.push(index); continue; }
+            if (duplicateHandling === 'error') { failures.push({index, reason:'Record already exists.', duplicate:true}); continue; }
+            if (duplicateHandling === 'rename') {
+              const tag = await getNextAuthoritativePigIdTag();
+              preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag,computedPigId:tag});
+            } else {
+              assertImmutableSwineIdentity(existing, {...record, id: existing.id});
+              preparedRecords.push({...existing,...record,id:existing.id,customFields:{...existing.customFields,...record.customFields}});
+            }
+          } else {
+            const tag = record.pigIdTag || record.earTagNo || await getNextAuthoritativePigIdTag();
+            if (!PIG_ID_TAG_REGEX.test(tag)) throw new Error('Invalid Pig ID Tag in import.');
+            if (record.earTagNo && record.pigIdTag && record.earTagNo !== record.pigIdTag) throw new Error('Pig ID and ear tag must identify the same swine.');
+            preparedRecords.push({...record,id:randomUUID(),pigIdTag:tag,earTagNo:tag});
+          }
+          sourceIndexes.push(index);
+        } catch (error) { failures.push({index,reason:(error as Error).message}); }
       }
-
-      return res.status(200).json({
-        success: true,
-        count: savedRecords.length,
-        data: savedRecords,
-        message: `Successfully imported ${savedRecords.length} swine records.`,
-      });
-    } catch (err: any) {
-      console.error('Error in batch import swine API:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Database import failed. Please check the backend connection.',
-      });
+      const persisted = await persistSwineImportBatch(preparedRecords, fields, schema.sections.find(section => section.id === sectionId)?.id || schema.sections[0]?.id || 'sec_swine_info', receiptKey, requestHash, {sourceIndexes,failures,skipped},schema);
+      try {
+        const history = await getSystemSetting<any[]>('swine_import_audit_history') || [];
+        const entry = {batchId,fileName:fileName || 'Import',importedBy:user.username,importedAt:new Date().toISOString(),recordCount:persisted.data.length,newFields:persisted.newFields,duplicatePolicy:duplicateHandling};
+        await setSystemSetting('swine_import_audit_history',[entry,...(Array.isArray(history) ? history.filter(item => item.batchId !== batchId).slice(0,30) : [])]);
+      } catch (error) { console.warn('Import audit history could not be updated:',error); }
+      return res.json({success:true,count:persisted.data.length,data:persisted.data,failures:persisted.failures,skipped:persisted.skipped,newFieldsCreated:persisted.newFields,schema:await getFullRegistrySchemaFromDb()});
+    } catch (error) {
+      console.error('Swine import failed:', error);
+      return res.status(500).json({success:false,error: (error as Error).message || 'Database import failed. No success has been confirmed; retry this batch.'});
     }
   };
 
@@ -1897,11 +2153,11 @@ export function createApp() {
   // =========================================================================
   app.get('/api/dashboard/stats', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const effectiveBarangay = user.isAdmin ? undefined : (user.assignedBarangay || user.barangayId);
-
+    const effectiveBarangay = user.isAdmin || user.isAgent ? undefined : (user.assignedBarangay || user.barangayId);
+    if(user.isFocal && !user.assignedBarangay)return res.status(403).json({success:false,error:'An assigned barangay is required.'});
     try {
       const { records, total } = await getAllSwineRecords({
-        barangay: effectiveBarangay,
+        barangay: effectiveBarangay,readyToSell:user.isAgent?true:undefined,isArchived:false,
       });
 
       const farmersSet = new Set<string>();
@@ -1919,7 +2175,7 @@ export function createApp() {
       const monthlyRegistrations: Record<string, number> = {};
 
       records.forEach(r => {
-        if (r.farmerName) farmersSet.add(`${r.farmerName.trim().toLowerCase()}_${r.barangay}`);
+        farmersSet.add(farmerIdentity(r));
         if (r.barangay) {
           barangaysWithPigs.add(r.barangay);
           swineByBarangay[r.barangay] = (swineByBarangay[r.barangay] || 0) + 1;
@@ -1973,11 +2229,12 @@ export function createApp() {
 
   app.get('/api/swine-records/stats/summary', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const effectiveBarangay = user.isAdmin ? undefined : (user.assignedBarangay || user.barangayId);
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned barangay is required.'});
+    const effectiveBarangay = user.isAdmin || user.isAgent ? undefined : user.assignedBarangay;
 
     try {
       const { records } = await getAllSwineRecords({
-        barangay: effectiveBarangay,
+        barangay: effectiveBarangay, readyToSell: user.isAgent ? true : undefined, isArchived: false,
       });
 
       const summary = {
@@ -2060,6 +2317,9 @@ export function createApp() {
     const user = getUserSecurityContext(req);
     const cert = req.body;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can issue certificates.' });
+    }
     if (!cert || (!cert.controlNumber && !cert.certificateNo)) {
       return res.status(400).json({ success: false, error: 'Invalid certificate payload' });
     }
@@ -2071,6 +2331,11 @@ export function createApp() {
     }
 
     try {
+      const templateError = await validateCertificateTemplateIssuance(cert, user);
+      if (templateError) return res.status(403).json({ success: false, error: templateError });
+      const selectionError = await validateCertificateSwineSelection(cert, user, true);
+      if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
+        .json({ success: false, error: selectionError });
       const saved = await upsertCertificate({
         ...cert,
         metadata: {
@@ -2121,6 +2386,9 @@ export function createApp() {
     const { id } = req.params;
     const cert = req.body;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can update certificates.' });
+    }
     if (!cert) {
       return res.status(400).json({ success: false, error: 'Certificate data is required.' });
     }
@@ -2145,9 +2413,18 @@ export function createApp() {
         cert.issuingBarangay = user.assignedBarangay;
       }
 
+      const candidate = { ...existing, ...cert };
+      if (candidate.templateId !== existing.templateId) {
+        const templateError = await validateCertificateTemplateIssuance(candidate, user);
+        if (templateError) return res.status(403).json({ success: false, error: templateError });
+      }
+      const selectionError = await validateCertificateSwineSelection(candidate, user, false);
+      if (selectionError) return res.status(user.isFocal && /assigned barangay|your assigned/i.test(selectionError) ? 403 : 400)
+        .json({ success: false, error: selectionError });
+
       const updated = await upsertCertificate({
         ...existing,
-        ...cert,
+        ...candidate,
         id: existing.id || id,
         controlNumber: existing.controlNumber || cert.controlNumber || id,
         metadata: {
@@ -2171,6 +2448,9 @@ export function createApp() {
     const user = getUserSecurityContext(req);
     const { controlNumber } = req.params;
 
+    if (!user.isAdmin && !user.isFocal) {
+      return res.status(403).json({ success: false, error: 'Only administrators and assigned Focal Persons can archive certificates.' });
+    }
     try {
       if (!user.isAdmin) {
         const existing = await getCertificateByIdOrControlNumber(controlNumber);
@@ -2263,10 +2543,12 @@ export function createApp() {
 
   app.post('/api/messages', async (req, res) => {
     const user = getUserSecurityContext(req);
-    const payload = req.body;
+    let payload = req.body;
     if (!payload || ![payload.message, payload.content, payload.body].some(value => typeof value === 'string' && value.trim())) {
       return res.status(400).json({ success: false, error: 'Message content is required.' });
     }
+    try { payload = authorizeMessagePayload(payload, user); }
+    catch (error) { return res.status(403).json({success:false,error:(error as Error).message}); }
 
     try {
       const newMsg = await createMessage({
@@ -2286,10 +2568,13 @@ export function createApp() {
   app.patch('/api/messages/:id/read', async (req, res) => {
     const { id } = req.params;
     const user = getUserSecurityContext(req);
+    if (!user.isAuthenticated || !user.userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required to mark messages as read.' });
+    }
     try {
       const visible = await getAllMessages({ role: user.role, barangay: user.assignedBarangay, userId: user.userId });
       if (!visible.some(message => message.id === id)) return res.status(404).json({ success: false, error: 'Message not found in your scope.' });
-      if (!await markMessageRead(id)) throw new Error('Unable to update message');
+      if (!await markMessageRead(id, user.userId)) throw new Error('Unable to update message');
       return res.json({ success: true, message: 'Message marked as read.' });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to update message.' });
@@ -2305,8 +2590,9 @@ export function createApp() {
     try {
       const allMsgs = await getAllMessages({ role: 'admin', userId: user.userId });
       const target = allMsgs.find(m => m.id === id);
+      if (!target) return res.status(404).json({success:false,error:'Message not found.'});
       if (target && !user.isAdmin) {
-        if (target.senderId !== user.userId && target.senderName !== user.username) {
+        if (target.senderId !== user.userId) {
           return res.status(403).json({ success: false, error: 'Access Denied: You cannot delete messages sent by another user.' });
         }
       }
@@ -2421,6 +2707,9 @@ export function createApp() {
 
   app.put('/api/settings', async (req, res) => {
     const admin = getUserSecurityContext(req);
+    if (req.body?.key === 'api_configuration' && !admin.isSuperAdmin) {
+      return res.status(403).json({success:false,error:'Super administrator access required for API configuration.'});
+    }
     if (!admin.isAdmin) {
       return res.status(403).json({ success: false, error: 'Access Denied: Only administrators can update system settings.' });
     }
@@ -2890,10 +3179,115 @@ export function createApp() {
   app.get('/api/legal-documents', async (_req, res) => {
     try {
       const result = await pool.query('SELECT document FROM legal_documents ORDER BY updated_at DESC, id');
-      const documents = result.rows.map(row => row.document);
+      const user = getUserSecurityContext(_req);
+      const allDocuments = result.rows.map(row => row.document as ASFRegulatoryDocument);
+      const documents = user.isAdmin
+        ? allDocuments
+        : allDocuments.filter(document => document.status === 'verified' && !document.isArchived);
       return res.json({ success: true, count: documents.length, data: documents });
     } catch {
       return res.status(503).json({ success: false, error: 'Legal documents database unavailable.' });
+    }
+  });
+
+  app.post('/api/legal-documents/:id/attachments', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!user.isAdmin) return res.status(403).json({ success: false, error: 'Only administrators can upload legal document attachments.' });
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+    const { id } = req.params;
+    const { filePath, fileName, mimeType } = req.body || {};
+    if (typeof filePath !== 'string' || typeof fileName !== 'string' || typeof mimeType !== 'string') {
+      return res.status(400).json({ success: false, error: 'Uploaded file metadata is required.' });
+    }
+
+    let verifiedFile: Awaited<ReturnType<typeof verifyDirectLegalDocument>>;
+    try {
+      verifiedFile = await verifyDirectLegalDocument(supabaseAdminClient, filePath, fileName, mimeType, id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify uploaded legal document.';
+      return res.status(/choose|contents|non-empty|larger|outside|invalid/i.test(message) ? 400 : 503)
+        .json({ success: false, error: message });
+    }
+
+    try {
+      const result = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      const existing = result.rows[0]?.document;
+      if (!existing) {
+        await supabaseAdminClient.storage.from('documents').remove([filePath]);
+        return res.status(404).json({ success: false, error: 'Legal document not found.' });
+      }
+      const previousAttachments = Array.isArray(existing.sourceDocuments) ? existing.sourceDocuments : [];
+      const version = previousAttachments.reduce((max, attachment) => Math.max(max, Number(attachment.version) || 0), 0) + 1;
+      const attachment = {
+        id: randomUUID(),
+        name: fileName,
+        originalFileName: fileName,
+        storagePath: filePath,
+        fileType: mimeType,
+        fileSize: verifiedFile.fileSize,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: user.username,
+        version,
+        checksum: '',
+        isCurrent: true,
+        url: '',
+      };
+      const updated: ASFRegulatoryDocument = {
+        ...existing,
+        status: existing.status === 'verified' || existing.status === 'active' ? 'for_verification' : existing.status || 'for_verification',
+        sourceCompleteness: existing.status === 'verified' || existing.status === 'active'
+          ? 'metadata_only'
+          : existing.sourceCompleteness || 'metadata_only',
+        sourceDocuments: [
+          ...previousAttachments.map(item => ({ ...item, isCurrent: false })),
+          attachment,
+        ],
+      };
+      const saved = await mutateLegalDocument(pool, 'update', id, updated, user);
+      if (!saved) throw new Error('Legal document changed before the attachment could be saved.');
+      const savedDocument = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      if (!savedDocument.rows[0]?.document) throw new Error('Saved document attachment could not be reloaded.');
+      return res.status(201).json({
+        success: true,
+        data: {
+          document: savedDocument.rows[0].document,
+          attachment: { ...attachment, url: verifiedFile.fileUrl },
+        },
+      });
+    } catch (error) {
+      const cleanup = await supabaseAdminClient.storage.from('documents').remove([filePath]);
+      if (cleanup.error) console.error('[legal-documents] unable to clean up failed upload', cleanup.error.message);
+      console.error('[legal-documents] attachment metadata save failed', error);
+      return res.status(503).json({ success: false, error: 'Unable to save legal document attachment metadata.' });
+    }
+  });
+
+  app.get('/api/legal-documents/:id/attachments/:attachmentId/url', async (req, res) => {
+    const user = getUserSecurityContext(req);
+    if (!supabaseAdminClient) return res.status(503).json({ success: false, error: 'Supabase Storage is unavailable.' });
+    try {
+      const result = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [req.params.id],
+      );
+      const document = result.rows[0]?.document;
+      if (!document) return res.status(404).json({ success: false, error: 'Legal document not found.' });
+      if (!user.isAdmin && (document.status !== 'verified' || document.isArchived)) {
+        return res.status(403).json({ success: false, error: 'Only verified legal documents are available to this account.' });
+      }
+      const attachment = (document.sourceDocuments || []).find(item => item.id === req.params.attachmentId);
+      if (!attachment?.storagePath) return res.status(404).json({ success: false, error: 'Document attachment not found.' });
+      const url = await createLegalDocumentSignedUrl(supabaseAdminClient, attachment.storagePath, document.id);
+      return res.json({ success: true, data: { url } });
+    } catch (error) {
+      console.error('[legal-documents] unable to sign attachment', error);
+      return res.status(503).json({ success: false, error: 'Unable to open legal document attachment.' });
     }
   });
 
@@ -2915,11 +3309,38 @@ export function createApp() {
     if (operation !== 'delete' && (!isLegalDocument(req.body) || (operation === 'update' && req.body.id !== req.params.id))) {
       res.status(400).json({ success: false, error: 'A valid document with matching ID, title, official number, type and articles is required.' }); return;
     }
+    if (operation !== 'delete' && req.body.status === 'verified') {
+      if (!hasVerifiableSourceAttachment(req.body)) {
+        res.status(400).json({ success: false, error: 'A verified legal document requires a current uploaded source and an explicit complete or excerpt classification.' });
+        return;
+      }
+      if (!supabaseAdminClient) {
+        res.status(503).json({ success: false, error: 'Supabase Storage is unavailable; the legal source could not be verified.' });
+        return;
+      }
+      const attachment = req.body.sourceDocuments.find((item: { isCurrent?: boolean }) => item.isCurrent === true);
+      try {
+        await createLegalDocumentSignedUrl(supabaseAdminClient, attachment.storagePath, req.body.id);
+      } catch (error) {
+        console.error('[legal-documents] verification source unavailable', error);
+        res.status(503).json({ success: false, error: 'The current legal source file is unavailable in private Supabase Storage.' });
+        return;
+      }
+    }
     const id = operation === 'create' ? req.body.id : req.params.id;
     try {
       const found = await mutateLegalDocument(pool, operation, id, operation === 'delete' ? undefined : req.body, user);
       if (!found) { res.status(404).json({ success: false, error: 'Legal document not found.' }); return; }
-      res.status(operation === 'create' ? 201 : 200).json({ success: true, data: operation === 'delete' ? null : req.body });
+      if (operation === 'delete') {
+        res.status(200).json({ success: true, data: null });
+        return;
+      }
+      const saved = await pool.query<{ document: ASFRegulatoryDocument }>(
+        'SELECT document FROM public.legal_documents WHERE id = $1',
+        [id],
+      );
+      if (!saved.rows[0]?.document) throw new Error('Saved legal document could not be reloaded.');
+      res.status(operation === 'create' ? 201 : 200).json({ success: true, data: saved.rows[0].document });
     } catch (error) {
       const conflict = getDatabaseErrorCode(error) === '23505';
       res.status(conflict ? 409 : 503).json({ success: false, error: conflict ? 'A document with this ID already exists.' : 'Unable to save legal document.' });
@@ -2936,8 +3357,9 @@ export function createApp() {
   // GET /api/sync/status
   app.get('/api/sync/status', async (req, res) => {
     const user = getUserSecurityContext(req);
+    if (user.isFocal && !user.assignedBarangay) return res.status(403).json({success:false,error:'An assigned barangay is required.'});
     try {
-      const { total } = await getAllSwineRecords();
+      const { total } = await getAllSwineRecords({barangay:user.isFocal?user.assignedBarangay:undefined,readyToSell:user.isAgent?true:undefined,isArchived:false});
       return res.json({
         success: true,
         status: 'ONLINE',
@@ -2947,11 +3369,7 @@ export function createApp() {
         totalSwineInDb: total,
       });
     } catch {
-      return res.json({
-        success: true,
-        status: 'ONLINE',
-        serverTime: new Date().toISOString(),
-      });
+      return res.status(503).json({success:false,status:'UNAVAILABLE',error:'Unable to read synchronization status from the database.'});
     }
   });
 
@@ -2968,6 +3386,7 @@ export function createApp() {
       const { records: swineList } = await getAllSwineRecords({
         barangay: effectiveBarangay,
         readyToSell: user.isAgent ? true : undefined,
+        isArchived: user.isAgent ? false : undefined,
       });
 
       const certs = await getAllCertificates();
@@ -3029,8 +3448,8 @@ export function createApp() {
 
     const resolvedSwineIds = new Map<string, string>();
     for (const op of operations) {
-      const { clientOperationId, operation, entity, payload } = op;
-      const originalEntityId = op.entityId;
+      const { clientOperationId, operation, entity, payload } = op && typeof op==='object' ? op : {};
+      const originalEntityId = op?.entityId;
       const entityId = entity === 'swine' ? resolvedSwineIds.get(originalEntityId) || originalEntityId : originalEntityId;
 
       try {
@@ -3101,9 +3520,13 @@ export function createApp() {
               results.push({ clientOperationId, entityId, success: false, error: 'Record is outside your assigned barangay or no longer exists.' });
               continue;
             }
+            const patch = entityId !== originalEntityId
+              ? {...payload,id:existing.id,pigIdTag:existing.pigIdTag,earTagNo:existing.earTagNo}
+              : payload || {};
+            assertImmutableSwineIdentity(existing,patch);
             const updated = await upsertSwineRecord({
               ...existing,
-              ...(payload || {}),
+              ...patch,
               id: existing.id,
               barangay: existing.barangay,
               barangay_id: existing.barangay_id,
@@ -3129,9 +3552,10 @@ export function createApp() {
           } else if (operation === 'sell' || operation === 'archive') {
             const existing = await getSwineRecordById(entityId);
             if (existing && (!user.isFocal || existing.barangay.toLowerCase() === user.assignedBarangay.toLowerCase())) {
+              assertImmutableSwineIdentity(existing,payload||{});
               const updated = {
                 ...existing,
-                ...payload,
+                ...(operation==='sell'?{readyToSell:payload?.readyToSell,estimatedPricePhp:payload?.priceEstimate}: {isArchived:payload?.isArchived}),
                 id: existing.id,
                 barangay: existing.barangay,
                 barangay_id: existing.barangay_id,
@@ -3142,11 +3566,11 @@ export function createApp() {
               results.push({
                 clientOperationId,
                 entityId,
-                success: true,
-                error: 'Record already updated or removed.',
+                success: false,
+                error: 'Record is unavailable or outside your assigned barangay.',
               });
             }
-          }
+          } else throw new Error('Unsupported swine synchronization operation.');
         } else if (entity === 'media') {
           if (!user.isAdmin) throw new Error('Administrator access required for media.');
           const resolvedUrl = payload.fileUrl || payload.base64 || payload.dataUrlOrBase64;
@@ -3176,14 +3600,23 @@ export function createApp() {
             payload.barangay = user.assignedBarangay;
             payload.farmerBarangay = user.assignedBarangay;
           }
+          const selectionError = await validateCertificateSwineSelection(payload, user, true);
+          if (selectionError) throw new Error(selectionError);
           const savedCert = await upsertCertificate({
             ...payload,
+            metadata: {
+              ...(payload.metadata || {}),
+              ...payload,
+              createdBy: user.userId,
+              createdByRole: user.role,
+            },
             id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
           });
           results.push({ clientOperationId, entityId, serverEntityId: savedCert.id, success: true });
         } else if (entity === 'message') {
+          const authorizedPayload = authorizeMessagePayload(payload || {}, user);
           const newMsg = await createMessage({
-            ...payload,
+            ...authorizedPayload,
             id: uuidForSyncOperation(`${user.userId}:${clientOperationId}`),
             senderId: user.userId,
             senderName: user.username,
@@ -3230,936 +3663,31 @@ export function createApp() {
   };
   app.post(['/api/public/assistant/chat', '/api/assistant/chat'], limitChat);
 
-  app.post('/api/public/assistant/chat', async (req, res) => {
-    const { message = '' } = req.body || {};
-
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ success: false, error: 'A valid message string is required.' });
-    }
-
-    try {
-      const lower = message.toLowerCase().trim();
-
-      // 1. REFUSAL: Secrets / Passwords / API Keys / Database Credential requests
-      if (
-        lower.includes('password') ||
-        lower.includes('api key') ||
-        lower.includes('apikey') ||
-        lower.includes('token') ||
-        lower.includes('secret') ||
-        lower.includes('database password') ||
-        lower.includes('sql') ||
-        lower.includes('credentials')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🔒 **Security Notice**: System credentials, internal database settings, API keys, and administrative secrets are restricted and cannot be disclosed under any circumstances.`,
-          suggestions: [
-            'What is the Swine Registry?',
-            'How do I register my swine?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 2. REFUSAL: Personal records inquiry ("Show my records", "Show my swine records", etc.)
-      if (
-        lower.includes('my record') ||
-        lower.includes('my swine') ||
-        lower.includes('my pig') ||
-        lower.includes('my farm') ||
-        lower.includes('show my') ||
-        lower.includes('view my') ||
-        lower.includes('check my') ||
-        lower.includes('my registration')
-      ) {
-        return res.json({
-          success: true,
-          reply: `Registry records are available through the authorized portal. Please sign in using your official account.`,
-          action: {
-            type: 'open_login',
-            label: 'Official Login',
-          },
-          suggestions: [
-            'What are the requirements?',
-            'How do I register my swine?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 3. REFUSAL: "Where" queries regarding individual swine, farmers, internal GIS locations, pins, coordinates
-      const isWhereLocationOfFarmerOrSwine =
-        (lower.includes('where is') || lower.includes('where are') || lower.includes('where can i find') || lower.includes('coordinates') || lower.includes('location of') || lower.includes('pin') || lower.includes('gps')) &&
-        (lower.includes('farmer') || lower.includes('pig') || lower.includes('swine') || lower.includes('pen') || lower.includes('juan') || lower.includes('infected') || lower.includes('raiser') || lower.includes('map coordinates') || lower.includes('gis coordinates'));
-
-      if (isWhereLocationOfFarmerOrSwine) {
-        return res.json({
-          success: true,
-          reply: `I can provide publicly available information about the Hinunangan Swine Registry, but individual swine, farmer, surveillance, and internal GIS locations are restricted to authorized system users.`,
-          suggestions: [
-            'Where is Hinunangan?',
-            'What barangays are covered?',
-            'What are the official contact details?',
-            'What is the Swine Registry?',
-          ],
-        });
-      }
-
-      // 4. REFUSAL: "Who" queries regarding ownership of specific swine or raiser identities
-      const isWhoQuery =
-        (lower.includes('who owns') || lower.includes('who is the owner') || lower.includes('who registered') || lower.includes('owner of') || (lower.startsWith('who') && (lower.includes('swine') || lower.includes('pig') || lower.includes('hin-') || lower.includes('ear tag'))));
-
-      if (isWhoQuery) {
-        return res.json({
-          success: true,
-          reply: `I can't provide private farmer, raiser, or registry information. That information is available only to authorized personnel.`,
-          suggestions: [
-            'What is the Swine Registry?',
-            'What are the requirements?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 5. General "Where is Hinunangan?"
-      if (
-        lower.includes('where is hinunangan') ||
-        lower.includes('location of hinunangan') ||
-        (lower.includes('where') && lower.includes('hinunangan') && !lower.includes('pig') && !lower.includes('farmer'))
-      ) {
-        return res.json({
-          success: true,
-          reply: `📍 **Municipality of Hinunangan, Southern Leyte**:
-Hinunangan is a coastal municipality in the eastern part of Southern Leyte, Eastern Visayas (Region VIII), Philippines. It spans 40 official barangays, bordered by Silago to the north, Hinundayan and Anahawan to the south, and Leyte Gulf to the east.
-
-The Municipal Agriculture Office (MAO) is located at the **Town Hall Compound, Poblacion, Hinunangan, Southern Leyte 6601**.`,
-          suggestions: [
-            'What barangays are covered?',
-            'What are the official contact details?',
-            'What is the Swine Registry?',
-          ],
-        });
-      }
-
-      // 6. "What is the Swine Registry?" / Purpose of the system
-      if (
-        lower.includes('what is the swine registry') ||
-        lower.includes('what is this system') ||
-        lower.includes('purpose') ||
-        lower.includes('about the registry') ||
-        lower.includes('about the system')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📋 **DA Hinunangan Swine Registry & Biosurveillance System**:
-The system is an official municipal platform managed by the **Department of Agriculture** and the **Municipal Agriculture Office (MAO) of Hinunangan**, in collaboration with the **Southern Leyte State University (SLSU) Extension Center**.
-
-**Key Purposes**:
-1. **Livestock Traceability**: Digitize pig populations, unique ear-tag identifiers, and health histories across all 40 barangays.
-2. **ASF Defense**: Safeguard the municipality's African Swine Fever **Green Zone (Free)** status through strict biosecurity standards.
-3. **Farmer Support**: Assist RSBSA-registered raisers with veterinary outreach, vaccination, and official transport clearances.
-4. **Market Transparency**: Connect accredited local hog raisers with meat buyers through certified Ready-to-Sell listings.`,
-          suggestions: [
-            'How do I register my swine?',
-            'What are the requirements?',
-            'What barangays are covered?',
-          ],
-        });
-      }
-
-      // 7. "How do I register my swine?" / "How can I register a swine?"
-      if (
-        lower.includes('how can i register') ||
-        lower.includes('how do i register') ||
-        lower.includes('how to register') ||
-        lower.includes('register my swine') ||
-        lower.includes('register a swine') ||
-        lower.includes('registration process')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📝 **How to Register Your Swine in Hinunangan**:
-
-1. **Check Eligibility**: Ensure you are an RSBSA-registered hog raiser or resident of any of the 40 barangays in Hinunangan.
-2. **Prepare Swine Details**: Have your swine ready for physical tagging (breed, approximate age/DOB, and current liveweight).
-3. **Comply with Basic Biosecurity**: Ensure your pen has perimeter barrier fencing, an active disinfectant footbath, potable water, and **zero swill feeding (kanin-baboy)**.
-4. **Contact Your Focal Person**: Notify your **Barangay Agricultural Focal Person** during designated inspection schedules at your Barangay Hall, or visit the **Municipal Agriculture Office (MAO)** at the Town Hall Compound.
-5. **Issuance**: Once verified and tagged, your swine will be entered into the official registry and issued a tracking clearance.`,
-          suggestions: [
-            'What are the requirements?',
-            'What are the official contact details?',
-            'What should I do if my pigs are sick?',
-          ],
-        });
-      }
-
-      // 8. "What are the requirements?"
-      if (
-        lower.includes('requirement') ||
-        lower.includes('qualifications') ||
-        lower.includes('what do i need') ||
-        lower.includes('needed to register')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📑 **Official Requirements for Swine Registration**:
-
-• **Raiser Credentials**: Valid Government ID and Proof of Residency in Hinunangan (or RSBSA Farmer Reference Number).
-• **Facility Standards**: Basic pen biosecurity compliance:
-  - Secure pen enclosure/fence.
-  - Footbath installed at pen entrance.
-  - Deepwell or potable drinking water source.
-  - Strictly **NO swill feeding** (food scraps/bahog).
-• **Swine Information**: Breed classification (Landrace, Large White, Duroc, Native, or crossbreed), birth date/age, and current weight estimate.
-• **Inspection & Ear Tagging**: Permitting the authorized Barangay Focal Person or MAO technician to attach the official ear tag and record pen georeference.`,
-          suggestions: [
-            'How do I register my swine?',
-            'What are the official contact details?',
-            'What is ASF?',
-          ],
-        });
-      }
-
-      // 9. "What is ASF?" / African Swine Fever info
-      if (
-        lower.includes('what is asf') ||
-        lower.includes('african swine fever') ||
-        lower.includes('asf virus') ||
-        lower.includes('asf disease')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🛡️ **About African Swine Fever (ASF)**:
-African Swine Fever is a severe, highly contagious viral disease affecting domestic and wild pigs. It causes high fever, respiratory distress, internal bleeding, and near 100% mortality in infected swine.
-
-• **Human Health**: ASF is **NOT** a public health threat and **cannot infect humans**. However, humans and vehicles can easily spread the virus on shoes, tires, clothes, and uncooked pork products.
-• **Hinunangan Status**: Hinunangan strictly maintains **Green Zone (Free)** status through checkpoint vehicle disinfection and municipal monitoring.
-• **Golden Rule**: **Never feed swill (kanin-baboy/food scraps)** to pigs, as swill is the #1 vector of ASF transmission.`,
-          suggestions: [
-            'What should I do if my pigs are sick?',
-            'What are the requirements?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 10. "What should I do if my pigs are sick?"
-      if (
-        lower.includes('sick') ||
-        lower.includes('fever') ||
-        lower.includes('dying') ||
-        lower.includes('symptoms') ||
-        lower.includes('emergency') ||
-        lower.includes('report sick')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🚨 **Emergency Protocol for Sick Swine**:
-
-1. **Immediately Isolate**: Move the sick pig to a separate isolation pen away from other animals.
-2. **DO NOT Sell or Transport**: Moving or selling sick pigs is strictly illegal under Municipal Ordinance and spreads disease.
-3. **DO NOT Slaughter or Consume**: Do not butcher sick pigs for human or pet consumption.
-4. **Disinfect**: Disinfect boots, pens, and equipment with bleach or veterinary disinfectant.
-5. **Report Immediately**: Contact your **Barangay Agricultural Focal Person** or call the **Municipal Agriculture Emergency Hotline at (053) 578-2011 / 0917-888-9999** for free veterinary assessment.`,
-          suggestions: [
-            'What are the official contact details?',
-            'What is ASF?',
-            'What are the requirements?',
-          ],
-        });
-      }
-
-      // 11. "What programs and services are available?"
-      if (
-        lower.includes('programs') ||
-        lower.includes('services') ||
-        lower.includes('assistance') ||
-        lower.includes('benefits') ||
-        lower.includes('support')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🌾 **DA Hinunangan Municipal Agricultural Programs & Services**:
-
-• **Free Swine Ear Tagging & Micro-Profiling**: Official registry identification for livestock security.
-• **Biosecurity Assistance & Farm Audits**: Assessment of pen biosecurity to protect against disease incursions.
-• **Veterinary Technical Support**: Provided in partnership with Southern Leyte State University (SLSU) Extension Center.
-• **Livestock Health Clearances & Transport Certificates**: Veterinary clearances for municipal and provincial livestock movement.
-• **Ready-to-Sell Market Catalog**: Assisting verified local raisers in connecting with legitimate buyers.
-• **Vaccination & Deworming Campaigns**: Periodic free municipal livestock deworming and immunization drives.`,
-          suggestions: [
-            'How do I register my swine?',
-            'What are the requirements?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 12. "What barangays are in Hinunangan? / What barangays are covered?"
-      if (
-        lower.includes('barangay') ||
-        lower.includes('covered') ||
-        lower.includes('coverage') ||
-        lower.includes('list of barangay')
-      ) {
-        const bgNames = HINUNANGAN_BARANGAYS.map(b => b.name).join(', ');
-        return res.json({
-          success: true,
-          reply: `🗺️ **Municipal Coverage (40 Barangays)**:
-The DA Hinunangan Swine Registry covers all **40 official barangays** of Hinunangan, Southern Leyte:
-
-${bgNames}
-
-Every barangay has an assigned **Barangay Agricultural Focal Person** working alongside the Punong Barangay and Municipal Agriculture Office.`,
-          suggestions: [
-            'What are the official contact details?',
-            'How do I register my swine?',
-            'What is the Swine Registry?',
-          ],
-        });
-      }
-
-      // 13. "How can I contact the office? / What are the official contact details?"
-      if (
-        lower.includes('contact') ||
-        lower.includes('phone') ||
-        lower.includes('email') ||
-        lower.includes('hotline') ||
-        lower.includes('address') ||
-        lower.includes('office') ||
-        lower.includes('hours')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📞 **Official Contact Information**:
-
-• **Office**: Municipal Agriculture Office (MAO)
-• **Location**: Hinunangan Town Hall Compound, Poblacion, Hinunangan, Southern Leyte 6601
-• **Telephone**: (053) 578-2011
-• **Emergency Hotline**: 0917-888-9999
-• **Email**: agri.hinunangan@gmail.com
-• **Official Facebook**: [facebook.com/LGUHinunanganOfficial](https://facebook.com/LGUHinunanganOfficial)
-• **Office Hours**: Monday to Friday, 8:00 AM – 5:00 PM`,
-          suggestions: [
-            'What is the Swine Registry?',
-            'How do I register my swine?',
-            'What are the requirements?',
-          ],
-        });
-      }
-
-      // 14. Public Legal Decrees & Ordinances
-      if (
-        lower.includes('ordinance') ||
-        lower.includes('decree') ||
-        lower.includes('law') ||
-        lower.includes('legal') ||
-        lower.includes('resolution')
-      ) {
-        return res.json({
-          success: true,
-          reply: `⚖️ **Public Ordinances & Biosecurity Decrees**:
-
-• **Hinunangan Municipal Ordinance No. 2025-59**: Mandates swine profiling, movement clearances, and the Babay ASF Biosecurity framework throughout Hinunangan.
-• **Southern Leyte Provincial Ordinance 2021-018**: Enforces strict border quarantine inspection, mandatory vehicle disinfection at municipal checkpoints, and absolute prohibition of swill feeding.
-• **Municipal Executive Order No. 12-2023**: Designates Barangay Agricultural Focal Persons to supervise local biosecurity compliance.`,
-          suggestions: [
-            'What is ASF?',
-            'What are the requirements?',
-            'What are the official contact details?',
-          ],
-        });
-      }
-
-      // 15. Gemini AI Engine (Strictly Grounded in Public System Portal Knowledge)
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-          const publicSystemPrompt = `You are the official "DA Hinunangan Public Information Assistant" for the Municipal Agriculture Office of Hinunangan, Southern Leyte.
-
-STRICT OPERATIONAL RULES:
-1. ONLY INTERNAL SYSTEM TOPICS: You must strictly ONLY answer questions about the Municipality of Hinunangan, DA Hinunangan agricultural programs, public swine registry guidelines, ASF prevention, and office contact information. NEVER search for external random topics or generic internet info (Dili mogawas sa sistema).
-2. DO NOT expose confidential internal data (individual farmer names, exact coordinates, or internal credentials).
-3. If asked where to register, explain that swine raisers can register by visiting the Municipal Agriculture Office at Poblacion, Hinunangan or coordinating with their Barangay Biosecurity Focal Person.
-4. MULTILINGUAL SUPPORT: Answer fluently in English, Tagalog, or Cebuano / Bisaya depending on what the user asks.
-5. Keep answers concise, polite, and helpful.`;
-
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: message,
-            config: {
-              systemInstruction: publicSystemPrompt,
-              temperature: 0.2,
-            },
-          });
-
-          if (response.text) {
-            return res.json({
-              success: true,
-              reply: response.text.trim(),
-              action: {
-                type: 'open_login',
-                label: 'Official Login',
-              },
-              suggestions: [
-                'What is the Swine Registry?',
-                'How do I register my swine?',
-                'What are the official contact details?',
-                'What barangays are covered?',
-              ],
-            });
-          }
-        } catch (aiErr) {
-          console.warn('Public Gemini API call fallback:', aiErr);
-        }
-      }
-
-      // 16. Default Public Greeting & Directory
-      return res.json({
-        success: true,
-        reply: `👋 Hello! I am the **DA Hinunangan Public Information Assistant**.
-
-I can answer publicly available questions regarding:
-• **Swine Registry & Guidelines**: How to register your swine and RSBSA requirements.
-• **Programs & Services**: Municipal agricultural assistance, veterinary visits, and clearances.
-• **African Swine Fever (ASF)**: Prevention measures, swill feeding prohibition, and zoning.
-• **Barangays & Office Contacts**: Official phone numbers, office location, and focal person coordination.
-
-*Note: Individual swine records, raiser personal data, and internal GIS coordinates are restricted to authorized personnel. Authorized users may sign in via the portal.*`,
-        action: {
-          type: 'open_login',
-          label: 'Official Login',
-        },
-        suggestions: [
-          'What is the Swine Registry?',
-          'How do I register my swine?',
-          'What are the requirements?',
-          'What are the official contact details?',
-          'What barangays are covered?',
-          'What should I do if my pigs are sick?',
-        ],
-      });
-    } catch (err: any) {
-      console.error('Public Assistant endpoint error:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Public assistant service temporarily unavailable.',
-      });
-    }
-  });
-
-  // =========================================================================
-  // 13. DA HINUNANGAN BIOSECURITY ASSISTANT API (ROLE-BASED & REAL-TIME)
-  // =========================================================================
-  app.post('/api/assistant/chat', async (req, res) => {
+  const handleAssistant = async (req: express.Request, res: express.Response) => {
     const user = getUserSecurityContext(req);
-    const { message = '' } = req.body || {};
-
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ success: false, error: 'A valid message string is required.' });
-    }
-
-    // Role-based authentication check
-    if (!user.isAuthenticated) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required. Unauthenticated visitors must use the Public Information Assistant at /api/public/assistant/chat.',
-      });
-    }
-
+    const publicMode = req.path === '/api/public/assistant/chat';
+    if (!publicMode && !user.isAuthenticated) return res.status(401).json({success:false,error:'Authentication required.'});
     try {
-      const lower = message.toLowerCase().trim();
-
-      // Security Check: Refuse requests asking for database passwords, API keys, tokens, internal SQL, or server secrets
-      if (
-        lower.includes('password') ||
-        lower.includes('api key') ||
-        lower.includes('apikey') ||
-        lower.includes('token') ||
-        lower.includes('secret') ||
-        lower.includes('database password') ||
-        lower.includes('sql') ||
-        lower.includes('credentials')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🔒 **Security Notice**: System credentials, internal database settings, API keys, and administrative secrets are restricted and cannot be disclosed under any circumstances.`,
-          suggestions: [
-            'Show today\'s registry status',
-            'How many swine are registered?',
-            'Open GIS Swine Map',
-          ],
-        });
-      }
-
-      // Super Admin Natural Language Configuration Commands
-      if (user.isSuperAdmin) {
-        const currentConfig = (await getSystemSetting('master_system_config', DEFAULT_MASTER_CONFIG)) || DEFAULT_MASTER_CONFIG;
-        const configResult = interpretSuperAdminConfigCommand(message, currentConfig);
-        if (configResult.isConfigCommand) {
-          if (configResult.isSecurityViolation) {
-            return res.json({
-              success: true,
-              reply: configResult.securityMessage || 'Security modification restricted.',
-              suggestions: [
-                'Change Admin sidebar to blue',
-                'Set Focal Person font to Poppins',
-                'Show today\'s registry status',
-              ],
-            });
-          }
-
-          if (configResult.proposedChange) {
-            return res.json({
-              success: true,
-              reply: configResult.previewMessage || 'Proposed configuration change ready for review.',
-              action: {
-                type: 'confirm_config_change',
-                actionId: 'apply_proposed_config',
-                label: 'Apply Configuration Change',
-                payload: configResult.proposedChange,
-              },
-              suggestions: [
-                'Cancel',
-                'Reset Admin appearance',
-                'Show today\'s registry status',
-              ],
-            });
-          }
+      // Preserve the existing explicit Super Admin configuration preview flow.
+      if (!publicMode && user.isSuperAdmin) {
+        const command = interpretSuperAdminConfigCommand(req.body.message, DEFAULT_MASTER_CONFIG);
+        if (command.isConfigCommand) {
+          if (command.isSecurityViolation) return res.json({success:true,reply:command.securityMessage || 'Security modification restricted.'});
+          const currentConfig = await getSystemSetting('master_system_config', DEFAULT_MASTER_CONFIG) || DEFAULT_MASTER_CONFIG;
+          const proposal = interpretSuperAdminConfigCommand(req.body.message,currentConfig);
+          if (proposal.proposedChange) return res.json({success:true,reply:proposal.previewMessage,action:{type:'confirm_config_change',actionId:'apply_proposed_config',label:'Apply Configuration Change',payload:proposal.proposedChange}});
         }
       }
-
-      // Check cross-barangay queries for Focal Persons
-      if (user.role === 'focal' && user.assignedBarangay) {
-        const assignedLower = user.assignedBarangay.toLowerCase();
-        const matchedBg = HINUNANGAN_BARANGAYS.find(
-          b => lower.includes(b.name.toLowerCase()) && b.name.toLowerCase() !== assignedLower
-        );
-        if (matchedBg) {
-          return res.json({
-            success: true,
-            reply: `I can only provide registry and GIS information for your assigned barangay/areas.`,
-            suggestions: [
-              `Show records for ${user.assignedBarangay}`,
-              `How many ready to sell in ${user.assignedBarangay}?`,
-              'Register a new swine',
-            ],
-          });
-        }
-      }
-
-      // Agent / Buyer restrictions: Restricted to market-ready hogs, takeoff catalog, public ordinances, and contact info.
-      // No access to confidential farmer/swine details outside takeoff.
-      if (user.isAgent) {
-        const isConfidentialQuery =
-          lower.includes('farmer list') ||
-          lower.includes('all farmers') ||
-          lower.includes('audit') ||
-          lower.includes('inspection record') ||
-          lower.includes('sick pig') ||
-          lower.includes('quarantined');
-
-        if (isConfidentialQuery) {
-          return res.json({
-            success: true,
-            reply: `As an accredited Agent / Buyer, your access is focused on the Ready for Take-Off market catalog, verified commercial hog availability, and transport clearance requirements.`,
-            action: {
-              type: 'navigate',
-              tab: 'takeoff',
-              label: 'View Ready for Take-Off Catalog',
-            },
-            suggestions: [
-              'How many swine are ready to sell?',
-              'What are the transport requirements?',
-              'Show takeoff catalog',
-            ],
-          });
-        }
-      }
-
-      const { records: allRecords } = await getAllSwineRecords();
-
-      // Role-based record filtration
-      let authorizedRecords = allRecords;
-      if (user.role === 'focal') {
-        const assigned = (user.assignedBarangay || '').toLowerCase().trim();
-        if (assigned) {
-          authorizedRecords = allRecords.filter(r =>
-            (r.barangay || '').toLowerCase().trim() === assigned ||
-            (r.barangay_id && r.barangay_id.toLowerCase().includes(assigned))
-          );
-        } else {
-          authorizedRecords = [];
-        }
-      } else if (user.isAgent) {
-        authorizedRecords = allRecords.filter(r =>
-          !r.isArchived && (r.readyToSell || (r.weightKg && r.weightKg >= 75)) &&
-          r.status !== 'sold' && r.status !== 'deceased'
-        );
-      }
-
-      // 1. Swine Registration queries
-      if (
-        lower.includes('register') ||
-        lower.includes('registration') ||
-        lower.includes('add swine') ||
-        lower.includes('new pig') ||
-        lower.includes('how to register')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📋 **DA Hinunangan Official Swine Registration Workflow**:
-
-1. **Owner / Raiser Identification**: Collect the raiser's full legal name, contact number, and exact Barangay / Purok address.
-2. **Swine Biometric Details**: Record the official Ear Tag / Pig ID, breed (Landrace, Large White, Duroc, Native, etc.), age in months, and current estimated weight (kg).
-3. **Health & Biosecurity Verification**: Confirm vaccination status (Hog Cholera, Deworming), current health status (Healthy / Under Observation / Sick), and pen biosecurity standard.
-4. **GIS GPS Pinning**: Capture the exact geocoordinates (latitude & longitude) of the farm or backyard pen to pin the swine on the Municipal Biosurveillance Map.
-
-*Field Note: You can register swine even without internet access! The offline queue will synchronize your records automatically once connected.*`,
-          action: {
-            type: 'navigate',
-            tab: 'records',
-            label: 'Go to Swine Records to Register',
-          },
-          suggestions: [
-            'How many swine are registered?',
-            'How does offline mode work?',
-            'Open GIS Swine Map',
-          ],
-        });
-      }
-
-      // 2. Ready for Take-Off / Market Inquiries
-      if (
-        lower.includes('ready to sell') ||
-        lower.includes('take off') ||
-        lower.includes('take-off') ||
-        lower.includes('market') ||
-        lower.includes('commercial') ||
-        lower.includes('buyer')
-      ) {
-        const readyHogs = authorizedRecords.filter(
-          r => !r.isArchived && (r.readyToSell || (r.weightKg && r.weightKg >= 75)) && r.status !== 'sold' && r.status !== 'deceased'
-        );
-        const avgWeight = readyHogs.length > 0
-          ? Math.round(readyHogs.reduce((acc, h) => acc + (h.weightKg || 0), 0) / readyHogs.length)
-          : 0;
-
-        const scopeLabel = user.role === 'focal' && user.assignedBarangay
-          ? `in Barangay ${user.assignedBarangay}`
-          : 'municipal-wide across Hinunangan';
-
-        return res.json({
-          success: true,
-          reply: `🚀 **Ready for Take-Off Status (${scopeLabel})**:
-
-• **Eligible Market Hogs**: **${readyHogs.length} head** currently qualified for commercial sale.
-• **Average Market Weight**: **${avgWeight} kg**
-• **Criteria**: Swine tagged as ready-to-sell or weighing 75kg and above with valid health status.
-• **Clearance Requirement**: Must possess a valid DA Veterinary Health Certificate and Barangay Transport Clearance before dispatch.`,
-          action: {
-            type: 'navigate',
-            tab: 'takeoff',
-            label: 'View Ready for Take-Off Catalog',
-          },
-          suggestions: [
-            'How many swine are registered in total?',
-            'How do I print a transport clearance?',
-            'Show biosecurity status',
-          ],
-        });
-      }
-
-      // 3. Live Database Status & Count Inquiries
-      if (
-        lower.includes('how many') ||
-        lower.includes('count') ||
-        lower.includes('total') ||
-        lower.includes('status') ||
-        lower.includes('summary') ||
-        lower.includes('dashboard')
-      ) {
-        const total = authorizedRecords.length;
-        const activeRaisers = new Set(authorizedRecords.map(r => (r.ownerName || '').trim().toLowerCase()).filter(Boolean)).size;
-        const readyHogs = authorizedRecords.filter(
-          r => !r.isArchived && (r.readyToSell || (r.weightKg && r.weightKg >= 75)) && r.status !== 'sold' && r.status !== 'deceased'
-        );
-        const healthyCount = authorizedRecords.filter(r => (r.healthStatus || 'healthy').toLowerCase() === 'healthy').length;
-        const underObservationCount = authorizedRecords.filter(r => (r.healthStatus || '').toLowerCase() === 'under observation').length;
-        const avgWeight = total > 0
-          ? Math.round(authorizedRecords.reduce((acc, r) => acc + (r.weightKg || 0), 0) / total)
-          : 0;
-
-        const scopeLabel = user.role === 'focal' && user.assignedBarangay
-          ? `Barangay ${user.assignedBarangay}`
-          : 'Municipality of Hinunangan';
-
-        return res.json({
-          success: true,
-          reply: `📊 **Live Registry & Biosurveillance Summary (${scopeLabel})**:
-
-• **Total Swine Registered**: **${total.toLocaleString()} head**
-• **Registered Raisers**: **${activeRaisers.toLocaleString()} farmers**
-• **Ready for Take-Off**: **${readyHogs.length} head**
-• **Biosecurity Health**: **${healthyCount} healthy**, **${underObservationCount} under observation**
-• **Average Weight**: **${avgWeight} kg**
-
-All metrics reflect live, real-time records from the database.`,
-          action: {
-            type: 'navigate',
-            tab: 'dashboard',
-            label: 'View Full Dashboard Metrics',
-          },
-          suggestions: [
-            'How many are ready to sell?',
-            'Open GIS Swine Map',
-            'How do I register a swine?',
-          ],
-        });
-      }
-
-      // 4. GIS & Spatial Mapping queries
-      if (
-        lower.includes('gis') ||
-        lower.includes('map') ||
-        lower.includes('gps') ||
-        lower.includes('coordinates') ||
-        lower.includes('location') ||
-        lower.includes('pin')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🗺️ **GIS Swine Biosurveillance Map**:
-
-The interactive GIS mapping module provides spatial visualization for all registered pens and swine populations in Hinunangan:
-• **Barangay Boundaries**: GeoJSON polygons outline each barangay's biosecurity zones.
-• **Spatial Pins**: Color-coded pins indicate farm locations, health statuses (Green = Healthy, Yellow = Observation, Red = Quarantine/Infected).
-• **Clustering & Heatmap**: High-density swine zones are automatically clustered for outbreak risk assessment.
-• **GPS Pinning**: Field focal persons can click or tap anywhere on the map to automatically pin coordinates during registration.`,
-          action: {
-            type: 'navigate',
-            tab: 'gis',
-            label: 'Open GIS Swine Map',
-          },
-          suggestions: [
-            'How does ASF biosecurity work?',
-            'Show total swine records',
-            'How to print reports?',
-          ],
-        });
-      }
-
-      // 5. ASF & Biosecurity Regulations queries
-      if (
-        lower.includes('asf') ||
-        lower.includes('african swine fever') ||
-        lower.includes('biosecurity') ||
-        lower.includes('quarantine') ||
-        lower.includes('zone') ||
-        lower.includes('ordinance') ||
-        lower.includes('decree')
-      ) {
-        return res.json({
-          success: true,
-          reply: `🛡️ **African Swine Fever (ASF) Biosecurity Protocol**:
-
-Under Municipal Ordinance and National DA Administrative Orders (Babay ASF Program):
-1. **Zoning Classification**:
-   • **Red Zone (Infected)**: Confirmed outbreak within 1km radius. Strict lockdown on swine and pork movement.
-   • **Pink Zone (Buffer)**: 7km containment perimeter with mandatory biosecurity checkpoints.
-   • **Yellow Zone (Surveillance)**: Intensive random blood sampling and active surveillance.
-   • **Green Zone (Free)**: Disease-free zone with standard biosecurity clearances.
-2. **Preventive Farm Measures**:
-   • Mandatory footbaths and disinfectant sprays at pen entrances.
-   • Strict ban on swill feeding (bahog / kaning-baboy).
-   • Restrict farm visitors and animal dealers without DA permits.`,
-          action: {
-            type: 'navigate',
-            tab: 'biosecurity',
-            label: 'Go to Barangay Biosecurity Module',
-          },
-          suggestions: [
-            'View ASF Legal Decrees',
-            'How to register a swine?',
-            'Show today\'s registry status',
-          ],
-        });
-      }
-
-      // 6. Reports & Certificates queries
-      if (
-        lower.includes('report') ||
-        lower.includes('print') ||
-        lower.includes('certificate') ||
-        lower.includes('export') ||
-        lower.includes('pdf')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📑 **Official DA Hinunangan Reports & Documentation**:
-
-You can generate and print official livestock documentation directly:
-• **Municipal Swine Inventory Summary**: Complete head count by barangay and breed.
-• **Barangay Biosecurity Assessment Report**: Zone-level audit with risk indices.
-• **Veterinary Health Clearance / Certificate**: Required document for hog transport and market take-off.
-• **Export to Excel / PDF**: Instant downloadable tabular spreadsheets and printable letterhead reports.`,
-          action: {
-            type: 'navigate',
-            tab: 'reports',
-            label: 'Go to Print Official Reports',
-          },
-          suggestions: [
-            'How many swine ready to sell?',
-            'Show registry summary',
-            'Open GIS Swine Map',
-          ],
-        });
-      }
-
-      // 7. Offline & PWA queries
-      if (
-        lower.includes('offline') ||
-        lower.includes('pwa') ||
-        lower.includes('no internet') ||
-        lower.includes('sync') ||
-        lower.includes('connection')
-      ) {
-        return res.json({
-          success: true,
-          reply: `📱 **Field Offline Mode & Automatic Synchronization**:
-
-The DA Hinunangan Swine Registry is engineered as a Progressive Web App (PWA):
-• **Field Operation**: You can register swine, pin GPS coordinates, and inspect farms even in remote puroks without mobile signal.
-• **Offline Storage**: Records and photos are saved securely on your device via IndexedDB.
-• **Automatic Sync**: When your device reconnects to Wi-Fi or cellular data, all pending records sync seamlessly with the central municipal database.`,
-          suggestions: [
-            'How to register a swine?',
-            'Open GIS Swine Map',
-            'Show today\'s registry status',
-          ],
-        });
-      }
-
-      // 8. Gemini AI Engine for Real-Time Contextual Explanation and Q&A (Strictly Grounded in System Data)
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-          const totalSwine = authorizedRecords.length;
-          const readyCount = authorizedRecords.filter(
-            r => !r.isArchived && (r.readyToSell || (r.weightKg && r.weightKg >= 75)) && r.status !== 'sold' && r.status !== 'deceased'
-          ).length;
-          const healthyCount = authorizedRecords.filter(r => (r.healthStatus || 'healthy').toLowerCase() === 'healthy').length;
-          const underObsCount = authorizedRecords.filter(r => (r.healthStatus || '').toLowerCase() === 'under observation').length;
-          const sickCount = authorizedRecords.filter(r => (r.healthStatus || '').toLowerCase() === 'sick').length;
-          const raisersCount = new Set(authorizedRecords.map(r => (r.farmerName || r.ownerName || '').trim().toLowerCase()).filter(Boolean)).size;
-
-          const scopeText = user.role === 'focal' && user.assignedBarangay
-            ? `Assigned Barangay: ${user.assignedBarangay}`
-            : 'Municipality of Hinunangan (All 40 Barangays)';
-
-          const systemPrompt = `You are the official "DA Hinunangan Biosecurity Assistant" for the Municipal Agriculture Office of Hinunangan, Southern Leyte. User role: ${user.role} (${user.username}). Scope: ${scopeText}.
-
-CRITICAL OPERATIONAL RULES:
-1. ONLY INTERNAL SYSTEM TOPICS: You must strictly ONLY answer about the DA Hinunangan Swine Registry & Biosurveillance system, its data, swine records, barangays, and biosecurity rules. NEVER search for external random topics or discuss unrelated general internet information (Dili mogawas sa sistema).
-2. DIRECT DATA & WHERE TO INPUT:
-   - Where to input data ("asa mo input", "how to input", "register swine", "add record"): Direct the user to the "Swine Records" tab -> click the green "[+ Register Swine]" button (or "Swine Farm Registration" on the Dashboard). Explain the required fields: Raiser Details (Name, Contact, Address/Barangay, RSBSA ID), Swine Details (Ear Tag, Pig ID HIN-YYYY-XXXX, DOB/Age auto-calculation, Breed, Weight, Farm Scale, Health Status), Biosecurity Checklist, and GIS GPS Coordinates ("Pin GPS on Map").
-   - Live system figures: Total Swine: ${totalSwine} head, Registered Raisers: ${raisersCount} farmers, Ready for Take-Off: ${readyCount} head, Healthy: ${healthyCount}, Under Observation: ${underObsCount}, Sick: ${sickCount}.
-   - Ready-to-sell: Direct them to the "Ready for Take-Off" tab (eligible hogs with verified health).
-   - Biosecurity / ASF: Direct them to "Barangay Biosecurity" and "ASF Legal Decrees". Hinunangan has 40 barangays categorized into ASF zones (Red = 1km infected lockdown, Pink = 7km buffer, Yellow = surveillance, Green = disease-free).
-   - GIS Map: Direct them to the "GIS Swine Map" tab.
-   - Reports: Direct them to "Print Official Reports" tab (export to PDF/Excel, printable certificates).
-   - User Accounts: Direct them to "User Accounts" tab (accessible to both Super Admin and Admin to manage Focal Persons, Agents, and Admins).
-3. MULTILINGUAL SUPPORT: Answer fluently in English, Tagalog, or Cebuano / Bisaya depending on what the user asks.
-4. Keep answers concise, direct, helpful, and polite.`;
-
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: message,
-            config: {
-              systemInstruction: systemPrompt,
-              temperature: 0.2,
-            },
-          });
-
-          if (response.text) {
-            let action: any = undefined;
-            if (lower.includes('input') || lower.includes('register') || lower.includes('add swine')) {
-              action = { type: 'navigate', tab: 'records', label: 'Go to Swine Records to Input' };
-            } else if (lower.includes('gis') || lower.includes('map')) {
-              action = { type: 'navigate', tab: 'gis', label: 'Open GIS Swine Map' };
-            } else if (lower.includes('take off') || lower.includes('takeoff') || lower.includes('ready to sell')) {
-              action = { type: 'navigate', tab: 'takeoff', label: 'View Ready for Take-Off Catalog' };
-            } else if (lower.includes('biosecurity') || lower.includes('asf')) {
-              action = { type: 'navigate', tab: 'biosecurity', label: 'View Barangay Biosecurity' };
-            } else if (lower.includes('report') || lower.includes('print')) {
-              action = { type: 'navigate', tab: 'reports', label: 'Print Official Reports' };
-            } else if (lower.includes('account') || lower.includes('user')) {
-              action = { type: 'navigate', tab: 'accounts', label: 'Manage User Accounts' };
-            }
-
-            return res.json({
-              success: true,
-              reply: response.text.trim(),
-              action,
-              suggestions: [
-                'Show today\'s registry status',
-                'How many swine are ready to sell?',
-                'How to register a swine?',
-                'Open GIS Swine Map',
-              ],
-            });
-          }
-        } catch (aiErr) {
-          console.warn('Authenticated Gemini API call fallback:', aiErr);
-        }
-      }
-
-      // Default contextual response
-      return res.json({
-        success: true,
-        reply: `👋 Hello **${user.username}**! I am the **DA Hinunangan Biosecurity & Registry Assistant**.
-
-I can assist you with:
-• **Live Database Metrics**: Check current swine population, ready-to-sell hogs, and raiser statistics.
-• **Registration Assistance**: Step-by-step guidance on registering farmers and swine with GPS coordinates.
-• **GIS Mapping**: Biosurveillance navigation, coordinate pinning, and barangay zone layers.
-• **ASF Biosecurity Protocols**: Movement restrictions, zoning regulations, and quarantine standards.
-• **Official Reports**: Generating inventory summaries and transport clearances.
-
-How may I assist your agricultural operations today?`,
-        suggestions: user.role === 'focal' && user.assignedBarangay
-          ? [
-              `Show records for ${user.assignedBarangay}`,
-              `How many ready to sell in ${user.assignedBarangay}?`,
-              'Register a new swine',
-              'Open GIS Swine Map',
-            ]
-          : user.isAgent
-          ? [
-              'How many swine are ready to sell?',
-              'View Ready for Take-Off catalog',
-              'What are the transport requirements?',
-            ]
-          : [
-              'Show today\'s registry status',
-              'How many swine are ready to sell?',
-              'How do I register a swine?',
-              'Open GIS Swine Map',
-            ],
-      });
-    } catch (err: any) {
-      console.error('Biosecurity Assistant endpoint error:', err);
-      return res.status(500).json({
-        success: false,
-        error: 'Assistant service temporarily unavailable.',
-      });
+      const result = await answerAssistant(req.body,publicMode ? {role:'guest'} : user, {generate:options.assistantGenerate});
+      return res.json(result);
+    } catch (error) {
+      const code=assistantErrorCode(error);
+      console.warn('[ASSISTANT] request unavailable',{code});
+      return res.status(503).json({success:false,error:assistantErrorMessage(code,req.body?.language,!publicMode&&user.isAdmin),code});
     }
-  });
+  };
+  app.post('/api/public/assistant/chat',handleAssistant);
+  app.post('/api/assistant/chat',handleAssistant);
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ success: false, error: 'API route not found.' });

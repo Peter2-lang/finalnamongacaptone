@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../../../i18n/interfaceText';
 import React, { useState } from 'react';
 import {
   GraduationCap,
@@ -123,9 +124,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                 type="button"
                 onClick={() => setShowAddPostInline(false)}
                 className="text-[11px] text-stone-500 hover:text-stone-800 font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
             </div>
             <div>
               <label className="block font-semibold text-emerald-900 mb-1 text-[11px]">Post Title</label>
@@ -153,9 +152,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                 type="button"
                 onClick={() => setShowAddPostInline(false)}
                 className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
+              ><InterfaceText source="Cancel" /></button>
               <button
                 type="submit"
                 className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
@@ -170,15 +167,15 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
         <div className="space-y-4">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block font-semibold text-stone-700">Section Title</label>
+              <label className="block font-semibold text-stone-700"><InterfaceText source="Section Title" /></label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.aboutTitleColor || '#064e3b'}
                   onChange={e => onChange({ aboutTitleColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Title Font Color"
+                  title={translateInterfaceText("Title Font Color")}
                 />
               </div>
             </div>
@@ -194,13 +191,13 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
             <div className="flex items-center justify-between">
               <label className="block font-semibold text-stone-700">Narrative Description</label>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-stone-500">Font Color:</span>
+                <span className="text-[11px] text-stone-500"><InterfaceText source="Font Color:" /></span>
                 <input
                   type="color"
                   value={config.aboutDescriptionColor || '#44403c'}
                   onChange={e => onChange({ aboutDescriptionColor: e.target.value })}
                   className="w-6 h-6 rounded-md border border-stone-300 cursor-pointer p-0.5"
-                  title="Description Font Color"
+                  title={translateInterfaceText("Description Font Color")}
                 />
               </div>
             </div>
@@ -231,7 +228,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                 <div className="w-24 h-16 rounded-lg overflow-hidden bg-stone-200 border border-stone-300 shrink-0">
                   <img
                     src={config.aboutImageUrl}
-                    alt="About Section"
+                    alt={translateInterfaceText("About Section")}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
@@ -248,9 +245,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   type="button"
                   onClick={() => onChange({ aboutImageUrl: '' })}
                   className="px-2 py-1 rounded-lg text-[10px] text-stone-500 hover:bg-stone-200 hover:text-red-600 font-bold"
-                >
-                  Clear
-                </button>
+                ><InterfaceText source="Clear" /></button>
               </div>
             )}
 
@@ -268,8 +263,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   onClick={() => onOpenMediaPicker('aboutImageUrl')}
                   className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
                 >
-                  <FolderOpen className="w-3.5 h-3.5" /> Media Library
-                </button>
+                  <FolderOpen className="w-3.5 h-3.5" /><InterfaceText source="Media Library" /></button>
               )}
             </div>
 
@@ -299,7 +293,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                         <div className="aspect-4/3 overflow-hidden bg-stone-100 relative">
                           <img
                             src={item.url}
-                            alt={item.fileName || 'Media'}
+                            alt={item.fileName || translateInterfaceText("Media")}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
@@ -321,8 +315,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                               onClick={() => onChange({ aboutImageUrl: item.url })}
                               className="w-full py-1 rounded-md bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center gap-1 shadow-2xs transition cursor-pointer"
                             >
-                              <Check className="w-3 h-3" /> Use
-                            </button>
+                              <Check className="w-3 h-3" /><InterfaceText source="Use" /></button>
                           )}
                         </div>
                       </div>
@@ -338,7 +331,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b pb-3 border-stone-100">
           <h3 className="font-bold text-stone-900 text-sm">About Highlight Cards & Key Mandates</h3>
-          <span className="text-[11px] text-stone-400">{aboutCards.length} Cards</span>
+          <span className="text-[11px] text-stone-400">{aboutCards.length}{" "}<InterfaceText source="Cards" /></span>
         </div>
 
         <div className="space-y-3">
@@ -361,7 +354,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   <button
                     type="button"
                     onClick={() => handleToggleVisible(card.id)}
-                    title={card.visible ? 'Hide from landing page' : 'Show on landing page'}
+                    title={card.visible ? translateInterfaceText("Hide from landing page") : translateInterfaceText("Show on landing page")}
                     className={`p-1.5 rounded-lg border text-xs cursor-pointer transition ${
                       card.visible
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
@@ -374,7 +367,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                     type="button"
                     disabled={idx === 0}
                     onClick={() => handleMove(idx, 'up')}
-                    title="Move Card Up"
+                    title={translateInterfaceText("Move Card Up")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -383,7 +376,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                     type="button"
                     disabled={idx === aboutCards.length - 1}
                     onClick={() => handleMove(idx, 'down')}
-                    title="Move Card Down"
+                    title={translateInterfaceText("Move Card Down")}
                     className="p-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 disabled:opacity-30 cursor-pointer transition"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -391,7 +384,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ config, onChange, onOpenMedi
                   <button
                     type="button"
                     onClick={() => handleDelete(card.id)}
-                    title="Delete Card"
+                    title={translateInterfaceText("Delete Card")}
                     className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

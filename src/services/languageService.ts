@@ -1,4 +1,4 @@
-import { AppLanguage, dictionaries, formatTranslation, TranslationKey } from '../i18n';
+import { AppLanguage, dictionaries, formatTranslation, resolveTranslation, TranslationKey } from '../i18n';
 
 const LANGUAGE_STORAGE_KEY = 'app_language';
 const LANGUAGE_EVENT = 'app_language_change';
@@ -8,6 +8,9 @@ class LanguageService {
 
   constructor() {
     this.init();
+    if (typeof window !== 'undefined') window.addEventListener('storage', event => {
+      if (event.key === LANGUAGE_STORAGE_KEY && ['en','ceb','fil'].includes(event.newValue || '')) this.setLanguage(event.newValue as AppLanguage);
+    });
   }
 
   private init() {
@@ -36,6 +39,7 @@ class LanguageService {
       console.warn('Could not save language to localStorage:', e);
     }
 
+    document.documentElement.lang = lang;
     // Broadcast across windows/components for instant real-time update
     window.dispatchEvent(
       new CustomEvent(LANGUAGE_EVENT, {
@@ -49,27 +53,7 @@ class LanguageService {
     paramsOrFallback?: Record<string, string | number> | string,
     fallback?: string
   ): string {
-    const dict = dictionaries[this.currentLanguage] || dictionaries.en;
-    let template = dict[key];
-
-    let params: Record<string, string | number> | undefined;
-    let defaultFallback = '';
-
-    if (typeof paramsOrFallback === 'string') {
-      defaultFallback = paramsOrFallback;
-    } else if (paramsOrFallback && typeof paramsOrFallback === 'object') {
-      params = paramsOrFallback;
-      defaultFallback = fallback || '';
-    } else if (fallback) {
-      defaultFallback = fallback;
-    }
-
-    if (!template) {
-      // Fallback to English if key missing in dialect
-      template = dictionaries.en[key] || defaultFallback || String(key);
-    }
-
-    return formatTranslation(template, params);
+    return resolveTranslation(this.currentLanguage,key,paramsOrFallback,fallback);
   }
 
   public onLanguageChange(callback: (lang: AppLanguage) => void): () => void {

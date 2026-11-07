@@ -179,7 +179,15 @@ export type LegalDocumentType =
   | 'other';
 
 export type LegalDocumentCategory = 'ordinance' | 'resolution' | 'national_reference' | 'executive_order' | 'memorandum' | 'administrative_order' | 'other';
-export type LegalDocumentStatus = 'draft' | 'active' | 'superseded' | 'amended' | 'archived' | 'repealed';
+export type LegalDocumentStatus =
+  | 'draft'
+  | 'for_verification'
+  | 'verified'
+  | 'active'
+  | 'superseded'
+  | 'amended'
+  | 'archived'
+  | 'repealed';
 
 export interface LegalSubsection {
   id: string;
@@ -248,6 +256,7 @@ export interface LegalSourceAttachment {
   documentId?: string;
   version?: number;
   checksum?: string;
+  isCurrent?: boolean;
   extractedText?: string;
 }
 
@@ -310,6 +319,7 @@ export interface ASFRegulatoryDocument {
   dateEnacted?: string;
   effectiveDate: string;
   status?: LegalDocumentStatus;
+  sourceCompleteness?: 'complete' | 'excerpt' | 'metadata_only';
   knownAs?: string;
   shortSummary: string;
   description?: string;
@@ -454,6 +464,14 @@ export interface CertificateTemplate {
   documentType: string;
   documentTitle: string;
   titleFont: 'gothic' | 'serif_underline' | 'serif_bold' | 'sans_bold';
+  bodyFontFamily?: 'serif' | 'sans-serif' | 'Georgia' | 'Arial';
+  bodyFontSizePt?: number;
+  pageMarginMm?: number;
+  paragraphSpacingPx?: number;
+  templateFields?: CertificateTemplateField[];
+  sourceDocument?: CertificateTemplateSource;
+  templateVersions?: CertificateTemplateVersion[];
+  reviewStatus?: 'draft' | 'approved';
   language: 'english' | 'bisaya' | 'filipino' | 'custom';
   pageSize: 'A4' | 'Letter' | 'Folio';
   orientation: 'portrait' | 'landscape';
@@ -471,6 +489,29 @@ export interface CertificateTemplate {
   description?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CertificateTemplateField {
+  key: string;
+  label: string;
+  required: boolean;
+  defaultValue?: string;
+}
+
+export interface CertificateTemplateSource {
+  fileName: string;
+  mimeType: string;
+  storagePath: string;
+  fileSize: number;
+  uploadedAt: string;
+  url?: string;
+}
+
+export interface CertificateTemplateVersion {
+  version: number;
+  updatedAt: string;
+  updatedBy: string;
+  snapshot: Omit<CertificateTemplate, 'templateVersions'>;
 }
 
 export interface CertificateTypeDefinition {
@@ -505,6 +546,7 @@ export interface CertificateConfig {
 
 export interface IssuedCertificate {
   id?: string;
+  swineIds?: string[];
   certificateNo: string;
   controlNumber?: string;
   certificateType?: string;
@@ -513,9 +555,11 @@ export interface IssuedCertificate {
   swineId: string;
   earTagNo: string;
   farmerName: string;
+  farmerAddress?: string;
   farmerBarangay?: string;
   barangay_id?: string; // canonical barangay foreign key e.g. "brgy-bugho"
   buyerName?: string;
+  buyerAddress?: string;
   destinationBarangay?: string;
   destinationMunicipality?: string;
   numberOfHeads?: number;
@@ -535,6 +579,7 @@ export interface IssuedCertificate {
   templateSnapshot?: CertificateTemplate;
   renderedBody?: string;
   purpose?: string;
+  pricePerKg?: number | string;
   destination?: string;
   inspectedBy?: string;
   createdBy?: string;
@@ -586,6 +631,7 @@ export interface MessageItem {
   timestamp?: string;
   readBy?: string[]; // user ids that read this message
   isRead?: boolean;
+  attachments?: unknown[];
 }
 
 export interface SocialMediaPost {
@@ -836,6 +882,7 @@ export interface OfflineQueueItem {
 export type ImportMatchStatus = 'matched_core' | 'matched_custom' | 'new_field' | 'ignored' | 'manual_mapped';
 
 export interface ImportColumnMapping {
+  typeWarning?: string;
   fileHeader: string;
   normalizedHeader: string;
   targetFieldKey: string;

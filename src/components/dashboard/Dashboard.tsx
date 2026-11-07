@@ -1,3 +1,5 @@
+import { InterfaceText } from '../../i18n/interfaceText';
+import { farmerIdentity } from '../../utils/farmerIdentity.ts';
 import React, { useState } from 'react';
 import { SwineFarmRegistrationModal } from './SwineFarmRegistrationModal';
 import {
@@ -75,11 +77,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : 'all'
   );
 
-  // Filter list based on role and selected barangay filter
-  const effectiveList = swineList.filter(s => {
-    if (s.isArchived) return false;
+  const committedList = swineList.filter(s => s.isSynced === true);
+  const pendingCount = swineList.filter(s=>s.isSynced === false).length;
+  // Every chart/counter shares the same committed, authorized filter scope.
+  const scopedList = committedList.filter(s => {
     const itemBg = (s.barangay || '').toLowerCase();
-    if (currentRole === 'focal' && currentUser?.assignedBarangay) {
+    if (currentRole === 'agent' && (!s.readyToSell || s.isArchived)) return false;
+    if (currentRole === 'focal') {
       return itemBg === (currentUser.assignedBarangay || '').toLowerCase();
     }
     if (selectedBgFilter !== 'all') {
@@ -88,13 +92,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return true;
   });
 
+  const effectiveList = scopedList.filter(s=>!s.isArchived);
+
   // Calculate Metrics
   const totalSwine = effectiveList.length;
   const readyToSellList = effectiveList.filter(s => s.readyToSell || s.status === 'ready_to_sell');
   const readyToSellCount = readyToSellList.length;
   const totalEstimatedPrice = readyToSellList.reduce((acc, s) => acc + (s.estimatedPricePhp || 0), 0);
   const uniqueFarmers = new Set(
-    effectiveList.map(s => (s.farmerName || '').trim().toLowerCase()).filter(Boolean)
+    effectiveList.map(farmerIdentity)
   ).size;
 
   // Swine categories count
@@ -107,8 +113,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // Swine Records Live Database Statistics
-  const soldCount = swineList.filter(s => s.status === 'sold').length;
-  const archivedCount = swineList.filter(s => s.isArchived).length;
+  const soldCount = scopedList.filter(s => s.status === 'sold').length;
+  const archivedCount = scopedList.filter(s => s.isArchived).length;
   const breedingBoarsCount = typeCounts.boar;
   const asfWarningCount = effectiveList.filter(s => {
     const zone = getBarangayASFZone(s.barangay, barangays);
@@ -117,7 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Top Barangays by Swine count (if admin)
   const barangayCounts: { [key: string]: number } = {};
-  swineList.forEach(s => {
+  scopedList.forEach(s => {
     if (!s.isArchived) {
       barangayCounts[s.barangay] = (barangayCounts[s.barangay] || 0) + 1;
     }
@@ -190,31 +196,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const valuationChartData = [
     {
       name: 'Finishers',
-      value: effectiveList.filter(s => s.swineType === 'finisher').reduce((a, b) => a + (b.estimatedPricePhp || 13500), 0),
+      value: effectiveList.filter(s => s.swineType === 'finisher').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#059669',
       desc: 'Live harvest valuation',
     },
     {
       name: 'Growers',
-      value: effectiveList.filter(s => s.swineType === 'grower').reduce((a, b) => a + (b.estimatedPricePhp || 8500), 0),
+      value: effectiveList.filter(s => s.swineType === 'grower').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#2563eb',
       desc: 'Mid-stage asset valuation',
     },
     {
       name: 'Breeder Sows',
-      value: effectiveList.filter(s => s.swineType === 'sow').reduce((a, b) => a + (b.estimatedPricePhp || 19000), 0),
+      value: effectiveList.filter(s => s.swineType === 'sow').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#9333ea',
       desc: 'Breeding stock capital',
     },
     {
       name: 'Breeder Boars',
-      value: effectiveList.filter(s => s.swineType === 'boar').reduce((a, b) => a + (b.estimatedPricePhp || 24000), 0),
+      value: effectiveList.filter(s => s.swineType === 'boar').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#d97706',
       desc: 'Genetic asset valuation',
     },
     {
       name: 'Piglets',
-      value: effectiveList.filter(s => s.swineType === 'piglet').reduce((a, b) => a + (b.estimatedPricePhp || 3500), 0),
+      value: effectiveList.filter(s => s.swineType === 'piglet').reduce((a, b) => a + (b.estimatedPricePhp ?? 0), 0),
       color: '#0d9488',
       desc: 'Weanling market stock',
     },
@@ -268,9 +274,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const currentTotalValue = currentChartData.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+    <div className="dashboard-page max-w-7xl mx-auto py-6 px-4 sm:px-8 space-y-6">
+      {pendingCount>0 && <p role="status" className="text-sm text-amber-800">{pendingCount} pending local record(s) excluded from cloud statistics.</p>}
       {/* Executive Page Header with Integrated Scope Filter & Quick Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
+      <div className="dashboard-heading flex flex-col xl:flex-row xl:items-center justify-between gap-6 pb-1">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -339,7 +346,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 5 Core Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="dashboard-metrics grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-5 gap-4">
         {/* Metric 1: Total Swine */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -871,8 +878,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <p className="text-[11px] text-stone-500">Distribution of heads by growth classification</p>
             </div>
             <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-              {totalSwine} Total
-            </span>
+              {totalSwine}<InterfaceText source="Total" /></span>
           </div>
 
           <div className="space-y-3 text-xs">
@@ -989,7 +995,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="flex-1">
                       <div className="flex justify-between font-semibold text-stone-800 mb-1">
                         <span>Brgy. {item.name}</span>
-                        <span className="text-emerald-800 font-bold">{item.count} heads</span>
+                        <span className="text-emerald-800 font-bold">{item.count}{" "}<InterfaceText source="heads" /></span>
                       </div>
                       <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
                         <div
@@ -1043,7 +1049,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onClick={() => onNavigateTab('records')}
             className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
           >
-            <span>View All Records</span>
+            <span><InterfaceText source="View All Records" /></span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -1052,11 +1058,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-stone-50 text-stone-700 font-semibold border-b border-stone-200 uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="py-3 px-4">Ear Tag</th>
-                <th className="py-3 px-4">Farmer / Raiser</th>
-                <th className="py-3 px-4">Barangay</th>
-                <th className="py-3 px-4">Breed</th>
-                <th className="py-3 px-4">Live Weight</th>
+                <th className="py-3 px-4"><InterfaceText source="Ear Tag" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Farmer / Raiser" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Barangay" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Breed" /></th>
+                <th className="py-3 px-4"><InterfaceText source="Live Weight" /></th>
                 <th className="py-3 px-4">Estimated Price</th>
                 <th className="py-3 px-4">Target Sell Date</th>
                 <th className="py-3 px-4 text-center">Action</th>

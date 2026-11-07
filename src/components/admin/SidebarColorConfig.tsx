@@ -1,3 +1,4 @@
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Palette,
@@ -271,7 +272,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-bold text-stone-900">Sidebar Color Configuration</h1>
+              <h1 className="text-2xl font-bold text-stone-900"><InterfaceText source="Sidebar Color Configuration" /></h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
                 Admin Customization
               </span>
@@ -290,7 +291,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
             className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 font-semibold text-xs flex items-center gap-2 transition cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset to Default</span>
+            <span><InterfaceText source="Reset to Default" /></span>
           </button>
           <button
             type="button"
@@ -298,7 +299,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
             className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-600 hover:bg-stone-50 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
-            <span>Cancel</span>
+            <span><InterfaceText source="Cancel" /></span>
           </button>
           <button
             type="button"
@@ -307,7 +308,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
             className="px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
+            <span>{isSaving ? translateInterfaceText("Saving…") : translateInterfaceText("Save Changes")}</span>
           </button>
         </div>
       </div>
@@ -360,7 +361,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   {theme.logoUrl ? (
                     <img
                       src={theme.logoUrl}
-                      alt="Sidebar Logo"
+                      alt={translateInterfaceText("Sidebar Logo")}
                       className={`object-contain ${
                         theme.logoSize === 'lg'
                           ? 'w-12 h-12'
@@ -386,7 +387,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   <div className="font-bold text-stone-900 text-sm flex items-center gap-2">
                     <span>Active Single Logo</span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                      {theme.logoUrl ? 'Custom Image' : 'Official Municipal Seal'}
+                      {theme.logoUrl ? 'Custom Image' : translateInterfaceText("Official Municipal Seal")}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-0.5">
@@ -442,9 +443,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                     type="button"
                     onClick={handleApplyLogoUrl}
                     className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold cursor-pointer"
-                  >
-                    Apply
-                  </button>
+                  ><InterfaceText source="Apply" /></button>
                   <button
                     type="button"
                     onClick={() => {
@@ -452,9 +451,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                       setUrlInput('');
                     }}
                     className="px-3 py-2 rounded-xl border border-stone-300 text-stone-600 text-xs font-semibold hover:bg-white cursor-pointer"
-                  >
-                    Cancel
-                  </button>
+                  ><InterfaceText source="Cancel" /></button>
                 </div>
               </div>
             )}
@@ -498,9 +495,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                       showToast('Reset emblems to default official seals');
                     }}
                     className="text-[10px] text-stone-400 hover:text-stone-700 font-semibold cursor-pointer"
-                  >
-                    Reset Defaults
-                  </button>
+                  ><InterfaceText source="Reset Defaults" /></button>
                 </div>
               </div>
 
@@ -586,9 +581,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                       type="button"
                       onClick={() => setEditingEmblemId(null)}
                       className="px-3 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-semibold cursor-pointer"
-                    >
-                      Cancel
-                    </button>
+                    ><InterfaceText source="Cancel" /></button>
                     <button
                       type="button"
                       onClick={() => {
@@ -613,8 +606,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                       }}
                       className="px-4 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
                     >
-                      <Check className="w-3 h-3" /> Save Changes
-                    </button>
+                      <Check className="w-3 h-3" /><InterfaceText source="Save Changes" /></button>
                   </div>
                 </div>
               )}
@@ -724,9 +716,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                         </div>
 
                         {isSelected && (
-                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                            Active
-                          </span>
+                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded-full"><InterfaceText source="Active" /></span>
                         )}
                       </div>
                     </div>
@@ -778,7 +768,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                             : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                         }`}
                       >
-                        {sz === 'sm' ? 'Compact' : sz === 'md' ? 'Normal' : 'Large'}
+                        {sz === 'sm' ? translateInterfaceText("Compact") : sz === 'md' ? translateInterfaceText("Normal") : 'Large'}
                       </button>
                     );
                   })}
@@ -800,7 +790,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-stone-100 text-stone-600">
-                Active: <strong className="text-stone-900">{theme.name || 'Custom'}</strong>
+                Active: <strong className="text-stone-900">{theme.name || translateInterfaceText("Custom")}</strong>
               </span>
             </div>
 
@@ -940,7 +930,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   {theme.logoUrl ? (
                     <img
                       src={theme.logoUrl}
-                      alt="Sidebar Logo"
+                      alt={translateInterfaceText("Sidebar Logo")}
                       className={`object-contain border shadow-xs ${
                         theme.logoSize === 'lg'
                           ? 'w-10 h-10'
@@ -969,9 +959,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                   <div className="font-bold text-xs leading-tight truncate" style={{ color: 'var(--sidebar-active-text)' }}>
                     DA Hinunangan Registry
                   </div>
-                  <div className="text-[10px] opacity-75 truncate" style={{ color: 'var(--sidebar-text)' }}>
-                    Municipal Agriculture Office
-                  </div>
+                  <div className="text-[10px] opacity-75 truncate" style={{ color: 'var(--sidebar-text)' }}><InterfaceText source="Municipal Agriculture Office" /></div>
                 </div>
               </div>
 
@@ -1010,7 +998,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <LayoutGrid className="w-4 h-4 shrink-0" />
-                    <span>Dashboard</span>
+                    <span><InterfaceText source="Dashboard" /></span>
                   </div>
                   {activePreviewTab === 'dashboard' && (
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--sidebar-active-text)' }} />
@@ -1026,7 +1014,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <Truck className="w-4 h-4 shrink-0" />
-                    <span>Ready for Take-Off</span>
+                    <span><InterfaceText source="Ready for Take-Off" /></span>
                   </div>
                   <span
                     className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -1045,7 +1033,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <MessageSquare className="w-4 h-4 shrink-0" />
-                    <span>Messages</span>
+                    <span><InterfaceText source="Messages" /></span>
                   </div>
                   <span
                     className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -1069,7 +1057,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
                     style={{ color: 'var(--sidebar-text)' }}
                   >
                     <Palette className="w-3.5 h-3.5" style={{ color: 'var(--sidebar-icon)' }} />
-                    <span>Sidebar Color Configuration</span>
+                    <span><InterfaceText source="Sidebar Color Configuration" /></span>
                   </div>
                 </div>
               </div>
@@ -1089,7 +1077,7 @@ export const SidebarColorConfig: React.FC<SidebarColorConfigProps> = ({
 
             {/* Quick Actions Note */}
             <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-600 leading-relaxed">
-              💡 <strong>Instant Application</strong>: When you click <em>Save Changes</em>, this color scheme will immediately apply to the navigation rail throughout the entire application.
+              💡 <strong>Instant Application</strong>: When you click <em><InterfaceText source="Save Changes" /></em>, this color scheme will immediately apply to the navigation rail throughout the entire application.
             </div>
           </div>
         </div>

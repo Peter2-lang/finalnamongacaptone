@@ -1,0 +1,8 @@
+{
+  "deployment": {
+    "id": "dpl_5EPuzkSKm3wSU5LLNwFRhoGwV4kA",
+    "url": "https://lguhinunanganswineregistry.vercel.app",
+    "state": "READY",
+    "commit": "0bd949b0677095d70349783c66fbe13a08d2eb92"
+  }
+}

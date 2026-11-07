@@ -1,3 +1,6 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
+import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
+import {useCloudItems} from '../../hooks/useCloudItems';
 import React, { useState } from 'react';
 import {
   Truck,
@@ -44,7 +47,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
   onClearPreselected,
   onNavigateBack,
 }) => {
-  const [takeoffs, setTakeoffs] = useState<SwineTakeoffRecord[]>(() => storageService.getTakeoffRecords());
+  const {items:takeoffs,error:cloudError,busy:cloudBusy,save:saveTakeoff,remove:removeTakeoff} = useCloudItems<SwineTakeoffRecord>('takeoff_records');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'cleared' | 'in_transit' | 'completed'>('all');
   const [activeTab, setActiveTab] = useState<'takeoffs' | 'ready_hogs'>('takeoffs');
@@ -108,7 +111,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
     });
   };
 
-  const handleSaveTakeoff = (e: React.FormEvent) => {
+  const handleSaveTakeoff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleForm.swineId || !scheduleForm.earTagNo) {
       alert('Please select a registered market-ready swine.');
@@ -145,35 +148,18 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    storageService.addTakeoffRecord(newRecord);
-    setTakeoffs(storageService.getTakeoffRecords());
+    if (!await saveTakeoff(newRecord)) return;
     setIsScheduleModalOpen(false);
     if (onClearPreselected) onClearPreselected();
     onRefresh();
   };
 
-  const handleUpdateStatus = (record: SwineTakeoffRecord, newStatus: SwineTakeoffRecord['status']) => {
-    const updated = { ...record, status: newStatus };
-    storageService.updateTakeoffRecord(updated);
-    
-    // If completed (sold), also update swine status in registry
-    if (newStatus === 'completed') {
-      const foundSwine = swineList.find(s => s.id === record.swineId || s.earTagNo === record.earTagNo);
-      if (foundSwine) {
-        storageService.updateSwineRecord({ ...foundSwine, status: 'sold', readyToSell: false });
-      }
-    }
-    
-    setTakeoffs(storageService.getTakeoffRecords());
-    onRefresh();
+  const handleUpdateStatus = async (record: SwineTakeoffRecord, newStatus: SwineTakeoffRecord['status']) => {
+    if (await saveTakeoff({...record,status:newStatus})) await onRefresh();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this take-off dispatch record?')) {
-      storageService.deleteTakeoffRecord(id);
-      setTakeoffs(storageService.getTakeoffRecords());
-      onRefresh();
-    }
+  const handleDelete = async (id: string) => {
+    if (confirm('Delete this take-off dispatch record?') && await removeTakeoff(id)) await onRefresh();
   };
 
   // Filtered takeoffs
@@ -198,6 +184,8 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
 
   return (
     <div className="py-6 px-4 max-w-7xl mx-auto space-y-6">
+      {cloudError && <p role="alert" className="text-red-700 text-sm">{<LocalizedFeedback value={cloudError} />}</p>}
+      {cloudBusy && <p role="status">Saving dispatch…</p>}
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-stone-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-emerald-800/60 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -365,8 +353,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                             {record.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 mt-0.5">
-                          Farmer: <strong>{record.farmerName}</strong> • Brgy. {record.barangay}
+                        <p className="text-xs text-stone-500 mt-0.5"><InterfaceText source="Farmer:" /><strong>{record.farmerName}</strong>{" "}<InterfaceText source="• Brgy." />{" "}{record.barangay}
                         </p>
                       </div>
 
@@ -403,7 +390,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <span className="truncate">Vehicle: <strong>{record.vehiclePlateNo || 'Pending'}</strong> {record.driverName ? `(Driver: ${record.driverName})` : ''}</span>
+                        <span className="truncate">Vehicle: <strong>{record.vehiclePlateNo || translateInterfaceText("Pending")}</strong> {record.driverName ? `(Driver: ${record.driverName})` : ''}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
@@ -509,8 +496,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                     </span>
                     <span className="text-stone-500">Brgy. {s.barangay}</span>
                   </div>
-                  <p className="text-stone-600 text-[11px] mt-0.5">
-                    Farmer: <strong>{s.farmerName}</strong> • {s.breed} • Est. Value: <strong>₱{(s.weightKg * 220).toLocaleString()}</strong>
+                  <p className="text-stone-600 text-[11px] mt-0.5"><InterfaceText source="Farmer:" /><strong>{s.farmerName}</strong> • {s.breed} • Est. Value: <strong>₱{(s.weightKg * 220).toLocaleString()}</strong>
                   </p>
                 </div>
 
@@ -577,8 +563,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
               {scheduleForm.earTagNo && (
                 <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1">
                   <div className="font-bold text-stone-900">Selected: {scheduleForm.earTagNo}</div>
-                  <div className="text-stone-600">
-                    Farmer: {scheduleForm.farmerName} • Brgy. {scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
+                  <div className="text-stone-600"><InterfaceText source="Farmer:" />{scheduleForm.farmerName}{" "}<InterfaceText source="• Brgy." />{" "}{scheduleForm.barangay} • Liveweight: {scheduleForm.weightKg} kg
                   </div>
                 </div>
               )}
@@ -698,9 +683,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                   type="button"
                   onClick={() => setIsScheduleModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                ><InterfaceText source="Cancel" /></button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer shadow-md"
@@ -719,12 +702,8 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
           <div data-print-document="takeoff-record" className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-stone-200 overflow-hidden my-8 p-8 space-y-6">
             {/* Republic Header */}
             <div className="text-center space-y-1 border-b-2 border-emerald-900 pb-4">
-              <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
-                Republic of the Philippines • Province of Southern Leyte
-              </div>
-              <h2 className="text-lg font-black text-stone-900 uppercase">
-                Municipality of Hinunangan
-              </h2>
+              <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold"><InterfaceText source="Republic of the Philippines • Province of Southern Leyte" /></div>
+              <h2 className="text-lg font-black text-stone-900 uppercase"><InterfaceText source="Municipality of Hinunangan" /></h2>
               <div className="text-xs font-bold text-emerald-800">
                 Municipal Agriculture Office • Livestock & Veterinary Section
               </div>
@@ -758,7 +737,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-stone-500 block">Hauler / Vehicle Plate:</span>
-                  <span className="font-mono font-bold">{printingRecord.vehiclePlateNo || 'Not recorded'}</span>
+                  <span className="font-mono font-bold">{printingRecord.vehiclePlateNo || translateInterfaceText("Not recorded")}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-stone-500 block">Buyer Consolidator:</span>
@@ -768,7 +747,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
 
               <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 text-[11px]">
                 <span className="font-semibold">Veterinary Health Certificate reference: </span>
-                <span className="font-mono">{printingRecord.vhcNumber || 'Not recorded'}</span>
+                <span className="font-mono">{printingRecord.vhcNumber || translateInterfaceText("Not recorded")}</span>
               </div>
             </div>
 
@@ -789,9 +768,7 @@ export const SwineTakeoffManager: React.FC<SwineTakeoffManagerProps> = ({
               <button
                 onClick={() => setPrintingRecord(null)}
                 className="no-print px-4 py-2 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 cursor-pointer"
-              >
-                Close
-              </button>
+              ><InterfaceText source="Close" /></button>
               <button
                 onClick={() => {
                   try {

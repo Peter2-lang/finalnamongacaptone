@@ -1,3 +1,4 @@
+import { translateInterfaceText, InterfaceText } from '../../i18n/interfaceText';
 import React, { useState } from 'react';
 import { Download, Smartphone, X } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
@@ -31,8 +32,8 @@ export const PWAInstallButton: React.FC<{ className?: string; compact?: boolean 
       <>
         <button
           onClick={() => setShowIOSGuide(true)}
-          title="Install on iPhone / iPad"
-          aria-label="Install on iPhone / iPad"
+          title={translateInterfaceText("Install on iPhone / iPad")}
+          aria-label={translateInterfaceText("Install on iPhone / iPad")}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium border border-slate-700 transition cursor-pointer ${className}`}
         >
           <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
@@ -47,7 +48,7 @@ export const PWAInstallButton: React.FC<{ className?: string; compact?: boolean 
                   <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                     DA
                   </div>
-                  <h3 className="text-base font-bold text-slate-900">Install on iPhone / iPad</h3>
+                  <h3 className="text-base font-bold text-slate-900"><InterfaceText source="Install on iPhone / iPad" /></h3>
                 </div>
                 <button
                   onClick={() => setShowIOSGuide(false)}

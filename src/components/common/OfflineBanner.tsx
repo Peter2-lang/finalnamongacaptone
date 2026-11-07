@@ -1,3 +1,4 @@
+import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import React, { useId, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, Database, Settings } from 'lucide-react';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
@@ -12,6 +13,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
   const {
     isBrowserOnline,
     isBackendReachable,
+    connectionStatus,
     isSimulatedOffline,
     syncState,
     pendingQueueCount,
@@ -27,7 +29,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
   const settingsId = useId();
   const [settingsPosition, setSettingsPosition] = useState({ top: 12, right: 12, maxHeight: 240 });
 
-  const cloudIsReachable = isBrowserOnline && isBackendReachable && !isSimulatedOffline;
+  const cloudIsReachable = connectionStatus === 'connected' && isBrowserOnline && !isSimulatedOffline;
   const visibleError = !cloudIsReachable || syncState === 'ERROR' ? lastError || syncError : null;
   const statusMessage = visibleError
     ? 'Synchronization did not complete. See the error below.'
@@ -37,12 +39,16 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
         ? 'Offline test mode is active. Local changes will remain queued until it ends.'
         : !isBrowserOnline
           ? 'No internet connection. Local changes will sync when internet is restored.'
-          : !isBackendReachable
-            ? 'Cloud database is unreachable. Local changes will sync when the connection returns.'
-            : pendingQueueCount > 0
+          : connectionStatus === 'initializing'
+            ? 'Checking the cloud connection.'
+            : connectionStatus === 'disconnected' || !isBackendReachable
+              ? 'Cloud database is unreachable. Local changes will sync when the connection returns.'
+              : pendingQueueCount > 0
               ? `${pendingQueueCount} change${pendingQueueCount === 1 ? '' : 's'} waiting to sync with the cloud.`
               : 'Connecting to the cloud database.';
-  const shouldShowBanner = !cloudIsReachable || pendingQueueCount > 0 || Boolean(visibleError) || Boolean(syncSuccess);
+  const shouldShowBanner = !['initializing', 'checking'].includes(connectionStatus) && (
+    connectionStatus !== 'connected' || pendingQueueCount > 0 || Boolean(visibleError) || Boolean(syncSuccess)
+  );
 
   const handleSync = async () => {
     setSyncing(true);
@@ -85,7 +91,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
     <>
       <section
         aria-label="Connectivity and synchronization status"
-        className={`relative z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-3 py-2 text-xs sm:px-4 sm:text-sm ${
+        className={`relative z-30 flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center justify-between gap-x-3 gap-y-2 border-b px-3 py-2 text-xs sm:px-4 sm:text-sm ${
           visibleError
             ? 'border-rose-300 border-l-4 bg-rose-50 text-rose-950'
             : cloudIsReachable && pendingQueueCount > 0
@@ -101,12 +107,16 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
           )}
           <div className="min-w-0">
             <p className="break-words font-semibold leading-snug">
-              {cloudIsReachable ? 'Cloud connection active' : isBrowserOnline && !isSimulatedOffline ? 'Cloud connection issue' : t('offline_banner_active', 'Offline mode active')}
+              {cloudIsReachable
+                ? 'Cloud connection active'
+                : connectionStatus === 'disconnected' && isBrowserOnline && !isSimulatedOffline
+                  ? 'Cloud connection issue'
+                  : t('offline_banner_active', 'Offline mode active')}
               <span className="font-normal"> — {statusMessage}</span>
             </p>
             {visibleError && (
               <p className="mt-1 break-words text-[11px] font-medium text-rose-800">
-                Sync issue: {visibleError}
+                Sync issue: {<LocalizedFeedback value={visibleError} />}
               </p>
             )}
             {syncSuccess && (
@@ -118,7 +128,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onSyncComplete }) 
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {(!cloudIsReachable || pendingQueueCount > 0 || syncState === 'ERROR') && (
             <button
               type="button"

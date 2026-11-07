@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { resolveTranslation } from '../i18n';
+import React, { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import {
   AppLanguage,
   languageService,
@@ -24,12 +25,18 @@ interface LanguageContextValue {
   getStatusLabel: (status: string) => string;
 }
 
+const noSubscription = () => () => {};
+const subscribeLanguage = (callback: () => void) => languageService.onLanguageChange(callback);
+const languageSnapshot = () => languageService.getLanguage();
+const serverLanguage = () => 'en' as AppLanguage;
+
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<AppLanguage>(() => languageService.getLanguage());
 
   useEffect(() => {
+    document.documentElement.lang = languageService.getLanguage();
     const unsubscribe = languageService.onLanguageChange((newLang) => {
       setLanguageState(newLang);
     });
@@ -41,35 +48,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLanguageState(lang);
   };
 
-  const t = useCallback(
-    (
-      key: TranslationKey,
-      paramsOrFallback?: Record<string, string | number> | string,
-      fallback?: string
-    ): string => {
-      const dict = dictionaries[language] || dictionaries.en;
-      let template = dict[key];
-
-      let params: Record<string, string | number> | undefined;
-      let defaultFallback = '';
-
-      if (typeof paramsOrFallback === 'string') {
-        defaultFallback = paramsOrFallback;
-      } else if (paramsOrFallback && typeof paramsOrFallback === 'object') {
-        params = paramsOrFallback;
-        defaultFallback = fallback || '';
-      } else if (fallback) {
-        defaultFallback = fallback;
-      }
-
-      if (!template) {
-        template = dictionaries.en[key] || defaultFallback || String(key);
-      }
-
-      return formatTranslation(template, params);
-    },
-    [language]
-  );
+  const t = useCallback((key:TranslationKey,paramsOrFallback?:Record<string,string|number>|string,fallback?:string) => resolveTranslation(language,key,paramsOrFallback,fallback),[language]);
 
   const getSwineTypeLabel = useCallback(
     (type: string): string => {
@@ -147,8 +126,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export const useLanguage = (): LanguageContextValue => {
   const context = useContext(LanguageContext);
+  const fallbackLang = useSyncExternalStore(context ? noSubscription : subscribeLanguage, languageSnapshot, serverLanguage);
   if (!context) {
-    const fallbackLang = languageService.getLanguage();
     return {
       language: fallbackLang,
       setLanguage: (l) => languageService.setLanguage(l),
