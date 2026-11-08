@@ -36,3 +36,13 @@ Production public JavaScript identifies Supabase project `pxwjxrhkukonztmfczpm`.
 ## Validation and deployment
 
 `npm run lint` and `npm run build` passed; all 149 unit tests passed. Desktop and mobile landing regressions passed. See the final task response for preview URL/status. Tests use isolated fixtures and cover public endpoint authorization/privacy, real-zero projection, assessment approval/validation, database failures, ranking/search/zone filters, all 40 cards, CMS updates, refresh, and desktop/mobile chatbot lifecycle and launcher position. `npm run lint` performs TypeScript checking in this repository.
+
+## Production hardening follow-up
+
+The public landing directory now uses only returned master rows, including configured coordinates; it no longer imports or spreads the sample barangay card objects. A failed initial query shows an unavailable directory rather than a fabricated master count. Missing focal assignments display Not Assigned. Existing assigned names are withheld unless the barangay metadata explicitly sets `publishFocalPersonName` to true; numbers remain unpublished.
+
+Anonymous `/api/barangays` requests now use the same safe aggregate projection, closing the older metadata/default-Green path. Assessment matching honors canonical barangay IDs; a conflicting ID cannot be overridden by a display name. Malformed database results and malformed public responses fail closed.
+
+The actual aggregate SQL was executed in PostgreSQL against 12 query-local CTE fixture scenarios using `scripts/verify-public-registry-fixtures.ts` and `src/server/testSupport/publicRegistryFixtures.ts`. These shadow tables exist only during the SELECT and perform no production writes. Verified cases: zero, one, same farmer with multiple swine, multiple barangays, archived, restored, deleted, ready-to-sell, moved barangay, inactive, sold/deceased, archived farmer. Every result retained all 40 fixture master rows; the farmer/swine/ready totals matched expected results and unpublished focal names stayed private.
+
+The only remaining 1,240 text found in application source is an administrative theme-preview sample in MasterConfigHub, outside public statistics. Shared GIS geography still contains legacy demo metadata for separate authenticated components; the public landing page has no import or fallback path to it.

@@ -39,7 +39,6 @@ import { landingCmsService, DEFAULT_LEGAL_DOCUMENTS_CONFIG } from '../../service
 import { storageService } from '../../services/storageService';
 import { OfficialSealBadge } from '../common/OfficialSeals';
 import { PWAInstallButton } from '../common/PWAInstallButton';
-import { HINUNANGAN_BARANGAYS } from '../../data/barangays';
 
 interface LandingPageProps {
   swineList?: SwineRecord[];
@@ -103,8 +102,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     swineCount: number | string;
     readyToSellCount: number | string;
     isUrban?: boolean;
-    latitude: number;
-    longitude: number;
+    latitude: number | null;
+    longitude: number | null;
     classification?: string;
     lastAssessmentDate?: string;
   } | null>(null);
@@ -158,6 +157,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         const response = await fetch('/api/public/registry-summary', { cache: 'no-store' });
         if (!response.ok) throw new Error('Registry unavailable');
         const body = await response.json();
+        if (!Array.isArray(body.barangays) || !['coveredBarangays', 'registeredFarmers', 'activeSwine', 'readyToSell', 'assessedBarangays'].every(key => Number.isSafeInteger(body[key]) && body[key] >= 0)) throw new Error('Invalid public registry response');
+        if (body.barangays.length !== body.coveredBarangays || body.barangays.some((b: any) => !b.id || typeof b.name !== 'string' || !['swineCount','readyToSellCount'].every(key => Number.isSafeInteger(b[key]) && b[key] >= 0))) throw new Error('Invalid public directory response');
         if (!disposed) { setRegistry(body); setRegistryError(false); }
       } catch { if (!disposed) { setRegistry(null); setRegistryError(true); } }
     };
@@ -167,16 +168,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return () => { disposed = true; clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, []);
   const pendingValue = registryError ? 'Unavailable' : 'Loading…';
-  const enrichedBarangays = (registry?.barangays || HINUNANGAN_BARANGAYS).map((entry: any) => {
-    const geo = HINUNANGAN_BARANGAYS.find(b => b.name.toLowerCase() === entry.name.toLowerCase());
+  const enrichedBarangays = (registry?.barangays || []).map((entry: any) => {
     const live = registry ? entry : null;
-    return { ...geo, id: entry.id, name: entry.name, latitude: geo?.latitude ?? 0, longitude: geo?.longitude ?? 0, code: live?.code || 'Not configured', riskLevel: live?.riskLevel || 'unknown',
-      focalPersonName: live?.focalPersonName || 'Assignment not published', contactNumber: live?.contactNumber || 'Not published',
-      classification: live?.classification || 'Not Yet Assessed', lastAssessmentDate: live?.lastAssessmentDate || 'Not Yet Assessed',
+    return { id: entry.id, name: entry.name, latitude: live.latitude, longitude: live.longitude, code: live?.code || 'Not configured', riskLevel: live?.riskLevel || 'unknown',
+      focalPersonName: live?.focalPersonName || (live?.focalPersonAssigned ? 'Not Published' : registry ? 'Not Assigned' : pendingValue), contactNumber: live?.contactNumber || 'Not published',
+      classification: live?.classification || (registry ? 'Not Yet Assessed' : pendingValue), lastAssessmentDate: live?.lastAssessmentDate || (registry ? 'Not Yet Assessed' : pendingValue),
       swineCount: live?.swineCount ?? (registry ? 0 : pendingValue),
       readyToSellCount: live?.readyToSellCount ?? (registry ? 0 : pendingValue) };
   });
-  let displayedBarangays = [...enrichedBarangays].sort((a: any,b: any) => Number(b.swineCount)-Number(a.swineCount) || a.name.localeCompare(b.name));
+  let displayedBarangays = [...enrichedBarangays].sort((a: any,b: any) => Number(b.swineCount)-Number(a.swineCount) || a.name.localeCompare(b.name, 'en') || a.id.localeCompare(b.id));
   if (barangayViewMode === 'top15') displayedBarangays = displayedBarangays.filter((b: any) => Number(b.swineCount) > 0).slice(0,15);
   const search = barangaySearch.trim().toLowerCase();
   displayedBarangays = displayedBarangays.filter((b: any) => (!search || `${b.name} ${b.code}`.toLowerCase().includes(search)) && (barangayRiskFilter === 'all' || b.riskLevel === barangayRiskFilter));
@@ -420,7 +420,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       color: theme.headingColor || '#064e3b',
                     }}
                   >
-                    {barangayViewMode === 'top15' ? 'Top 15 Barangays by Registered Swine Population' : 'All 40 Barangays — Biosecurity & Swine Status'}
+                    {barangayViewMode === 'top15' ? 'Top 15 Barangays by Registered Swine Population' : `All ${registry ? registry.coveredBarangays + ' ' : ''}Barangays — Biosecurity & Swine Status`}
                   </h3>
                   <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-2xl leading-relaxed">
                     Live biosecurity zoning, active swine population, and designated agricultural focal officers across Hinunangan, Southern Leyte.
@@ -449,7 +449,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         : 'text-stone-700 hover:text-emerald-800'
                     }`}
                   >
-                    All {enrichedBarangays.length} Barangays
+                    All {registry ? `${registry.coveredBarangays} ` : ''}Barangays
                   </button>
                 </div>
               </div>
@@ -521,7 +521,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                               {bg.name}
                             </h4>
                             <span className="text-[10px] font-mono font-bold text-stone-400">
-                              [{bg.code}] {bg.isUrban ? '• Urban' : '• Rural'}
+                              [{bg.code}]
                             </span>
                           </div>
                           <span
@@ -575,7 +575,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {displayedBarangays.length === 0 && (
                 <div className="p-8 text-center bg-white/80 rounded-2xl border border-stone-200 space-y-2">
                   <MapPin className="w-8 h-8 text-stone-300 mx-auto" />
-                  <p className="text-xs font-bold text-stone-600">{registryError ? 'Barangay populations temporarily unavailable. The official list remains available under All Barangays.' : !registry ? 'Loading barangay records…' : registry.activeSwine === 0 && barangayViewMode === 'top15' ? 'No active swine records to rank. View All Barangays for the official directory.' : 'No barangays matching your search filter.'}</p>
+                  <p className="text-xs font-bold text-stone-600">{registryError ? 'Barangay directory temporarily unavailable. Please try again shortly.' : !registry ? 'Loading barangay records…' : registry.activeSwine === 0 && barangayViewMode === 'top15' ? 'No active swine records to rank. View All Barangays for the official directory.' : 'No barangays matching your search filter.'}</p>
                   <button
                     onClick={() => {
                       setBarangaySearch('');
@@ -1557,7 +1557,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200">
                     <span className="font-semibold text-stone-700">Geographic Spatial Mapping</span>
                     <span className="font-mono text-[11px] text-emerald-800 font-bold">
-                      {selectedBarangayDetail.latitude.toFixed(4)}°N, {selectedBarangayDetail.longitude.toFixed(4)}°E
+                      {selectedBarangayDetail.latitude != null && selectedBarangayDetail.longitude != null ? `${selectedBarangayDetail.latitude.toFixed(4)}°N, ${selectedBarangayDetail.longitude.toFixed(4)}°E` : 'Not configured'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200">

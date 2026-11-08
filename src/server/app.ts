@@ -2111,8 +2111,13 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   });
 
   // Reference data is installed only through separately approved migrations.
-  app.get('/api/barangays', async (_req, res) => {
+  app.get('/api/barangays', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     try {
+      if (!getUserSecurityContext(req).isAuthenticated) {
+        const summary = await loadPublicRegistrySummary();
+        return res.json({ success: true, count: summary.barangays.length, data: summary.barangays.map((b: any) => ({ ...b, registeredSwineCount: b.swineCount })) });
+      }
       const barangayResult = await pool.query('SELECT * FROM barangays WHERE is_active = TRUE ORDER BY name');
       const { records } = await getAllSwineRecords();
 

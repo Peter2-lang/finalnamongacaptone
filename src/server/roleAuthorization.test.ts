@@ -98,6 +98,7 @@ test('assistant APIs use verified roles, read scoped live counts and handle fail
  const response=await fetch(base+'/api/public/registry-summary');
  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
  assert.deepEqual(await response.json(),{coveredBarangays:0,registeredFarmers:0,activeSwine:0,readyToSell:0,assessedBarangays:0,compliancePercent:null,barangays:[]});
+ const directory=await fetch(base+'/api/barangays');assert.equal(directory.status,200);assert.deepEqual(await directory.json(),{success:true,count:0,data:[]});
  const denied=await fetch(base+'/api/public/registry-summary',{method:'POST'});assert.equal(denied.status,401);
  });
 

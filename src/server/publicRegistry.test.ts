@@ -15,3 +15,18 @@ test('only latest approved valid assessment contributes; private fields never re
 test('SQL counts distinct farmer identities and excludes archived, inactive, sold and deceased swine',()=>{
  assert.match(PUBLIC_REGISTRY_SQL,/count\(DISTINCT id\)/); assert.match(PUBLIC_REGISTRY_SQL,/s.is_archived = FALSE/); assert.match(PUBLIC_REGISTRY_SQL,/is_active/); assert.match(PUBLIC_REGISTRY_SQL,/'sold', 'deceased'/); assert.match(PUBLIC_REGISTRY_SQL,/s.ready_to_sell = TRUE/); assert.match(PUBLIC_REGISTRY_SQL,/LEFT JOIN/);
 });
+
+test('canonical assessment IDs cannot be overridden by a matching display name',()=>{
+ const audit={id:'a',reviewStatus:'approved',barangayId:'different',barangay:'Ambacon',auditDate:'2026-11-01',asfZone:'green'};
+ assert.equal(publicRegistrySummary({...base,audits:[audit]}).assessedBarangays,0);
+});
+test('malformed aggregate and assessment results fail instead of reporting zero',()=>{
+ assert.throws(()=>publicRegistrySummary(null));
+ assert.throws(()=>publicRegistrySummary({...base,audits:{invalid:true}}));
+ assert.throws(()=>publicRegistrySummary({...base,farmers:'invalid'}));
+});
+
+test('duplicate or invalid barangay aggregates fail closed',()=>{
+ assert.throws(()=>publicRegistrySummary({...base,barangays:[base.barangays[0],base.barangays[0]]}));
+ assert.throws(()=>publicRegistrySummary({...base,barangays:[{...base.barangays[0],swineCount:null,readyToSellCount:2}]}));
+});
