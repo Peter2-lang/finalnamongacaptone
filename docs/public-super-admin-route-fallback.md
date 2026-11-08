@@ -37,4 +37,15 @@ Browser authentication tests use isolated API/Supabase fixtures. A real Super Ad
 
 ## Release and production checks
 
-Recorded after the tested source is deployed.
+Production deployment `dpl_DsugXFspHTTywnJ7RX2n26BM2r9c` is READY for commit `84e5d6a8ccf1b9b2fb6629b5d68043a13c4ea051`. The stable production domain resolves to this release (Vite; remote build approximately 59 seconds).
+
+Live, non-intercepted browser checks passed on desktop and mobile:
+
+- `/superadmin` returns HTTP 307 with homepage destination `/`.
+- `/`, `/superadmin`, `/superadmin/layout`, anonymous `/kamirani`, and anonymous `/kamirani/layout` all finish at `/` with the original public hero, header, and footer.
+- Refresh retains the public homepage.
+- No custom access-denied view, restricted workspace, portal notice, or `/kamirani` text appears on those public pages.
+- Anonymous pages make zero restricted master-configuration requests.
+- A direct anonymous `/api/config/master` request returns JSON HTTP 401.
+
+A deployment-scoped post-release scan found no error/fatal entries in the observed window. Long-term monitoring/log drains were not assessed. Authenticated role/session flows were verified with isolated accounts; live authenticated checks still require a working real Super Admin account.
