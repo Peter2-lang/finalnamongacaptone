@@ -15,7 +15,7 @@ test('genuine database connection refusal produces an unavailable public respons
   const response=await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/public/registry-summary`);
   assert.equal(response.status,503);
   const data=await response.json();assert.deepEqual(data,{success:false,error:'Public registry data temporarily unavailable.'});
-  assert.equal(data.activeSwine,undefined);assert.equal(data.registeredFarmers,undefined);
+  assert.equal('activeSwine' in data,false);assert.equal('registeredFarmers' in data,false);
   assert.doesNotMatch(JSON.stringify(data),/isolated|127\.0\.0\.1|password|ECONNREFUSED/);
  } finally {await new Promise<void>(resolve=>server.close(()=>resolve()));await fixturePool.end();}
 });
