@@ -34,5 +34,5 @@ test('public data states, ranking, filters, refresh, CMS and chatbot lifecycle',
  const box=await launcher.boundingBox();const viewport=page.viewportSize()!;expect(viewport.width-box!.x-box!.width).toBeGreaterThanOrEqual(16);expect(viewport.width-box!.x-box!.width).toBeLessThan(40);expect(viewport.height-box!.y-box!.height).toBeLessThan(40);
  await launcher.click();await expect(panel).toBeVisible();await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
  cms.heroTitle='Updated published CMS title';zero=true;await page.reload();await expect(page.getByText('Updated published CMS title',{exact:true})).toBeVisible();await expect(page.getByText(/No active swine records registered/)).toBeVisible();await page.getByRole('button',{name:'All 40 Barangays'}).click();await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(40);
- failed=true;await page.reload();await expect(page.getByText(/Database temporarily unavailable/)).toBeVisible();await expect(page.getByText('Unavailable',{exact:true})).toHaveCount(4);
+ failed=true;await page.reload();await expect(page.getByText(/Database temporarily unavailable/)).toBeVisible();await expect(page.locator('#barangays').getByText('Unavailable',{exact:true})).toHaveCount(4);
 });
