@@ -16,11 +16,12 @@ for (const tab of Object.values(routeTabs)) routeTabs[`/${tab}`] ||= tab;
 export const normalizePath = (path:string) => path.toLowerCase().replace(/\/+$/,'') || '/';
 export const isLegacySuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/superadmin'||value.startsWith('/superadmin/'); };
 export const isSuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/kamirani'||value.startsWith('/kamirani/')||isLegacySuperAdminPath(value); };
-/** Only a verified application role may convert legacy portal URLs. */
-export function legacySuperAdminRedirect(path:string,role:string|undefined):string|null {
-  return role==='super_admin' && isLegacySuperAdminPath(path) ? normalizePath(path).replace(/^\/superadmin(?=\/|$)/,'/kamirani') : null;
+/** Legacy URLs are public; the new portal requires a verified existing role. */
+export function superAdminRouteRedirect(path:string,role:string|undefined):'/'|null {
+  if (isLegacySuperAdminPath(path)) return '/';
+  return isSuperAdminPath(path) && role!=='super_admin' ? '/' : null;
 }
-export const tabForPath = (path:string) => routeTabs[normalizePath(path).replace(/^\/superadmin(?=\/|$)/,'/kamirani')] || 'dashboard';
+export const tabForPath = (path:string) => routeTabs[normalizePath(path)] || 'dashboard';
 
 const staffTabs = new Set(['dashboard','add_swine','records','gis','certificate','takeoff','biosecurity','marketing_alerts','messages','account']);
 const adminTabs = new Set([...staffTabs,'asf_ordinance','barangays','accounts','form_customizer','form_manager']);

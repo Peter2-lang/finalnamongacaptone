@@ -75,5 +75,17 @@
       "memory": 1024,
       "includeFiles": "build/vercel.cjs"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/superadmin",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/superadmin/:path*",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

@@ -1,6 +1,6 @@
 import { InterfaceText } from './i18n/interfaceText';
 import { clearConversations } from './services/assistantConversation';
-import { tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, legacySuperAdminRedirect } from './utils/appRoutes';
+import { tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, superAdminRouteRedirect } from './utils/appRoutes';
 import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense, lazy, useRef, useCallback } from 'react';
 import { Header } from './components/common/Header';
@@ -8,7 +8,6 @@ import { Sidebar } from './components/common/Sidebar';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { BackupModal } from './components/common/BackupModal';
 import { AuthModal } from './components/auth/AuthModal';
-import { SuperAdminAuth } from './components/auth/SuperAdminAuth';
 import { AccessDenied403 } from './components/admin/media/AccessDenied403';
 import { hasPermission, isSuperAdminOnlyTab } from './utils/rbacPermissions';
 import { storageService } from './services/storageService';
@@ -152,7 +151,6 @@ export default function App() {
   const sessionEpochRef = useRef(0);
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentRole === 'super_admin';
   const isAdmin = currentUser?.role === 'admin' || currentRole === 'admin' || isSuperAdmin;
-  const { fontStyle, colors, roleConfig } = useRoleTheme(currentRole);
 
   const [activeTab, setActiveTab] = useState<string>(() => tabForPath(window.location.pathname));
   const { language, t } = useLanguage();
@@ -164,6 +162,12 @@ export default function App() {
     }
     return '/';
   });
+
+  // Public presentation never signs out an already authenticated staff member.
+  const isPublicView = currentPath==='/' || isLegacySuperAdminPath(currentPath) ||
+    (isSuperAdminPath(currentPath) && currentUser?.role!=='super_admin');
+  const displayRole: UserRole | 'landing' = isPublicView ? 'landing' : currentRole;
+  const { fontStyle, colors, roleConfig } = useRoleTheme(displayRole);
 
   const returnPathRef = useRef(routeTabs[normalizePath(window.location.pathname)] ? normalizePath(window.location.pathname) : null);
 
@@ -296,9 +300,11 @@ export default function App() {
 
   useEffect(() => {
     if (!sessionRestoreComplete) return;
-    const destination=legacySuperAdminRedirect(currentPath,currentUser?.role);
+    const destination=superAdminRouteRedirect(currentPath,currentUser?.role);
     if (!destination) return;
-    window.history.replaceState({},'',destination+window.location.search+window.location.hash);
+    window.history.replaceState({},'',destination);
+    returnPathRef.current=null;
+    setIsAuthModalOpen(false);
     setCurrentPath(destination);
     setActiveTab(tabForPath(destination));
   }, [sessionRestoreComplete,currentUser,currentPath]);
@@ -652,11 +658,7 @@ export default function App() {
     setCurrentRole('landing');
     setCurrentUser(null);
     storageService.setCurrentUser(null as any);
-    if (isSuperAdminPath(currentPath)) {
-      navigateTo('/kamirani');
-    } else {
-      navigateTo('/');
-    }
+    navigateTo('/');
   };
 
   const handleOpenLogin = (role: UserRole = 'admin') => {
@@ -735,9 +737,6 @@ export default function App() {
     handleTabSelect('certificate');
   };
 
-  // Dedicated /kamirani portal handling
-  const isSuperAdminRoute = isSuperAdminPath(currentPath);
-
   if (!sessionRestoreComplete) {
     return (
       <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-200 text-sm" role="status">
@@ -746,7 +745,7 @@ export default function App() {
     );
   }
 
-  if (currentRole === 'landing' && !landingConfigReady && !isSuperAdminRoute) {
+  if (displayRole === 'landing' && !landingConfigReady) {
     return (
       <div className="min-h-screen bg-stone-100 text-stone-900">
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
@@ -771,59 +770,15 @@ export default function App() {
     );
   }
 
-  if (isSuperAdminRoute && currentUser?.role !== 'super_admin') {
-    if (currentUser || isLegacySuperAdminPath(currentPath)) {
-      // Non-superadmin account attempting to access /kamirani
-      return (
-        <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
-          <AccessDenied403
-            moduleName={currentUser ? 'Super Administrator Portal (Restricted to Regional Super Administrators)' : 'Super Administrator Portal (Authentication required; sign in at /kamirani)'}
-            onBackToDashboard={() => {
-              navigateTo('/dashboard');
-              setActiveTab('dashboard');
-            }}
-          />
-        </div>
-      );
-    }
-
-    // Unauthenticated visitor on /kamirani -> render dedicated SuperAdminAuth
-    return (
-      <SuperAdminAuth
-        onSuccess={async (user) => {
-          const verifiedUser = await authApi.restoreSession();
-          if (
-            !verifiedUser ||
-            verifiedUser.role !== 'super_admin' ||
-            verifiedUser.authUserId !== user.authUserId
-          ) {
-            throw new Error('The authenticated Supabase session could not be verified for the Super Admin account.');
-          }
-
-          storageService.setCurrentUser(verifiedUser, true);
-          setCurrentUser(verifiedUser);
-          setCurrentRole('super_admin');
-          const destination=routeTabs[currentPath] && !isLegacySuperAdminPath(currentPath) ? currentPath : '/kamirani';
-          returnPathRef.current=null;
-          navigateTo(destination);
-          setActiveTab(tabForPath(destination));
-        }}
-        onReturnToNormalPortal={() => {
-          navigateTo('/');
-          setCurrentRole('landing');
-        }}
-      />
-    );
-  }
 
   return (
     <div
       style={fontStyle}
       lang={language}
-      className={`${currentRole === 'landing' ? 'min-h-dvh' : 'h-dvh max-h-dvh overflow-hidden'} app-shell ${currentRole === 'landing' ? 'public-shell' : 'workspace-shell'} bg-slate-100 text-stone-900 flex flex-col font-sans antialiased selection:bg-emerald-200 relative`}
+      className={`${displayRole === 'landing' ? 'min-h-dvh' : 'h-dvh max-h-dvh overflow-hidden'} app-shell ${displayRole === 'landing' ? 'public-shell' : 'workspace-shell'} bg-slate-100 text-stone-900 flex flex-col font-sans antialiased selection:bg-emerald-200 relative`}
     >
       {/* Connected Interface Background Layer - Exclusively for Public Landing View */}
-      {interfaceBg?.imageUrl && interfaceBg.enabled !== false && currentRole === 'landing' && (
+      {interfaceBg?.imageUrl && interfaceBg.enabled !== false && displayRole === 'landing' && (
         <div
           className={`fixed inset-0 pointer-events-none z-0 ${interfaceBg.fixed !== false ? 'attachment-fixed' : ''}`}
           style={{
@@ -867,10 +822,10 @@ export default function App() {
 
       {/* Main Responsive Header */}
       <Header
-        currentUser={currentUser}
-        currentRole={currentRole}
+        currentUser={isPublicView ? null : currentUser}
+        currentRole={displayRole}
         onSelectRole={handleSelectRole}
-        activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
+        activeTab={displayRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
         onSelectTab={handleTabSelect}
         unreadCount={unreadCount}
         onOpenMessages={() => handleTabSelect('messages')}
@@ -888,12 +843,12 @@ export default function App() {
       {/* Main Layout Container with Desktop Locked-In Docked Sidebar & Mobile Drawer */}
       <div className="flex-1 min-h-0 flex overflow-hidden relative">
         {/* Desktop Sidebar (Toggleable via left hamburger menu button) */}
-        {currentRole !== 'landing' && isSidebarOpen && (
+        {displayRole !== 'landing' && isSidebarOpen && (
           <aside className="hidden lg:flex flex-col w-64 xl:w-72 shrink-0 border-r border-transparent bg-transparent z-20 h-full overflow-hidden transition-all duration-200">
             <Sidebar
-              currentUser={currentUser}
-              currentRole={currentRole}
-              activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
+              currentUser={isPublicView ? null : currentUser}
+              currentRole={displayRole}
+              activeTab={displayRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
               onSelectTab={handleTabSelect}
               onSelectRole={handleSelectRole}
               unreadCount={unreadCount}
@@ -906,7 +861,7 @@ export default function App() {
         )}
 
         {/* Mobile Slide-in Drawer (Only on mobile/tablet <lg when opened via menu toggle) */}
-        {isSidebarOpen && currentRole !== 'landing' && (
+        {isSidebarOpen && displayRole !== 'landing' && (
           <div className="lg:hidden fixed inset-0 z-50 flex pointer-events-auto">
             {/* Clickable Backdrop - closes drawer cleanly */}
             <div
@@ -916,9 +871,9 @@ export default function App() {
             />
             <div className="relative w-72 sm:w-80 max-w-[85vw] h-full bg-transparent shadow-2xl z-10 flex flex-col overflow-hidden animate-in slide-in-from-left duration-200">
               <Sidebar
-                currentUser={currentUser}
-                currentRole={currentRole}
-                activeTab={currentRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
+                currentUser={isPublicView ? null : currentUser}
+                currentRole={displayRole}
+                activeTab={displayRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
                 onSelectTab={tab => {
                   handleTabSelect(tab);
                   setIsSidebarOpen(false);
@@ -949,14 +904,14 @@ export default function App() {
           data-page={activeTab}
           tabIndex={-1}
           style={{
-            backgroundColor: currentRole !== 'landing' && colors?.backgroundColor ? colors.backgroundColor : undefined,
+            backgroundColor: displayRole !== 'landing' && colors?.backgroundColor ? colors.backgroundColor : undefined,
           }}
           className="flex-1 min-h-0 w-full min-w-0 overflow-y-auto text-stone-900 relative z-10"
         >
           {moduleLoadError ? (
             <ModuleLoadError error={moduleLoadError} />
           ) : <Suspense fallback={<ViewLoader />}>
-            {currentRole === 'landing' ? (
+            {displayRole === 'landing' ? (
           <LandingPage
             swineList={swineList}
             barangays={barangays}
@@ -966,20 +921,20 @@ export default function App() {
             onNavigateTab={handleTabSelect}
             onOpenLogin={() => handleOpenLogin('admin')}
           />
-        ) : !canAccessTab(currentRole,activeTab) ? <AccessDenied403 moduleName={activeTab.replaceAll('_',' ')} onBackToDashboard={()=>handleTabSelect('dashboard')} /> : currentRole === 'agent' ? (
+        ) : !canAccessTab(displayRole,activeTab) ? <AccessDenied403 moduleName={activeTab.replaceAll('_',' ')} onBackToDashboard={()=>handleTabSelect('dashboard')} /> : displayRole === 'agent' ? (
           activeTab === 'gis' ? (
             <div className="p-4 sm:p-6 w-full">
-              <GisMap swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
+              <GisMap swineList={swineList} barangays={barangays} currentUser={isPublicView ? null : currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
             </div>
           ) : activeTab === 'messages' ? (
             <MessagingCenter
               barangays={barangays}
-              currentUser={currentUser}
+              currentUser={isPublicView ? null : currentUser}
               onRefreshBadge={refreshAllData}
             />
           ) : activeTab === 'account' ? (
             <AgentAccountView
-              currentUser={currentUser}
+              currentUser={isPublicView ? null : currentUser}
               onLogout={handleLogout}
             />
           ) : (
@@ -995,8 +950,8 @@ export default function App() {
               <Dashboard
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={currentUser}
-                currentRole={currentRole}
+                currentUser={isPublicView ? null : currentUser}
+                currentRole={displayRole}
                 onNavigateTab={handleTabSelect}
                 onAddSwine={() => {
                   setEditingSwine(null);
@@ -1010,7 +965,7 @@ export default function App() {
               <SwineTakeoffManager
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 initialSelectedSwine={preselectedTakeoffSwine}
                 onRefresh={refreshAllData}
                 onNavigateBack={() => handleTabSelect('records')}
@@ -1020,8 +975,8 @@ export default function App() {
             {activeTab === 'biosecurity' && (
               <BarangayBiosecurity
                 barangays={barangays}
-                currentUser={currentUser}
-                currentRole={currentRole}
+                currentUser={isPublicView ? null : currentUser}
+                currentRole={displayRole}
                 onRefresh={refreshAllData}
               />
             )}
@@ -1030,7 +985,7 @@ export default function App() {
               <SwineMarketingAlerts
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 onScheduleTakeoff={(swine) => {
                   setPreselectedTakeoffSwine(swine);
                   handleTabSelect('takeoff');
@@ -1065,15 +1020,15 @@ export default function App() {
 
                 <GisMap
                   swineList={
-                    currentRole === 'focal' && currentUser?.assignedBarangay
+                    displayRole === 'focal' && currentUser?.assignedBarangay
                       ? swineList.filter(s => (s.barangay || '').toLowerCase() === (currentUser.assignedBarangay || '').toLowerCase())
                       : swineList
                   }
                   barangays={barangays}
-                  selectedBarangay={gisSelectedBarangay || (currentRole === 'focal' ? currentUser?.assignedBarangay : undefined)}
+                  selectedBarangay={gisSelectedBarangay || (displayRole === 'focal' ? currentUser?.assignedBarangay : undefined)}
                   initialCenter={gisInitialCenter}
-                  currentUser={currentUser}
-                  currentRole={currentRole}
+                  currentUser={isPublicView ? null : currentUser}
+                  currentRole={displayRole}
                   targetSwineId={gisTargetSwineId}
                   onViewSwineRecord={handleViewSwineRecord}
                   onPickLocation={(lat, lng, containingBarangay) => {
@@ -1085,10 +1040,10 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === 'asf_ordinance' && currentRole !== 'focal' && (
+            {activeTab === 'asf_ordinance' && displayRole !== 'focal' && (
               <ASFOrdinanceModule
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 onNavigateTab={handleTabSelect}
               />
             )}
@@ -1096,7 +1051,7 @@ export default function App() {
             {activeTab === 'add_swine' && (
               <SwineForm
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 initialData={editingSwine}
                 initialFarmer={selectedFarmerForSwine}
                 initialCoordinates={pendingGisCoordinates}
@@ -1122,8 +1077,8 @@ export default function App() {
               <PigsRecords
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={currentUser}
-                currentRole={currentRole}
+                currentUser={isPublicView ? null : currentUser}
+                currentRole={displayRole}
                 onEditSwine={handleEditSwine}
                 onIssueCertificate={handleIssueCertificateForSwine}
                 onViewOnMap={handleViewSwineOnMap}
@@ -1141,7 +1096,7 @@ export default function App() {
               <CertificateManager
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 selectedSwineInitial={certificateSwine}
               />
             )}
@@ -1149,7 +1104,7 @@ export default function App() {
             {activeTab === 'messages' && (
               <MessagingCenter
                 barangays={barangays}
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 onRefreshBadge={refreshAllData}
               />
             )}
@@ -1170,7 +1125,7 @@ export default function App() {
                 <ManageAccounts
                   users={accounts}
                   barangays={barangays}
-                  currentUser={currentUser}
+                  currentUser={isPublicView ? null : currentUser}
                   isLoading={accountsLoading}
                   loadError={accountsError}
                   onAccountUpsert={handleAccountUpsert}
@@ -1245,7 +1200,7 @@ export default function App() {
             {/* My Account (Focal Person & Admin) */}
             {activeTab === 'account' && (
               <UserAccountView
-                currentUser={currentUser}
+                currentUser={isPublicView ? null : currentUser}
                 onLogout={handleLogout}
                 onUpdateUser={(updated) => {
                   setCurrentUser(updated);
@@ -1338,7 +1293,7 @@ export default function App() {
           isOpen={isBatchModalOpen}
           onClose={() => setIsBatchModalOpen(false)}
           barangays={barangays}
-          currentUser={currentUser}
+          currentUser={isPublicView ? null : currentUser}
           onImportComplete={() => {
             refreshAllData();
             handleTabSelect('records');
@@ -1369,9 +1324,9 @@ export default function App() {
       {/* Floating DA Hinunangan Biosecurity Assistant */}
       <Suspense fallback={null}>
         <BiosecurityAssistant
-          key={`${currentUser?.id || 'public'}:${currentRole}:${currentUser?.assignedBarangay || ''}`}
-          currentUser={currentUser}
-          currentRole={currentRole}
+          key={`${currentUser?.id || 'public'}:${displayRole}:${currentUser?.assignedBarangay || ''}`}
+          currentUser={isPublicView ? null : currentUser}
+          currentRole={displayRole}
           onNavigateTab={handleTabSelect}
           swineList={swineList}
           barangays={barangays}

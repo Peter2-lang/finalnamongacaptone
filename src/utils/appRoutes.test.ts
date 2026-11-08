@@ -1,4 +1,4 @@
-import {isSuperAdminPath,isLegacySuperAdminPath,legacySuperAdminRedirect,canAccessTab} from './appRoutes';
+import {isSuperAdminPath,isLegacySuperAdminPath,superAdminRouteRedirect,canAccessTab} from './appRoutes';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -27,23 +27,23 @@ test('every role has explicit route permissions and denied tabs cannot fall thro
 });
 
 
-test('legacy Super Admin URLs redirect only for the unchanged verified role',()=>{
- for(const role of ['admin','focal','agent','guest','superadmin','',undefined]) {
-  assert.equal(legacySuperAdminRedirect('/superadmin',role),null);
-  assert.equal(legacySuperAdminRedirect('/superadmin/layout',role),null);
+test('legacy URLs are always public and new portal access requires the existing verified role',()=>{
+ for(const role of ['super_admin','admin','focal','agent','guest','superadmin','',undefined]) {
+  assert.equal(superAdminRouteRedirect('/superadmin',role),'/');
+  assert.equal(superAdminRouteRedirect('/SUPERADMIN/layout/',role),'/');
+  assert.equal(superAdminRouteRedirect('/kamirani',role),role==='super_admin'?null:'/');
+  assert.equal(superAdminRouteRedirect('/kamirani/layout',role),role==='super_admin'?null:'/');
+  assert.equal(superAdminRouteRedirect('/records',role),null);
  }
- assert.equal(legacySuperAdminRedirect('/superadmin','super_admin'),'/kamirani');
- assert.equal(legacySuperAdminRedirect('/SUPERADMIN/typography/','super_admin'),'/kamirani/typography');
- assert.equal(tabForPath('/superadmin/layout'),'layout_config');
  for(const path of ['/kamirani','/kamirani/layout','/superadmin','/superadmin/layout'])assert.equal(isSuperAdminPath(path),true);
  for(const path of ['/kamiranix','/superadministrator','/records'])assert.equal(isSuperAdminPath(path),false);
  assert.equal(isLegacySuperAdminPath('/kamirani'),false);
- assert.equal(legacySuperAdminRedirect('/records','super_admin'),null);
 });
 
-test('Vercel SPA fallback serves the renamed portal without an unconditional legacy redirect',()=>{
+test('Vercel redirects legacy portal documents to the homepage without changing API routing',()=>{
  const config=JSON.parse(readFileSync(new URL('../../vercel.json',import.meta.url),'utf8'));
+ assert.deepEqual(config.redirects,[{source:'/superadmin',destination:'/',permanent:false},{source:'/superadmin/:path*',destination:'/',permanent:false}]);
  const fallback=config.rewrites.find((rule:any)=>rule.destination==='/index.html');
- for(const path of ['/kamirani','/kamirani/system-appearance','/superadmin'])assert.match(path,new RegExp('^'+fallback.source+'$'));
- assert.equal(config.redirects?.some((rule:any)=>rule.source.startsWith('/superadmin'))||false,false);
+ for(const path of ['/kamirani','/kamirani/system-appearance'])assert.match(path,new RegExp('^'+fallback.source+'$'));
+ assert.ok(config.rewrites.some((r:any)=>r.source==='/api/(.*)'&&r.destination==='/api/index'));
 });
