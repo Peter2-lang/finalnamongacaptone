@@ -662,6 +662,7 @@ export default function App() {
   };
 
   const handleOpenLogin = (role: UserRole = 'admin') => {
+    if (currentUser && storageService.getSessionToken()) { handleSelectRole(currentUser.role); return; }
     setAuthModalRole(role);
     setIsAuthModalOpen(true);
     if (currentPath === '/' || currentPath === '') {
@@ -846,7 +847,7 @@ export default function App() {
         {displayRole !== 'landing' && isSidebarOpen && (
           <aside className="hidden lg:flex flex-col w-64 xl:w-72 shrink-0 border-r border-transparent bg-transparent z-20 h-full overflow-hidden transition-all duration-200">
             <Sidebar
-              currentUser={isPublicView ? null : currentUser}
+              currentUser={currentUser}
               currentRole={displayRole}
               activeTab={displayRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
               onSelectTab={handleTabSelect}
@@ -871,7 +872,7 @@ export default function App() {
             />
             <div className="relative w-72 sm:w-80 max-w-[85vw] h-full bg-transparent shadow-2xl z-10 flex flex-col overflow-hidden animate-in slide-in-from-left duration-200">
               <Sidebar
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 currentRole={displayRole}
                 activeTab={displayRole === 'agent' && ['dashboard','takeoff'].includes(activeTab) ? 'ready_to_sell' : activeTab}
                 onSelectTab={tab => {
@@ -924,17 +925,17 @@ export default function App() {
         ) : !canAccessTab(displayRole,activeTab) ? <AccessDenied403 moduleName={activeTab.replaceAll('_',' ')} onBackToDashboard={()=>handleTabSelect('dashboard')} /> : displayRole === 'agent' ? (
           activeTab === 'gis' ? (
             <div className="p-4 sm:p-6 w-full">
-              <GisMap swineList={swineList} barangays={barangays} currentUser={isPublicView ? null : currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
+              <GisMap swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
             </div>
           ) : activeTab === 'messages' ? (
             <MessagingCenter
               barangays={barangays}
-              currentUser={isPublicView ? null : currentUser}
+              currentUser={currentUser}
               onRefreshBadge={refreshAllData}
             />
           ) : activeTab === 'account' ? (
             <AgentAccountView
-              currentUser={isPublicView ? null : currentUser}
+              currentUser={currentUser}
               onLogout={handleLogout}
             />
           ) : (
@@ -950,7 +951,7 @@ export default function App() {
               <Dashboard
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 currentRole={displayRole}
                 onNavigateTab={handleTabSelect}
                 onAddSwine={() => {
@@ -965,7 +966,7 @@ export default function App() {
               <SwineTakeoffManager
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 initialSelectedSwine={preselectedTakeoffSwine}
                 onRefresh={refreshAllData}
                 onNavigateBack={() => handleTabSelect('records')}
@@ -975,7 +976,7 @@ export default function App() {
             {activeTab === 'biosecurity' && (
               <BarangayBiosecurity
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 currentRole={displayRole}
                 onRefresh={refreshAllData}
               />
@@ -985,7 +986,7 @@ export default function App() {
               <SwineMarketingAlerts
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 onScheduleTakeoff={(swine) => {
                   setPreselectedTakeoffSwine(swine);
                   handleTabSelect('takeoff');
@@ -1027,7 +1028,7 @@ export default function App() {
                   barangays={barangays}
                   selectedBarangay={gisSelectedBarangay || (displayRole === 'focal' ? currentUser?.assignedBarangay : undefined)}
                   initialCenter={gisInitialCenter}
-                  currentUser={isPublicView ? null : currentUser}
+                  currentUser={currentUser}
                   currentRole={displayRole}
                   targetSwineId={gisTargetSwineId}
                   onViewSwineRecord={handleViewSwineRecord}
@@ -1043,7 +1044,7 @@ export default function App() {
             {activeTab === 'asf_ordinance' && displayRole !== 'focal' && (
               <ASFOrdinanceModule
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 onNavigateTab={handleTabSelect}
               />
             )}
@@ -1051,7 +1052,7 @@ export default function App() {
             {activeTab === 'add_swine' && (
               <SwineForm
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 initialData={editingSwine}
                 initialFarmer={selectedFarmerForSwine}
                 initialCoordinates={pendingGisCoordinates}
@@ -1077,7 +1078,7 @@ export default function App() {
               <PigsRecords
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 currentRole={displayRole}
                 onEditSwine={handleEditSwine}
                 onIssueCertificate={handleIssueCertificateForSwine}
@@ -1096,7 +1097,7 @@ export default function App() {
               <CertificateManager
                 swineList={swineList}
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 selectedSwineInitial={certificateSwine}
               />
             )}
@@ -1104,7 +1105,7 @@ export default function App() {
             {activeTab === 'messages' && (
               <MessagingCenter
                 barangays={barangays}
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 onRefreshBadge={refreshAllData}
               />
             )}
@@ -1125,7 +1126,7 @@ export default function App() {
                 <ManageAccounts
                   users={accounts}
                   barangays={barangays}
-                  currentUser={isPublicView ? null : currentUser}
+                  currentUser={currentUser}
                   isLoading={accountsLoading}
                   loadError={accountsError}
                   onAccountUpsert={handleAccountUpsert}
@@ -1200,7 +1201,7 @@ export default function App() {
             {/* My Account (Focal Person & Admin) */}
             {activeTab === 'account' && (
               <UserAccountView
-                currentUser={isPublicView ? null : currentUser}
+                currentUser={currentUser}
                 onLogout={handleLogout}
                 onUpdateUser={(updated) => {
                   setCurrentUser(updated);
@@ -1293,7 +1294,7 @@ export default function App() {
           isOpen={isBatchModalOpen}
           onClose={() => setIsBatchModalOpen(false)}
           barangays={barangays}
-          currentUser={isPublicView ? null : currentUser}
+          currentUser={currentUser}
           onImportComplete={() => {
             refreshAllData();
             handleTabSelect('records');
