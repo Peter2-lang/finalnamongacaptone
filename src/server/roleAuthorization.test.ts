@@ -77,12 +77,16 @@ test('assistant APIs use verified roles, read scoped live counts and handle fail
   barangay='Ambacon';
   assistantReplies=[{functionCalls:[{name:'query_registry',args:{period:'today'}}]},{text:'0 new records today in your authorized scope.'}];
   const response=await request('/api/assistant/chat','POST',{message:'How many new records today?',language:'ceb',role:'super_admin',barangay:'Canipaan',history:[{role:'user',content:'Hello'}]});
-  assert.equal(response.status,200,role);const body=await response.json();assert.match(body.reply,/0 new records/);
+  assert.equal(response.status,200,role);const body=await response.json();assert.match(body.reply,/0/);assert.equal(body.source,'database');assert.equal(response.headers.get('cache-control'),'no-store');
   const query=queries.filter(item=>item.text.includes('from "swine_records"')&&!item.text.includes('count(*)')).at(-1)!;
   if(role==='focal')assert.ok(query.params.includes('Ambacon'));
   if(role==='agent')assert.ok(query.params.includes(true));
-  assert.match(assistantRequests.at(-1).config.systemInstruction,/ceb/);
+  assert.equal(assistantRequests.length,0);
  }
+ role='focal';
+ let denied=await request('/api/assistant/chat','POST',{message:'How many swine are registered in Canipaan?',role:'super_admin',barangay:'Canipaan'});assert.equal(denied.status,403);
+ role='agent';
+ denied=await request('/api/assistant/chat','POST',{message:'How many farmers are registered?',role:'admin'});assert.equal(denied.status,403);
  role='admin';
  assistantReplies=[new Error('provider offline')];
  let response=await request('/api/assistant/chat','POST',{message:'What is a pig?'});assert.equal(response.status,503);assert.doesNotMatch((await response.json()).error,/provider offline/);

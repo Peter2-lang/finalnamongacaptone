@@ -8,7 +8,7 @@ export function readConversation(owner:string):ChatMessage[] {
  }catch{return [];}
 }
 export function saveConversation(owner:string,messages:ChatMessage[]) {
- try{sessionStorage.setItem(prefix+owner,JSON.stringify({savedAt:Date.now(),messages:messages.slice(-30).map(({id,sender,text,timestamp,action})=>({id,sender,text:text.slice(0,8000),timestamp,...(action&&['navigate','open_login'].includes(action.type)?{action}:{})}))}));}catch{/* Conversation memory is optional when browser storage is unavailable. */}
+ try{sessionStorage.setItem(prefix+owner,JSON.stringify({savedAt:Date.now(),messages:messages.slice(-30).map(({id,sender,text,timestamp,source,action})=>({id,sender,source,text:text.slice(0,8000),timestamp,...(action&&['navigate','open_login'].includes(action.type)?{action}:{})}))}));}catch{/* Conversation memory is optional when browser storage is unavailable. */}
 }
 export function clearConversations() {
  try{for(let i=sessionStorage.length-1;i>=0;i--){const key=sessionStorage.key(i);if(key?.startsWith(prefix))sessionStorage.removeItem(key);}}catch{/* Storage may be disabled. */}

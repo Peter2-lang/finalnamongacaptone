@@ -1,6 +1,6 @@
 import { loadPublicRegistrySummary } from './publicRegistry.ts';
 import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
-import { answerAssistant, type Generate } from './assistantEngine.ts';
+import { answerAssistant, AssistantDataError, type Generate } from './assistantEngine.ts';
 import type { ASFRegulatoryDocument } from '../types.ts';
 import { validateImportFieldDefinitions, validateImportRecordShape } from './swineImportValidation.ts';
 import { IMPORT_LIMITS, coerceImportValue, stableImportFingerprint } from '../utils/swineImportData.ts';
@@ -3786,6 +3786,7 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   const handleAssistant = async (req: express.Request, res: express.Response) => {
     const user = getUserSecurityContext(req);
     const publicMode = req.path === '/api/public/assistant/chat';
+    res.setHeader('Cache-Control','no-store');
     if (!publicMode && !user.isAuthenticated) return res.status(401).json({success:false,error:'Authentication required.'});
     try {
       // Preserve the existing explicit Super Admin configuration preview flow.
@@ -3801,8 +3802,13 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
       const result = await answerAssistant(req.body,publicMode ? {role:'guest'} : user, {generate:options.assistantGenerate});
       return res.json(result);
     } catch (error) {
+      if (error instanceof AssistantDataError) {
+        const language=req.body?.language;
+        const forbidden=error.code==='registry_forbidden';
+        return res.status(forbidden?403:503).json({success:false,code:error.code,error:forbidden?'This registry query is outside your permissions.':language==='ceb'?'Dili makuha ang live nga datos karon. Sulayi pag-usab.':language==='fil'?'Hindi makuha ang kasalukuyang datos. Subukang muli.':'Live registry data is unavailable. Please retry; unavailable data does not mean zero records.'});
+      }
       const code=assistantErrorCode(error);
-      console.warn('[ASSISTANT] request unavailable',{code});
+      console.warn('[ASSISTANT] request unavailable',{code,status:Number((error as any)?.status)||undefined,name:['Error','ApiError','TimeoutError','AbortError'].includes((error as any)?.name)?(error as any).name:'ProviderError',model:process.env.GEMINI_MODEL || 'gemini-flash-lite-latest'});
       return res.status(503).json({success:false,error:assistantErrorMessage(code,req.body?.language,!publicMode&&user.isAdmin),code});
     }
   };

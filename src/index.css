@@ -102,12 +102,11 @@ body {
     left: auto !important;
     top: auto !important;
     right: max(12px, env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .records-view-active .biosecurity-assistant-panel {
     left: 12px !important;
-    top: 12px !important;
     right: 12px !important;
     bottom: auto !important;
     width: auto !important;

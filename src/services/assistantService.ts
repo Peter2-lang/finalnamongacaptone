@@ -7,6 +7,7 @@ export interface ChatMessage {
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+  source?: 'database'|'ai';
   action?: {
     type: 'navigate' | 'confirm_action' | 'confirm_config_change' | 'filter_gis' | 'open_login';
     tab?: string;
@@ -20,6 +21,8 @@ export interface ChatMessage {
 
 export interface AssistantResponse {
   reply: string;
+  failed?: boolean;
+  source?: 'database'|'ai';
   action?: ChatMessage['action'];
   suggestions?: string[];
 }
@@ -35,20 +38,21 @@ export const PUBLIC_ASSISTANT_SUGGESTIONS = [
 
 type History = Array<{role:'user'|'assistant';text:string}>;
 async function requestAssistant(path:string,message:string,history:History,authenticated:boolean):Promise<AssistantResponse> {
-  if (!navigator.onLine || storageService.getSimulatedOffline()) return {reply:languageService.t('assistant_offline')};
+  if (!navigator.onLine || storageService.getSimulatedOffline()) return {reply:languageService.t('assistant_offline'),failed:true};
   try {
     const token = authenticated ? storageService.getSessionToken() : null;
     const response = await fetch(path,{
-      method:'POST',signal:AbortSignal.timeout(55000),
+      method:'POST',cache:'no-store',signal:AbortSignal.timeout(55000),
       headers:{'Content-Type':'application/json',...(token ? {Authorization:`Bearer ${token}`} : {})},
       body:JSON.stringify({message,language:languageService.getLanguage(),history:history.slice(-16).map(turn=>({role:turn.role,content:turn.text}))}),
     });
+    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('The assistant API returned an invalid response. Please retry.');
     const data=await response.json().catch(()=>null);
     if (!response.ok || data?.success!==true) throw new Error(data?.error || languageService.t('assistant_unavailable'));
     if(typeof data.reply!=='string'||!data.reply.trim()||data.reply.trim().toLowerCase()===message.trim().toLowerCase()) throw new Error(languageService.t('assistant_invalid_reply'));
-    return {reply:data.reply.trim(),action:data.action,suggestions:Array.isArray(data.suggestions)?data.suggestions:undefined};
+    return {reply:data.reply.trim(),source:data.source==='database'?'database':'ai',action:data.action,suggestions:Array.isArray(data.suggestions)?data.suggestions:undefined};
   } catch(error) {
-    return {reply:error instanceof Error && error.name!=='TimeoutError' && error.name!=='TypeError' ? error.message : languageService.t('assistant_unavailable')};
+    return {failed:true,reply:error instanceof Error && error.name!=='TimeoutError' && error.name!=='TypeError' ? error.message : languageService.t('assistant_unavailable')};
   }
 }
 export const assistantService = {

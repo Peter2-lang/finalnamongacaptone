@@ -31,11 +31,11 @@ test('real generation path receives history and selected language and rejects ec
  for(const text of ['', 'What is a pig?'])await assert.rejects(answerAssistant({message:'What is a pig?'},{role:'guest'},{generate:async()=>({text})}),/empty or repeated/);
  assert.deepEqual(sanitizeConversation([{role:'tool',content:'hack'},{role:'user',content:'hi'}]),[{role:'user',content:'hi'}]);
 });
-test('follow-ups invoke live tools and preserve the model function-call transcript',async()=>{
+test('recognized follow-ups requery live data without the model',async()=>{
  const requests:any[]=[];const queries:any[]=[];
  const generate:Generate=async request=>{requests.push(request);return requests.length===1?{functionCalls:[{id:'call1',name:'query_registry',args:{period:'today',readyOnly:true}}]}:{text:'2 of today’s new records are ready to sell.'}};
  const answer=await answerAssistant({message:'How many of those are ready to sell?',history:[{role:'user',content:'How many new records today?'},{role:'assistant',content:'There are 8.'}]},{role:'admin'},{generate,query:async args=>{queries.push(args);return {totalSwine:2}}});
- assert.match(answer.reply,/2/);assert.deepEqual(queries,[{period:'today',readyOnly:true}]);assert.match(JSON.stringify(requests[1].contents),/functionResponse/);
+ assert.match(answer.reply,/2/);assert.deepEqual(queries,[{metric:'summary',period:'today',readyOnly:true}]);assert.equal(requests.length,0);
 });
 test('tool failures are unavailable, never invented zero; provider errors propagate',async()=>{
  let count=0; const generate:Generate=async request=>{if(!count++)return {functionCalls:[{name:'query_registry'}]};assert.match(JSON.stringify(request.contents),/unavailable/);return {text:'The count is temporarily unavailable.'}};

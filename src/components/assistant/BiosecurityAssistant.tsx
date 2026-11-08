@@ -64,6 +64,8 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
   const [isMinimized, setIsMinimized] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [failedRequest,setFailedRequest] = useState<{text:string;history:Array<{role:'user'|'assistant';text:string}>}|null>(null);
+  const [requestError,setRequestError] = useState('');
   const [restoredConversation] = useState(()=>readConversation(conversationOwner));
   const [hasInteracted, setHasInteracted] = useState(()=>restoredConversation.some(message=>message.sender==='user'));
   const [pendingConfirmation, setPendingConfirmation] = useState<{
@@ -82,7 +84,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     '/icon.svg';
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
 
@@ -102,15 +104,16 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
   const clampWithinViewport = (x: number, y: number, width = BUTTON_SIZE, height = BUTTON_SIZE) => {
     const margin = 12;
     const maxX = Math.max(margin, window.innerWidth - width - margin);
-    const maxY = Math.max(margin, (window.visualViewport?.height || window.innerHeight) + (window.visualViewport?.offsetTop || 0) - height - margin);
+    const minY = (window.visualViewport?.offsetTop || 0) + margin;
+    const maxY = Math.max(minY, (window.visualViewport?.height || window.innerHeight) + (window.visualViewport?.offsetTop || 0) - height - margin);
     return {
       x: Math.min(Math.max(margin, x), maxX),
-      y: Math.min(Math.max(margin, y), maxY),
+      y: Math.min(Math.max(minY, y), maxY),
     };
   };
 
   const openAssistant = () => {
-    const panelWidth = window.innerWidth >= 640 ? 440 : Math.max(0, window.innerWidth - 24);
+    const panelWidth = window.innerWidth >= 640 ? 400 : Math.max(0, window.innerWidth - 24);
     const panelHeight = Math.min(580, (window.visualViewport?.height || window.innerHeight) * 0.85);
     setPosition(prev => clampWithinViewport(prev.x, prev.y, panelWidth, panelHeight));
     setIsOpen(true);
@@ -129,7 +132,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
       setViewportHeight(window.visualViewport?.height || window.innerHeight);
       const visibleSurface = isOpen ? panelRef.current : launcherRef.current;
       const width = visibleSurface?.offsetWidth || (isOpen
-        ? (window.innerWidth >= 640 ? 440 : Math.max(0, window.innerWidth - 24))
+        ? (window.innerWidth >= 640 ? 400 : Math.max(0, window.innerWidth - 24))
         : BUTTON_SIZE);
       const height = visibleSurface?.offsetHeight || (isOpen
         ? (isMinimized ? 64 : Math.min(580, window.innerHeight * 0.85))
@@ -142,8 +145,9 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
     window.addEventListener('resize', handleResize);
     window.visualViewport?.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('scroll', handleResize);
     handleResize();
-    return () => { window.removeEventListener('resize', handleResize); window.visualViewport?.removeEventListener('resize', handleResize); };
+    return () => { window.removeEventListener('resize', handleResize); window.visualViewport?.removeEventListener('resize', handleResize); window.visualViewport?.removeEventListener('scroll', handleResize); };
   }, [isOpen, isMinimized]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -182,7 +186,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
     if (hasMovedRef.current) {
       const panel = panelRef.current;
-      const panelWidth = panel?.offsetWidth || 440;
+      const panelWidth = panel?.offsetWidth || 400;
       const panelHeight = panel?.offsetHeight || (isMinimized ? 60 : 580);
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
@@ -190,8 +194,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
       const rawX = dragStartRef.current.panelLeft + dx;
       const rawY = dragStartRef.current.panelTop + dy;
 
-      const clampedX = Math.max(12, Math.min(viewportWidth - panelWidth - 12, rawX));
-      const clampedY = Math.max(12, Math.min(viewportHeight - panelHeight - 12, rawY));
+      const {x:clampedX,y:clampedY} = clampWithinViewport(rawX,rawY,panelWidth,panelHeight);
 
       setPosition({ x: Math.round(clampedX), y: Math.round(clampedY) });
     }
@@ -229,6 +232,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     requestVersionRef.current++;
     sendingRef.current = false;
     setIsLoading(false);
+    setFailedRequest(null);setRequestError('');
     const restored=readConversation(conversationOwner);
     setHasInteracted(restored.some(message=>message.sender==='user'));
     setMessages(restored.length ? restored : [getInitialWelcomeMessage()]);
@@ -243,6 +247,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     sendingRef.current = false;
     setIsLoading(false);
     setHasInteracted(false);
+    setFailedRequest(null);setRequestError('');
     setMessages([getInitialWelcomeMessage()]);
     setPendingConfirmation(null);
     setPendingProposedChange(null);
@@ -266,7 +271,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     }
   }, [isOpen, isMinimized]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, retry = false) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || sendingRef.current) return;
     sendingRef.current = true;
@@ -274,6 +279,8 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
     setHasInteracted(true);
     setInputMessage('');
+    const history=retry && failedRequest ? failedRequest.history : messages.slice(-16).filter(m=>m.id!=='msg-welcome').map(m=>({role:m.sender,text:m.text}));
+    setRequestError('');setFailedRequest(null);
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -282,7 +289,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    if (!retry) setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
@@ -290,14 +297,16 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
         text,
         currentUser,
         currentRole,
-        messages.slice(-6).map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text }))
+        history
       );
 
       if (requestVersion !== requestVersionRef.current) return;
+      if(response.failed) { setRequestError(response.reply);setFailedRequest({text,history});return; }
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         sender: 'assistant',
         text: response.reply,
+        source:response.source,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         action: response.action,
         suggestions: response.suggestions || (isPublicMode ? PUBLIC_ASSISTANT_SUGGESTIONS.slice(0, 3) : []),
@@ -318,16 +327,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
       }
     } catch {
       if (requestVersion !== requestVersionRef.current) return;
-      setMessages(prev => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          sender: 'assistant',
-          text: "I couldn't retrieve the live registry data right now. Please check **Swine Records** directly.",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          action: { type: 'navigate', tab: 'records', label: 'Open Swine Records' },
-        },
-      ]);
+      setRequestError(t('assistant_unavailable'));setFailedRequest({text,history});
     } finally {
       if (requestVersion === requestVersionRef.current) { sendingRef.current = false; setIsLoading(false); }
     }
@@ -393,7 +393,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
         onOpenLogin();
       }
       if (window.innerWidth < 768) {
-        setIsMinimized(true);
+        setIsOpen(false);setIsMinimized(false);
       }
       return;
     }
@@ -401,7 +401,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
       onNavigateTab(action.tab);
       // On mobile screens, minimize chat so viewport is visible
       if (window.innerWidth < 768) {
-        setIsMinimized(true);
+        setIsOpen(false);setIsMinimized(false);
       }
     }
   };
@@ -497,7 +497,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
             width: `${BUTTON_SIZE}px`,
             height: `${BUTTON_SIZE}px`,
             right: 'max(24px, env(safe-area-inset-right))',
-            bottom: 'max(24px, env(safe-area-inset-bottom))',
+            bottom: window.innerWidth < 640 ? 'max(88px, env(safe-area-inset-bottom))' : 'max(24px, env(safe-area-inset-bottom))',
             cursor: 'pointer',
           }}
         >
@@ -527,7 +527,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
               ? 'DA Hinunangan Super Admin Configuration Assistant Panel'
               : 'DA Hinunangan Biosecurity Assistant Panel'
           }
-          className={`biosecurity-assistant-panel fixed z-40 w-[calc(100vw-24px)] sm:w-[440px] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden transition-[height] duration-200 ease-in-out ${
+          className={`biosecurity-assistant-panel fixed z-40 w-[calc(100vw-24px)] sm:w-[400px] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden transition-[height] duration-200 ease-in-out ${
             position ? '' : 'bottom-4 right-4 sm:bottom-6 sm:right-6'
           } ${
             isMinimized ? 'h-14 sm:h-16' : 'h-[580px] max-h-[85dvh]'
@@ -543,7 +543,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
               : {}),
             maxHeight: `min(85dvh, ${Math.max(100, viewportHeight - 24)}px)`,
             boxShadow: '0 20px 50px -10px rgba(6, 78, 59, 0.25), 0 10px 20px -5px rgba(0, 0, 0, 0.1)',
-            touchAction: 'none',
+            touchAction: 'auto',
           }}
         >
           {/* Header Bar (Draggable handle with pointer events) */}
@@ -579,18 +579,18 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                 <p className="text-[10.5px] text-emerald-200/90 font-medium truncate flex items-center gap-1">
                   <span>{isPublicMode ? translateInterfaceText("Public Information Assistant") : isSuperAdmin ? translateInterfaceText("Super Admin Configuration Assistant") : translateInterfaceText("Biosecurity & Registry Assistant")}</span>
                   <span>•</span>
-                  <span className="text-emerald-300">● Online</span>
+                  <span className="text-emerald-300">{isLoading ? t('assistant_thinking','Thinking…') : '●'}</span>
                 </p>
               </div>
             </div>
 
             {/* Header Control Buttons */}
             <div onPointerDown={event => event.stopPropagation()} className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={clearConversation} title={t('assistant_new_chat', 'New Chat / Clear Conversation')} aria-label={t('assistant_new_chat', 'New Chat / Clear Conversation')} className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10"><RotateCcw className="w-4 h-4" /></button>
+              <button type="button" onClick={clearConversation} title={t('assistant_new_chat', 'New Chat / Clear Conversation')} aria-label={t('assistant_new_chat', 'New Chat / Clear Conversation')} className="min-w-9 min-h-9 p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10"><RotateCcw className="w-4 h-4" /></button>
               <button
                 type="button"
-                onClick={() => setIsMinimized(prev => !prev)}
-                className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                onClick={() => { setIsOpen(false);setIsMinimized(false); }}
+                className="min-w-9 min-h-9 p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label={isMinimized ? 'Expand assistant' : 'Minimize assistant'}
                 title={isMinimized ? translateInterfaceText("Expand") : translateInterfaceText("Minimize")}
               >
@@ -599,7 +599,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
               <button
                 type="button"
                 onClick={() => { setIsOpen(false); setIsMinimized(false); setPosition(DEFAULT_LAUNCHER_POSITION()); }}
-                className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                className="min-w-9 min-h-9 p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label="Close assistant"
                 title={translateInterfaceText("Close chat")}
               >
@@ -612,7 +612,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
           {!isMinimized && (
             <>
               {/* Message Feed */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-stone-50/80 custom-sidebar-scroll text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3.5 bg-stone-50/80 custom-sidebar-scroll text-xs">
                 {messages.map(msg => (
                   <div
                     key={msg.id}
@@ -628,7 +628,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                       )}
 
                       <div
-                        className={`p-3 rounded-2xl shadow-xs leading-relaxed text-[12px] ${
+                        className={`min-w-0 break-words p-3 rounded-2xl shadow-xs leading-relaxed text-[12px] ${
                           msg.sender === 'user'
                             ? 'bg-emerald-800 text-white rounded-br-xs'
                             : 'bg-white text-stone-900 border border-stone-200/90 rounded-bl-xs'
@@ -657,7 +657,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                     </div>
 
                     <span className="text-[9.5px] text-stone-400 mt-1 px-1">
-                      {msg.timestamp}
+                      {msg.source==='database' ? (language==='ceb'?'Pangutana sa database · ':language==='fil'?'Query sa database · ':'Database query · ') : msg.source==='ai' ? 'AI · ' : ''}{msg.timestamp}
                     </span>
 
                     {/* Follow-up Quick Suggestions (if attached to assistant message) */}
@@ -680,7 +680,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
                 {/* Animated Typing Indicator */}
                 {isLoading && (
-                  <div className="flex items-end gap-2 animate-in fade-in">
+                  <div role="status" aria-label={t('assistant_thinking','Thinking…')} className="flex items-end gap-2 animate-in fade-in">
                     <div className="w-6 h-6 rounded-full bg-emerald-800 text-white flex items-center justify-center shrink-0 mb-1">
                       <Bot className="w-3.5 h-3.5 text-emerald-200" />
                     </div>
@@ -792,6 +792,10 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
               {/* Input Form & Action Bar */}
               <div className="p-3 bg-white border-t border-stone-200 shrink-0 space-y-2">
+                {requestError && <div role="alert" className="text-xs text-red-800 bg-red-50 rounded-xl p-2">
+                  <p>{requestError}</p>
+                  {failedRequest && <button type="button" disabled={isLoading} onClick={()=>handleSendMessage(failedRequest.text,true)} className="underline font-bold min-h-9">{language==='ceb'?'Sulayi pag-usab':language==='fil'?'Subukang muli':'Retry'}</button>}
+                </div>}
                 <form
                   onSubmit={e => {
                     e.preventDefault();
@@ -800,9 +804,12 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                   className="flex items-center gap-2"
                 >
                   <div className="relative flex-1">
-                    <input
+                    <textarea
                       ref={inputRef}
-                      type="text"
+                      rows={2}
+                      maxLength={8000}
+                      aria-label="Message the assistant"
+                      onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void handleSendMessage();}}}
                       value={inputMessage}
                       onChange={e => setInputMessage(e.target.value)}
                       placeholder={
@@ -811,7 +818,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                           : translateInterfaceText('Ask about swine registration, ASF, GIS, records...')
                       }
                       disabled={isLoading}
-                      className="w-full pl-3.5 pr-3 py-2.5 rounded-2xl bg-stone-100/90 border border-stone-300 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-xs text-stone-900 placeholder:text-stone-400 outline-hidden transition font-medium"
+                      className="resize-none max-h-28 w-full pl-3.5 pr-3 py-2.5 rounded-2xl bg-stone-100/90 border border-stone-300 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-xs text-stone-900 placeholder:text-stone-400 outline-hidden transition font-medium"
                     />
                   </div>
 

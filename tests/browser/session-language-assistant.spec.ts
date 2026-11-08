@@ -49,7 +49,7 @@ test('chat sends history and language once, clears conversation and handles fail
   payloads.push(route.request().postDataJSON());await route.fulfill({status:fail?503:200,json:fail?{success:false,error:'The AI assistant is temporarily unavailable.'}:{success:true,reply:payloads.length===1?'A pig is a domesticated mammal raised for meat and breeding.':'Adunay 0 ka bag-ong rekord karong adlawa.'}});
  });
  await page.goto('/records');await page.getByRole('button',{name:'Open Biosecurity Assistant',exact:true}).click();
- const input=page.locator('aside input').last();await input.fill('What is a pig?');await input.press('Enter');
+ const input=page.locator('aside textarea').last();await input.fill('What is a pig?');await input.press('Enter');
  await expect(page.getByText('A pig is a domesticated mammal raised for meat and breeding.',{exact:true})).toBeVisible();
  expect(payloads).toHaveLength(1);expect(payloads[0].language).toBe('en');
  await page.locator('header select').first().selectOption('ceb',{force:true});
