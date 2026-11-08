@@ -76,7 +76,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await authApi.login(usernameOrEmail.trim(), password);
       if (result.role === 'super_admin') {
         storageService.setSessionToken(null);
-        setErrorMsg('Super Admin accounts must sign in through the dedicated /superadmin route.');
+        setErrorMsg('Super Admin accounts must sign in through the dedicated /kamirani route.');
         return;
       }
       onLoginSuccess(result.user);

@@ -19,7 +19,7 @@ for (const mode of ['production', 'development']) {
       } catch { await new Promise(resolve => setTimeout(resolve, 200)); }
     }
     assert.ok(ready, `${mode} server did not start`);
-    for (const path of ['/', '/records', '/gis', '/superadmin/audit-logs']) {
+    for (const path of ['/', '/records', '/gis', '/kamirani/audit-logs']) {
       const response = await fetch(`http://127.0.0.1:${port}${path}`);
       assert.equal(response.status, 200, `${mode}: ${path}`);
       assert.match(response.headers.get('content-type') || '', /text\/html/);

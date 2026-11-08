@@ -4,7 +4,7 @@ import {fixture} from './support/sessionFixture';
 for(const role of ['super_admin','admin','focal','agent'])test(`${role}: refresh waits for verified profile without landing flash and retains language`,async({page})=>{
  test.setTimeout(300000);
  await fixture(page,role);
- const routes=role==='super_admin'?['/superadmin/dashboard','/gis','/records','/add_swine','/superadmin/system-appearance']:role==='agent'?['/takeoff','/gis','/messages','/account']:['/dashboard','/records','/add_swine','/gis','/biosecurity','/messages','/account'];
+ const routes=role==='super_admin'?['/kamirani/dashboard','/gis','/records','/add_swine','/kamirani/system-appearance']:role==='agent'?['/takeoff','/gis','/messages','/account']:['/dashboard','/records','/add_swine','/gis','/biosecurity','/messages','/account'];
  await page.addInitScript(()=>{
   localStorage.setItem('app_language','ceb');
   (window as any).landingFlashed=false;

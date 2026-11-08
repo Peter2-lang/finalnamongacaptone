@@ -1,6 +1,6 @@
 import { InterfaceText } from './i18n/interfaceText';
 import { clearConversations } from './services/assistantConversation';
-import { tabForPath, normalizePath, routeTabs, canAccessTab } from './utils/appRoutes';
+import { tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, legacySuperAdminRedirect } from './utils/appRoutes';
 import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense, lazy, useRef, useCallback } from 'react';
 import { Header } from './components/common/Header';
@@ -157,7 +157,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>(() => tabForPath(window.location.pathname));
   const { language, t } = useLanguage();
 
-  // Path-based routing state for strict URL enforcement (/superadmin, /dashboard, etc.)
+  // Path-based routing state for strict URL enforcement (/kamirani, /dashboard, etc.)
   const [currentPath, setCurrentPath] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return normalizePath(window.location.pathname);
@@ -295,7 +295,16 @@ export default function App() {
   }, [sessionAttempt]);
 
   useEffect(() => {
-    if (!sessionRestoreComplete || currentUser || currentPath === '/' || currentPath === '/login' || currentPath.startsWith('/superadmin')) return;
+    if (!sessionRestoreComplete) return;
+    const destination=legacySuperAdminRedirect(currentPath,currentUser?.role);
+    if (!destination) return;
+    window.history.replaceState({},'',destination+window.location.search+window.location.hash);
+    setCurrentPath(destination);
+    setActiveTab(tabForPath(destination));
+  }, [sessionRestoreComplete,currentUser,currentPath]);
+
+  useEffect(() => {
+    if (!sessionRestoreComplete || currentUser || currentPath === '/' || currentPath === '/login' || isSuperAdminPath(currentPath)) return;
     if (routeTabs[normalizePath(currentPath)]) {
       returnPathRef.current = normalizePath(currentPath);
       navigateTo('/login');
@@ -320,7 +329,7 @@ export default function App() {
   useEffect(() => {
     if (!sessionRestoreComplete || !currentUser || currentPath !== '/login') return;
     setIsAuthModalOpen(false);
-    const destination = returnPathRef.current || (currentUser.role === 'super_admin' ? '/superadmin/dashboard' : currentUser.role === 'agent' ? '/ready_to_sell' : '/dashboard');
+    const destination = returnPathRef.current || (currentUser.role === 'super_admin' ? '/kamirani' : currentUser.role === 'agent' ? '/ready_to_sell' : '/dashboard');
     returnPathRef.current = null;
     navigateTo(destination);
     setActiveTab(tabForPath(destination));
@@ -594,7 +603,7 @@ export default function App() {
       const path = rawPath.toLowerCase().replace(/\/$/, '') || '/';
       setCurrentPath(path);
 
-      if (path === '/superadmin') {
+      if (path === '/kamirani') {
         setActiveTab('dashboard');
         return;
       }
@@ -629,7 +638,7 @@ export default function App() {
     }
     setCurrentRole(currentUser.role);
     if (currentUser.role === 'super_admin') {
-      navigateTo('/superadmin/dashboard');
+      navigateTo('/kamirani');
       setActiveTab('dashboard');
     } else {
       navigateTo(currentUser.role === 'agent' ? '/ready_to_sell' : '/dashboard');
@@ -643,8 +652,8 @@ export default function App() {
     setCurrentRole('landing');
     setCurrentUser(null);
     storageService.setCurrentUser(null as any);
-    if (currentPath.startsWith('/superadmin')) {
-      navigateTo('/superadmin');
+    if (isSuperAdminPath(currentPath)) {
+      navigateTo('/kamirani');
     } else {
       navigateTo('/');
     }
@@ -671,7 +680,7 @@ export default function App() {
       return;
     }
     if (user.role === 'super_admin') {
-      navigateTo('/superadmin/dashboard');
+      navigateTo('/kamirani');
       setActiveTab('dashboard');
     } else {
       navigateTo(user.role === 'agent' ? '/ready_to_sell' : '/dashboard');
@@ -686,23 +695,23 @@ export default function App() {
     setActiveTab(tab);
 
     if (isSuperAdmin) {
-      if (tab === 'landing_manager') navigateTo('/superadmin/landing-page-cms');
-      else if (tab === 'sidebar_color') navigateTo('/superadmin/sidebar-configuration');
-      else if (tab === 'api_config') navigateTo('/superadmin/api-configuration');
-      else if (tab === 'database_config') navigateTo('/superadmin/database-configuration');
-      else if (tab === 'accounts') navigateTo('/superadmin/user-accounts');
+      if (tab === 'landing_manager') navigateTo('/kamirani/landing-page-cms');
+      else if (tab === 'sidebar_color') navigateTo('/kamirani/sidebar-configuration');
+      else if (tab === 'api_config') navigateTo('/kamirani/api-configuration');
+      else if (tab === 'database_config') navigateTo('/kamirani/database-configuration');
+      else if (tab === 'accounts') navigateTo('/kamirani/user-accounts');
       else if (tab === 'form_customizer') navigateTo('/admin/registry-form-customization');
-      else if (tab === 'system_appearance') navigateTo('/superadmin/system-appearance');
-      else if (tab === 'role_page_config') navigateTo('/superadmin/role-page-configuration');
-      else if (tab === 'feature_config') navigateTo('/superadmin/feature-configuration');
-      else if (tab === 'component_config') navigateTo('/superadmin/component-configuration');
-      else if (tab === 'chatbot_config') navigateTo('/superadmin/chatbot-configuration');
-      else if (tab === 'typography_config') navigateTo('/superadmin/typography');
-      else if (tab === 'branding_config') navigateTo('/superadmin/branding');
-      else if (tab === 'layout_config') navigateTo('/superadmin/layout');
-      else if (tab === 'version_history') navigateTo('/superadmin/version-history');
-      else if (tab === 'audit_logs') navigateTo('/superadmin/audit-logs');
-      else if (tab === 'dashboard') navigateTo('/superadmin/dashboard');
+      else if (tab === 'system_appearance') navigateTo('/kamirani/system-appearance');
+      else if (tab === 'role_page_config') navigateTo('/kamirani/role-page-configuration');
+      else if (tab === 'feature_config') navigateTo('/kamirani/feature-configuration');
+      else if (tab === 'component_config') navigateTo('/kamirani/component-configuration');
+      else if (tab === 'chatbot_config') navigateTo('/kamirani/chatbot-configuration');
+      else if (tab === 'typography_config') navigateTo('/kamirani/typography');
+      else if (tab === 'branding_config') navigateTo('/kamirani/branding');
+      else if (tab === 'layout_config') navigateTo('/kamirani/layout');
+      else if (tab === 'version_history') navigateTo('/kamirani/version-history');
+      else if (tab === 'audit_logs') navigateTo('/kamirani/audit-logs');
+      else if (tab === 'dashboard') navigateTo('/kamirani');
       else navigateTo(`/${tab}`);
     } else if (isAdmin) {
       if (tab === 'form_customizer') navigateTo('/admin/registry-form-customization');
@@ -726,8 +735,8 @@ export default function App() {
     handleTabSelect('certificate');
   };
 
-  // Dedicated /superadmin portal handling
-  const isSuperAdminRoute = currentPath === '/superadmin' || currentPath.startsWith('/superadmin');
+  // Dedicated /kamirani portal handling
+  const isSuperAdminRoute = isSuperAdminPath(currentPath);
 
   if (!sessionRestoreComplete) {
     return (
@@ -737,7 +746,7 @@ export default function App() {
     );
   }
 
-  if (currentRole === 'landing' && !landingConfigReady) {
+  if (currentRole === 'landing' && !landingConfigReady && !isSuperAdminRoute) {
     return (
       <div className="min-h-screen bg-stone-100 text-stone-900">
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
@@ -762,13 +771,13 @@ export default function App() {
     );
   }
 
-  if (isSuperAdminRoute && !isSuperAdmin) {
-    if (currentUser) {
-      // Non-superadmin account attempting to access /superadmin
+  if (isSuperAdminRoute && currentUser?.role !== 'super_admin') {
+    if (currentUser || isLegacySuperAdminPath(currentPath)) {
+      // Non-superadmin account attempting to access /kamirani
       return (
         <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
           <AccessDenied403
-            moduleName="Super Administrator Portal (Restricted to Regional Super Administrators)"
+            moduleName={currentUser ? 'Super Administrator Portal (Restricted to Regional Super Administrators)' : 'Super Administrator Portal (Authentication required; sign in at /kamirani)'}
             onBackToDashboard={() => {
               navigateTo('/dashboard');
               setActiveTab('dashboard');
@@ -778,7 +787,7 @@ export default function App() {
       );
     }
 
-    // Unauthenticated visitor on /superadmin -> render dedicated SuperAdminAuth
+    // Unauthenticated visitor on /kamirani -> render dedicated SuperAdminAuth
     return (
       <SuperAdminAuth
         onSuccess={async (user) => {
@@ -794,8 +803,10 @@ export default function App() {
           storageService.setCurrentUser(verifiedUser, true);
           setCurrentUser(verifiedUser);
           setCurrentRole('super_admin');
-          navigateTo('/superadmin/dashboard');
-          setActiveTab('dashboard');
+          const destination=routeTabs[currentPath] && !isLegacySuperAdminPath(currentPath) ? currentPath : '/kamirani';
+          returnPathRef.current=null;
+          navigateTo(destination);
+          setActiveTab(tabForPath(destination));
         }}
         onReturnToNormalPortal={() => {
           navigateTo('/');

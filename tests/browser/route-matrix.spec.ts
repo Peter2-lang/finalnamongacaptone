@@ -15,7 +15,7 @@ for(const role of ['super_admin','admin','focal','agent'])test(`${role}: every a
   new MutationObserver(()=>{if(document.querySelector('.public-shell .landing-hero'))(window as any).landingFlashed=true;}).observe(document,{childList:true,subtree:true});
  });
  for(const [path,tab] of Object.entries(routeTabs)){
-  if(!canAccessTab(role,tab)||(path.startsWith('/superadmin')&&role!=='super_admin'))continue;
+  if(!canAccessTab(role,tab)||(path.startsWith('/kamirani')&&role!=='super_admin'))continue;
   await test.step(path,async()=>{
    await page.goto(path);await expect(page.locator('.workspace-shell')).toBeVisible();
    await expect(page.locator('main#main-content')).toHaveAttribute('data-page',tab);

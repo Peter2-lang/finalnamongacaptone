@@ -36,7 +36,7 @@ for(const role of ['super_admin','admin','focal','agent']){
   const routes=['/gis','/records','/certificate','/takeoff','/messages','/account'];
   if(role!=='agent')routes.push('/biosecurity');
   if(role==='admin'||role==='super_admin')routes.push('/asf-ordinance','/barangays','/admin/registry-form-customization','/admin/user-accounts');
-  if(role==='super_admin')routes.push('/superadmin/landing-page-cms','/superadmin/sidebar-configuration','/superadmin/api-configuration','/superadmin/database-configuration','/superadmin/system-appearance');
+  if(role==='super_admin')routes.push('/kamirani/landing-page-cms','/kamirani/sidebar-configuration','/kamirani/api-configuration','/kamirani/database-configuration','/kamirani/system-appearance');
   for(const route of routes){
    await page.goto(route);
    if ((page.viewportSize()?.width || 1280) < 1024) await page.getByRole('button',{name:'Toggle navigation menu'}).click();
