@@ -31,7 +31,7 @@ test('legacy URLs are always public and new portal access requires the existing 
  for(const role of ['super_admin','admin','focal','agent','guest','superadmin','',undefined]) {
   assert.equal(superAdminRouteRedirect('/superadmin',role),'/');
   assert.equal(superAdminRouteRedirect('/SUPERADMIN/layout/',role),'/');
-  assert.equal(superAdminRouteRedirect('/kamirani',role),role==='super_admin'?null:'/');
+  assert.equal(superAdminRouteRedirect('/kamirani',role),role==='super_admin'||!role?null:'/');
   assert.equal(superAdminRouteRedirect('/kamirani/layout',role),role==='super_admin'?null:'/');
   assert.equal(superAdminRouteRedirect('/records',role),null);
  }

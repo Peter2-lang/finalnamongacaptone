@@ -8,6 +8,7 @@ import { Sidebar } from './components/common/Sidebar';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { BackupModal } from './components/common/BackupModal';
 import { AuthModal } from './components/auth/AuthModal';
+import { SuperAdminAuth } from './components/auth/SuperAdminAuth';
 import { AccessDenied403 } from './components/admin/media/AccessDenied403';
 import { hasPermission, isSuperAdminOnlyTab } from './utils/rbacPermissions';
 import { storageService } from './services/storageService';
@@ -709,6 +710,14 @@ export default function App() {
         {sessionRestoreError ? <div>{t('session_unavailable','Session verification is temporarily unavailable. Please retry.')} <button type="button" onClick={()=>setSessionAttempt(attempt=>attempt+1)} className="underline">{t('ui.Retry','Retry')}</button></div> : t('session_restoring', 'Restoring secure session...')}
       </div>
     );
+  }
+
+  // Only the entry route offers sign-in; the session gate above prevents dashboard flashes.
+  if (currentPath === '/kamirani' && !currentUser) {
+    return <SuperAdminAuth onSuccess={handleLoginSuccess} onReturnToNormalPortal={() => {
+      returnPathRef.current = null;
+      navigateTo('/');
+    }} />;
   }
 
   // Do not paint the public page between an expired protected session and /login.

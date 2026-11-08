@@ -16,9 +16,10 @@ for (const tab of Object.values(routeTabs)) routeTabs[`/${tab}`] ||= tab;
 export const normalizePath = (path:string) => path.split(/[?#]/)[0].toLowerCase().replace(/\/+$/,'') || '/';
 export const isLegacySuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/superadmin'||value.startsWith('/superadmin/'); };
 export const isSuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/kamirani'||value.startsWith('/kamirani/')||isLegacySuperAdminPath(value); };
-/** Legacy URLs are public; the new portal requires a verified existing role. */
+/** The entry page offers sign-in; protected portal pages require the verified role. */
 export function superAdminRouteRedirect(path:string,role:string|undefined):'/'|null {
   if (isLegacySuperAdminPath(path)) return '/';
+  if (normalizePath(path)==='/kamirani' && !role) return null;
   return isSuperAdminPath(path) && role!=='super_admin' ? '/' : null;
 }
 export const tabForPath = (path:string) => routeTabs[normalizePath(path)] || 'dashboard';

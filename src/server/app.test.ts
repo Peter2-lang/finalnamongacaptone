@@ -19,6 +19,7 @@ test('sensitive APIs reject spoofed identities without a verified session', asyn
       ['GET', '/api/users'], ['GET', '/api/messages'], ['GET', '/api/media'],
       ['GET', '/api/farmers'], ['GET', '/api/dashboard/stats'], ['GET', '/api/settings'],
       ['GET', '/api/config/master'], ['GET', '/api/admin/sidebar-theme'],
+      ['GET', '/api/auth/superadmin-profile'],
       ['POST', '/api/assistant/chat'], ['POST', '/api/certificate-assets/upload'],
       ['POST', '/api/legal-documents'], ['PUT', '/api/legal-documents/id'],
       ['DELETE', '/api/legal-documents/id'], ['GET', '/api/legal-documents/audit-logs'],
