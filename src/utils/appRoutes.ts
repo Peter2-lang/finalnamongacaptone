@@ -13,7 +13,7 @@ for (const [page,tab] of Object.entries(superPages)) routeTabs[`/kamirani/${page
 for (const tab of ['landing_settings','admin_photo_media','photo_media','admin_logos','admin_background','admin_social','admin_theme','form_manager','nav_config','notification_config','popup_config','button_config']) routeTabs[`/${tab}`]=tab;
 // Existing direct-tab URLs remain valid as aliases.
 for (const tab of Object.values(routeTabs)) routeTabs[`/${tab}`] ||= tab;
-export const normalizePath = (path:string) => path.toLowerCase().replace(/\/+$/,'') || '/';
+export const normalizePath = (path:string) => path.split(/[?#]/)[0].toLowerCase().replace(/\/+$/,'') || '/';
 export const isLegacySuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/superadmin'||value.startsWith('/superadmin/'); };
 export const isSuperAdminPath = (path:string) => { const value=normalizePath(path);return value==='/kamirani'||value.startsWith('/kamirani/')||isLegacySuperAdminPath(value); };
 /** Legacy URLs are public; the new portal requires a verified existing role. */
@@ -33,4 +33,13 @@ export function canAccessTab(role:string,tab:string):boolean {
   if (role === 'focal') return staffTabs.has(tab);
   if (role === 'agent') return agentTabs.has(tab);
   return false;
+}
+
+
+/** Preserve page context without carrying authentication callback credentials. */
+export function safeReturnPath(location:{pathname:string;search:string;hash:string}):string {
+ const params=new URLSearchParams(location.search);
+ for(const key of ['access_token','refresh_token','token','token_hash','code'])params.delete(key);
+ const search=params.toString();const hash=/access_token=|refresh_token=|token_hash=/.test(location.hash)?'':location.hash;
+ return location.pathname+(search?'?'+search:'')+hash;
 }

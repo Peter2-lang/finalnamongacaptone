@@ -1,3 +1,4 @@
+import {usePagePreference,text,dateFilter,choice} from '../../hooks/usePagePreference';
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -246,30 +247,21 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({
   const userAssignedBarangay = currentUser?.assignedBarangay || '';
   const userBarangayId = currentUser?.barangay_id || '';
 
+  const preferenceOwner=`${currentUser?.id||'guest'}:${currentUser?.role||''}:${userAssignedBarangay}`;
   // Main Report & Document Type Selection (Default to Barangay Certification)
-  const [documentType, setDocumentType] = useState<DocumentType>('barangay_certification');
+  const [documentType, setDocumentType] = usePagePreference<DocumentType>(preferenceOwner,'certificates','documentType','barangay_certification',choice(['barangay_certification','issued_archive','official_reports','masterlist','transmittal','directory','biosecurity_report','complete_package'] as const));
 
   // Filter Bar Controls
-  const [selectedBarangayScope, setSelectedBarangayScope] = useState<string>(() => {
-    if (!isUserAdmin && userAssignedBarangay) {
-      return userAssignedBarangay;
-    }
-    return 'all';
-  });
+  const [selectedBarangayScope,setSelectedBarangayScope]=usePagePreference(preferenceOwner,'certificates','selectedBarangayScope',!isUserAdmin&&userAssignedBarangay?userAssignedBarangay:'all',value=>!isUserAdmin&&userAssignedBarangay?userAssignedBarangay:text(value));
 
   // Security Access Denied Modal State
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
 
   // Official Certificate Report Generator States
-  const [reportBarangayFilter, setReportBarangayFilter] = useState<string>(() => {
-    if (!isUserAdmin && userAssignedBarangay) {
-      return userAssignedBarangay;
-    }
-    return 'all';
-  });
-  const [reportCertTypeFilter, setReportCertTypeFilter] = useState<string>('all');
-  const [reportDateFrom, setReportDateFrom] = useState<string>(`${new Date().getFullYear()}-01-01`);
-  const [reportDateTo, setReportDateTo] = useState<string>(new Date().toISOString().substring(0, 10));
+  const [reportBarangayFilter,setReportBarangayFilter]=usePagePreference(preferenceOwner,'certificates','reportBarangayFilter',!isUserAdmin&&userAssignedBarangay?userAssignedBarangay:'all',value=>!isUserAdmin&&userAssignedBarangay?userAssignedBarangay:text(value));
+  const [reportCertTypeFilter, setReportCertTypeFilter] = usePagePreference(preferenceOwner,'certificates','reportCertTypeFilter','all',text);
+  const [reportDateFrom, setReportDateFrom] = usePagePreference(preferenceOwner,'certificates','reportDateFrom',`${new Date().getFullYear()}-01-01`,dateFilter);
+  const [reportDateTo, setReportDateTo] = usePagePreference(preferenceOwner,'certificates','reportDateTo',new Date().toISOString().substring(0, 10),dateFilter);
   const [isExportingReportPdf, setIsExportingReportPdf] = useState(false);
   const officialReportPrintRef = useRef<HTMLDivElement>(null);
   const [croppingSeason, setCroppingSeason] = useState<string>('Wet Season (WS) 2026 (June – Dec)');

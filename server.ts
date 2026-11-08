@@ -17,7 +17,8 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
+      if (/\.[^/]+$/.test(req.path)) return res.status(404).json({success:false,error:'Asset not found.'});
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

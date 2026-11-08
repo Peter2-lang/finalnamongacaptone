@@ -1,3 +1,4 @@
+import {usePagePreference,text,tagQuery,choice} from '../../hooks/usePagePreference';
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import 'leaflet/dist/leaflet.css';
@@ -229,8 +230,9 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     suppliedSwineList, isFocal ? 'focal' : currentRole, authorizedBarangayName
   ), [suppliedSwineList, isFocal, currentRole, authorizedBarangayName]);
 
+  const preferenceOwner=`${currentUser?.id||'guest'}:${currentRole}:${currentUser?.assignedBarangay||''}`;
   // Map Controls State
-  const [mapMode, setMapMode] = useState<'street' | 'satellite' | 'terrain'>('street');
+  const [mapMode, setMapMode] = usePagePreference(preferenceOwner,'gis','mapMode','street',choice(['street','satellite','terrain'] as const));
   const [currentZoom, setCurrentZoom] = useState<number>(13);
 
   // Layer Visibility
@@ -246,17 +248,15 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   const [boundaryOpacity, setBoundaryOpacity] = useState<number>(0.18);
 
   // Filter States
-  const [selectedBarangayFilter, setSelectedBarangayFilter] = useState<string>(
-    authorizedBarangayName || selectedBarangay || 'all'
-  );
-  const [selectedSwineType, setSelectedSwineType] = useState<string>('all');
-  const [selectedMarketStatus, setSelectedMarketStatus] = useState<string>('all');
-  const [selectedAsfZone, setSelectedAsfZone] = useState<string>('all');
+  const [selectedBarangayFilter,setSelectedBarangayFilter]=usePagePreference(preferenceOwner,'gis','barangay',authorizedBarangayName||selectedBarangay||'all',authorizedBarangayName?choice([authorizedBarangayName]):text);
+  const [selectedSwineType, setSelectedSwineType] = usePagePreference(preferenceOwner,'gis','selectedSwineType','all',text);
+  const [selectedMarketStatus, setSelectedMarketStatus] = usePagePreference(preferenceOwner,'gis','selectedMarketStatus','all',text);
+  const [selectedAsfZone, setSelectedAsfZone] = usePagePreference(preferenceOwner,'gis','selectedAsfZone','all',text);
 
   // UI Panels & Feedback
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
   const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() => typeof window === 'undefined' || window.matchMedia('(min-width: 640px)').matches);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = usePagePreference(preferenceOwner,'gis','search','',tagQuery);
   const [accessWarning, setAccessWarning] = useState<string | null>(null);
   const [selectedBarangayData, setSelectedBarangayData] = useState<BarangayGisMetrics | null>(null);
 

@@ -43,10 +43,12 @@ export function wasBuildUpdated(): boolean {
 }
 
 export function markBuildReloaded(): boolean {
+  try {
   const current = sessionStorage.getItem(APP_BUILD_RELOAD_GUARD_KEY);
   if (current === APP_BUILD_ID) return false;
   sessionStorage.setItem(APP_BUILD_RELOAD_GUARD_KEY, APP_BUILD_ID);
   return true;
+  } catch { return false; }
 }
 
 export function initializeBuildTracking(): void {

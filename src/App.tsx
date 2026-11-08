@@ -1,8 +1,8 @@
 import { InterfaceText } from './i18n/interfaceText';
 import { clearConversations } from './services/assistantConversation';
-import { tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, superAdminRouteRedirect } from './utils/appRoutes';
+import { safeReturnPath, tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, superAdminRouteRedirect } from './utils/appRoutes';
 import { useLanguage } from './context/LanguageContext';
-import React, { useState, useEffect, Suspense, lazy, useRef, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useRef, useCallback, useMemo } from 'react';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { OfflineBanner } from './components/common/OfflineBanner';
@@ -18,60 +18,40 @@ import { Barangay, FarmerSelection, LandingPageConfig, SwineRecord, UserAccount,
 import { INITIAL_LANDING_CONFIG } from './data/initialData';
 import { useRoleTheme } from './hooks/useRoleTheme';
 import { supabase } from './lib/supabase';
-import { isDynamicImportFailure } from './utils/chunkLoadRecovery';
+import { boundedModule } from './utils/moduleLoading';
+import { ModuleBoundary, ModuleLoader } from './components/common/ModuleBoundary';
 
-// Route-level code-splitting for large modules & GIS/Export libraries
-const LandingPage = lazy(() => import('./components/landing/LandingPage').then(m => ({ default: m.LandingPage })));
-const Dashboard = lazy(() => import('./components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
-const GisMap = lazy(() => import('./components/gis/GisMap').then(m => ({ default: m.GisMap })));
-const SwineForm = lazy(() => import('./components/registry/SwineForm').then(m => ({ default: m.SwineForm })));
-const BatchImportModal = lazy(() => import('./components/registry/BatchImportModal').then(m => ({ default: m.BatchImportModal })));
-const PigsRecords = lazy(() => import('./components/records/PigsRecords').then(m => ({ default: m.PigsRecords })));
-const CertificateManager = lazy(() => import('./components/certificate/CertificateManager').then(m => ({ default: m.CertificateManager })));
-const MessagingCenter = lazy(() => import('./components/messaging/MessagingCenter').then(m => ({ default: m.MessagingCenter })));
-const ManageBarangays = lazy(() => import('./components/admin/ManageBarangays').then(m => ({ default: m.ManageBarangays })));
-const ManageAccounts = lazy(() => import('./components/admin/ManageAccounts').then(m => ({ default: m.ManageAccounts })));
-const ManageLandingPage = lazy(() => import('./components/admin/ManageLandingPage').then(m => ({ default: m.ManageLandingPage })));
-const ManageRegistryForms = lazy(() => import('./components/admin/ManageRegistryForms').then(m => ({ default: m.ManageRegistryForms })));
-const BarangayBiosecurity = lazy(() => import('./components/admin/BarangayBiosecurity').then(m => ({ default: m.BarangayBiosecurity })));
-const PhotoMediaSettings = lazy(() => import('./components/admin/media/PhotoMediaSettings').then(m => ({ default: m.PhotoMediaSettings })));
-const LogoConfiguration = lazy(() => import('./components/admin/media/LogoConfiguration').then(m => ({ default: m.LogoConfiguration })));
-const InterfaceBackgroundConfig = lazy(() => import('./components/admin/media/InterfaceBackgroundConfig').then(m => ({ default: m.InterfaceBackgroundConfig })));
-const SidebarColorConfig = lazy(() => import('./components/admin/SidebarColorConfig').then(m => ({ default: m.SidebarColorConfig })));
-const RegistryFormCustomizer = lazy(() => import('./components/admin/RegistryFormCustomizer').then(m => ({ default: m.RegistryFormCustomizer })));
-const SwineMarketingAlerts = lazy(() => import('./components/marketing/SwineMarketingAlerts').then(m => ({ default: m.SwineMarketingAlerts })));
-const SwineTakeoffManager = lazy(() => import('./components/takeoff/SwineTakeoffManager').then(m => ({ default: m.SwineTakeoffManager })));
-const AgentCatalog = lazy(() => import('./components/agent/AgentCatalog').then(m => ({ default: m.AgentCatalog })));
-const AgentAccountView = lazy(() => import('./components/agent/AgentAccountView').then(m => ({ default: m.AgentAccountView })));
-const UserAccountView = lazy(() => import('./components/account/UserAccountView').then(m => ({ default: m.UserAccountView })));
-const ApiConfiguration = lazy(() => import('./components/admin/ApiConfiguration').then(m => ({ default: m.ApiConfiguration })));
-const DatabaseConfiguration = lazy(() => import('./components/admin/DatabaseConfiguration').then(m => ({ default: m.DatabaseConfiguration })));
-const ASFOrdinanceModule = lazy(() => import('./components/asf/ASFOrdinanceModule').then(m => ({ default: m.ASFOrdinanceModule })));
-const BiosecurityAssistant = lazy(() => import('./components/assistant/BiosecurityAssistant').then(m => ({ default: m.BiosecurityAssistant })));
-const MasterConfigHub = lazy(() => import('./components/admin/MasterConfigHub').then(m => ({ default: m.MasterConfigHub })));
-
-const ViewLoader: React.FC = () => (
-  <div className="flex flex-col items-center justify-center min-h-[350px] w-full p-8 text-emerald-800">
-    <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mb-3" />
-    <span className="text-xs font-semibold tracking-wide text-stone-500">Loading module...</span>
-  </div>
-);
-
-const ModuleLoadError: React.FC<{ error: unknown }> = ({ error }) => (
-  <div role="alert" className="mx-auto my-12 max-w-xl rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center text-amber-950 shadow-sm">
-    <h2 className="text-lg font-bold"><InterfaceText source="This page could not be loaded" /></h2>
-    <p className="mt-2 text-sm">
-      {isDynamicImportFailure(error)
-        ? 'The app may have updated while this session was open. Reload the page to get the current version.'
-        : 'A required page module failed to load. Check your connection and try again.'}
-    </p>
-    <button
-      type="button"
-      onClick={() => window.location.reload()}
-      className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-    ><InterfaceText source="Reload application" /></button>
-  </div>
-);
+// A new lazy registry on retry avoids React.lazy's cached rejected promise.
+const createPageModules = () => ({
+  LandingPage: lazy(() => boundedModule(() => import('./components/landing/LandingPage').then(m => ({ default: m.LandingPage })))),
+  Dashboard: lazy(() => boundedModule(() => import('./components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })))),
+  GisMap: lazy(() => boundedModule(() => import('./components/gis/GisMap').then(m => ({ default: m.GisMap })))),
+  SwineForm: lazy(() => boundedModule(() => import('./components/registry/SwineForm').then(m => ({ default: m.SwineForm })))),
+  BatchImportModal: lazy(() => boundedModule(() => import('./components/registry/BatchImportModal').then(m => ({ default: m.BatchImportModal })))),
+  PigsRecords: lazy(() => boundedModule(() => import('./components/records/PigsRecords').then(m => ({ default: m.PigsRecords })))),
+  CertificateManager: lazy(() => boundedModule(() => import('./components/certificate/CertificateManager').then(m => ({ default: m.CertificateManager })))),
+  MessagingCenter: lazy(() => boundedModule(() => import('./components/messaging/MessagingCenter').then(m => ({ default: m.MessagingCenter })))),
+  ManageBarangays: lazy(() => boundedModule(() => import('./components/admin/ManageBarangays').then(m => ({ default: m.ManageBarangays })))),
+  ManageAccounts: lazy(() => boundedModule(() => import('./components/admin/ManageAccounts').then(m => ({ default: m.ManageAccounts })))),
+  ManageLandingPage: lazy(() => boundedModule(() => import('./components/admin/ManageLandingPage').then(m => ({ default: m.ManageLandingPage })))),
+  ManageRegistryForms: lazy(() => boundedModule(() => import('./components/admin/ManageRegistryForms').then(m => ({ default: m.ManageRegistryForms })))),
+  BarangayBiosecurity: lazy(() => boundedModule(() => import('./components/admin/BarangayBiosecurity').then(m => ({ default: m.BarangayBiosecurity })))),
+  PhotoMediaSettings: lazy(() => boundedModule(() => import('./components/admin/media/PhotoMediaSettings').then(m => ({ default: m.PhotoMediaSettings })))),
+  LogoConfiguration: lazy(() => boundedModule(() => import('./components/admin/media/LogoConfiguration').then(m => ({ default: m.LogoConfiguration })))),
+  InterfaceBackgroundConfig: lazy(() => boundedModule(() => import('./components/admin/media/InterfaceBackgroundConfig').then(m => ({ default: m.InterfaceBackgroundConfig })))),
+  SidebarColorConfig: lazy(() => boundedModule(() => import('./components/admin/SidebarColorConfig').then(m => ({ default: m.SidebarColorConfig })))),
+  RegistryFormCustomizer: lazy(() => boundedModule(() => import('./components/admin/RegistryFormCustomizer').then(m => ({ default: m.RegistryFormCustomizer })))),
+  SwineMarketingAlerts: lazy(() => boundedModule(() => import('./components/marketing/SwineMarketingAlerts').then(m => ({ default: m.SwineMarketingAlerts })))),
+  SwineTakeoffManager: lazy(() => boundedModule(() => import('./components/takeoff/SwineTakeoffManager').then(m => ({ default: m.SwineTakeoffManager })))),
+  AgentCatalog: lazy(() => boundedModule(() => import('./components/agent/AgentCatalog').then(m => ({ default: m.AgentCatalog })))),
+  AgentAccountView: lazy(() => boundedModule(() => import('./components/agent/AgentAccountView').then(m => ({ default: m.AgentAccountView })))),
+  UserAccountView: lazy(() => boundedModule(() => import('./components/account/UserAccountView').then(m => ({ default: m.UserAccountView })))),
+  ApiConfiguration: lazy(() => boundedModule(() => import('./components/admin/ApiConfiguration').then(m => ({ default: m.ApiConfiguration })))),
+  DatabaseConfiguration: lazy(() => boundedModule(() => import('./components/admin/DatabaseConfiguration').then(m => ({ default: m.DatabaseConfiguration })))),
+  ASFOrdinanceModule: lazy(() => boundedModule(() => import('./components/asf/ASFOrdinanceModule').then(m => ({ default: m.ASFOrdinanceModule })))),
+  BiosecurityAssistant: lazy(() => boundedModule(() => import('./components/assistant/BiosecurityAssistant').then(m => ({ default: m.BiosecurityAssistant })))),
+  MasterConfigHub: lazy(() => boundedModule(() => import('./components/admin/MasterConfigHub').then(m => ({ default: m.MasterConfigHub })))),
+});
 
 const normalizeAccountRecord = (row: Partial<UserAccount> & Record<string, any>): UserAccount | null => {
   if (!row) return null;
@@ -124,25 +104,9 @@ const applyAccountRealtimeChange = (
 };
 
 export default function App() {
-  const [moduleLoadError, setModuleLoadError] = useState<unknown>(null);
-  useEffect(() => {
-    const handleWindowError = (event: ErrorEvent) => {
-      if (!isDynamicImportFailure(event.error || event.message)) return;
-      console.error('Application dynamic import failed.', event.error || event.message);
-      setModuleLoadError(event.error || new Error(event.message));
-    };
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      if (!isDynamicImportFailure(event.reason)) return;
-      console.error('Application lazy-loaded module rejected.', event.reason);
-      setModuleLoadError(event.reason);
-    };
-    window.addEventListener('error', handleWindowError);
-    window.addEventListener('unhandledrejection', handleRejection);
-    return () => {
-      window.removeEventListener('error', handleWindowError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
+  const [moduleAttempt,setModuleAttempt]=useState(0);
+  const {LandingPage,Dashboard,GisMap,SwineForm,BatchImportModal,PigsRecords,CertificateManager,MessagingCenter,ManageBarangays,ManageAccounts,ManageLandingPage,ManageRegistryForms,BarangayBiosecurity,PhotoMediaSettings,LogoConfiguration,InterfaceBackgroundConfig,SidebarColorConfig,RegistryFormCustomizer,SwineMarketingAlerts,SwineTakeoffManager,AgentCatalog,AgentAccountView,UserAccountView,ApiConfiguration,DatabaseConfiguration,ASFOrdinanceModule,BiosecurityAssistant,MasterConfigHub}=useMemo(createPageModules,[moduleAttempt]);
+  const retryModule=()=>setModuleAttempt(attempt=>attempt+1);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole | 'landing'>('landing');
   const [sessionRestoreComplete, setSessionRestoreComplete] = useState(false);
@@ -169,14 +133,14 @@ export default function App() {
   const displayRole: UserRole | 'landing' = isPublicView ? 'landing' : currentRole;
   const { fontStyle, colors, roleConfig } = useRoleTheme(displayRole);
 
-  const returnPathRef = useRef(routeTabs[normalizePath(window.location.pathname)] ? normalizePath(window.location.pathname) : null);
+  const returnPathRef = useRef(routeTabs[normalizePath(window.location.pathname)] ? safeReturnPath(window.location) : null);
 
   const navigateTo = (path: string) => {
     if (typeof window !== 'undefined') {
       if (window.location.pathname !== path) {
         window.history.pushState({}, '', path);
       }
-      setCurrentPath(path);
+      setCurrentPath(normalizePath(path.split(/[?#]/)[0]));
     }
   };
 
@@ -275,6 +239,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const sessionEpoch = sessionEpochRef.current;
+    setSessionRestoreComplete(false);
     setSessionRestoreError(false);
     let verificationTimer:ReturnType<typeof setTimeout>;
     const verification = Promise.race([
@@ -312,7 +277,7 @@ export default function App() {
   useEffect(() => {
     if (!sessionRestoreComplete || currentUser || currentPath === '/' || currentPath === '/login' || isSuperAdminPath(currentPath)) return;
     if (routeTabs[normalizePath(currentPath)]) {
-      returnPathRef.current = normalizePath(currentPath);
+      returnPathRef.current = safeReturnPath(window.location);
       navigateTo('/login');
       setIsAuthModalOpen(true);
     }
@@ -746,6 +711,11 @@ export default function App() {
     );
   }
 
+  // Do not paint the public page between an expired protected session and /login.
+  if (!currentUser && currentPath!=='/' && currentPath!=='/login' && !isSuperAdminPath(currentPath) && routeTabs[currentPath]) {
+    return <div role="status" className="min-h-screen flex items-center justify-center text-sm text-stone-600">Opening sign-in for your requested page...</div>;
+  }
+
   if (displayRole === 'landing' && !landingConfigReady) {
     return (
       <div className="min-h-screen bg-stone-100 text-stone-900">
@@ -909,9 +879,7 @@ export default function App() {
           }}
           className="flex-1 min-h-0 w-full min-w-0 overflow-y-auto text-stone-900 relative z-10"
         >
-          {moduleLoadError ? (
-            <ModuleLoadError error={moduleLoadError} />
-          ) : <Suspense fallback={<ViewLoader />}>
+          <ModuleBoundary key={`${currentPath}:${moduleAttempt}`} retry={retryModule}><Suspense fallback={<ModuleLoader retry={retryModule}/>}>
             {displayRole === 'landing' ? (
           <LandingPage
             swineList={swineList}
@@ -1284,12 +1252,12 @@ export default function App() {
             )}
           </>
         )}
-          </Suspense>}
+          </Suspense></ModuleBoundary>
       </main>
     </div>
 
       {/* Batch Import Modal */}
-      <Suspense fallback={null}>
+      {isBatchModalOpen && <Suspense fallback={null}>
         <BatchImportModal
           isOpen={isBatchModalOpen}
           onClose={() => setIsBatchModalOpen(false)}
@@ -1300,7 +1268,7 @@ export default function App() {
             handleTabSelect('records');
           }}
         />
-      </Suspense>
+      </Suspense>}
 
       {/* Database Backup & Restore Modal */}
       <BackupModal
@@ -1320,6 +1288,7 @@ export default function App() {
         }}
         onLoginSuccess={handleLoginSuccess}
         initialRole={authModalRole}
+        sessionExpired={Boolean(returnPathRef.current)}
       />
 
       {/* Floating DA Hinunangan Biosecurity Assistant */}

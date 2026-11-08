@@ -21,6 +21,7 @@ interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (user: UserAccount) => void;
   initialRole?: UserRole;
+  sessionExpired?: boolean;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -28,6 +29,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onLoginSuccess,
   initialRole,
+  sessionExpired=false,
 }) => {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -154,6 +156,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* Form */}
+          {sessionExpired && <p role="status" className="px-6 text-sm text-stone-600">Please sign in to return to your requested page. Your session may have expired.</p>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1">

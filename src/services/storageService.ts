@@ -1,3 +1,4 @@
+import {fetchReadBounded} from './readFetch';
 import { requestJson } from './http.ts';
 import { uploadLegalDocumentDirect } from './directUpload.ts';
 import {
@@ -243,7 +244,8 @@ export const storageService = {
       const queryString = searchParams.toString();
       const endpoint = `/api/swine-records${queryString ? `?${queryString}` : ''}`;
 
-      const res = await fetch(endpoint, {
+      const res = await fetchReadBounded(endpoint, {
+        signal:AbortSignal.timeout(25000),
         method: 'GET',
         headers,
       });
@@ -355,7 +357,7 @@ export const storageService = {
       return { record: updated, pendingSync: true };
     }
 
-    const response = await fetch(`/api/swine-records/${encodeURIComponent(id)}/archive`, {
+    const response = await fetchReadBounded(`/api/swine-records/${encodeURIComponent(id)}/archive`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getSessionAuthorizationHeader() },
       body: JSON.stringify({ isArchived }),
@@ -381,7 +383,7 @@ export const storageService = {
     if (this.isEffectiveOffline()) {
       throw new Error('Permanent deletion requires a live connection and cannot be queued offline.');
     }
-    const response = await fetch(`/api/swine-records/${encodeURIComponent(id)}`, {
+    const response = await fetchReadBounded(`/api/swine-records/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getSessionAuthorizationHeader(),
     });
@@ -448,7 +450,7 @@ export const storageService = {
       const endpoint = isEdit ? `/api/swine/${encodeURIComponent(fullRecord.id)}` : '/api/swine';
       const method = isEdit ? 'PUT' : 'POST';
 
-      const sendRecord = (farmerContact: string) => fetch(endpoint, {
+      const sendRecord = (farmerContact: string) => fetchReadBounded(endpoint, {
         method,
         headers,
         body: JSON.stringify({ ...fullRecord, farmerContact }),
@@ -975,7 +977,7 @@ export const storageService = {
 
     // Sync deletion with Express backend
     try {
-      fetch(`/api/certificates/${encodeURIComponent(certNo)}`, {
+      fetchReadBounded(`/api/certificates/${encodeURIComponent(certNo)}`, {
         method: 'DELETE',
         headers: {
           ...getSessionAuthorizationHeader(),
@@ -1002,7 +1004,7 @@ export const storageService = {
 
     // Sync issuance with Express backend
     try {
-      fetch('/api/certificates', {
+      fetchReadBounded('/api/certificates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1031,7 +1033,7 @@ export const storageService = {
         ...getSessionAuthorizationHeader(),
       };
 
-      const res = await fetch('/api/certificates', { headers });
+      const res = await fetchReadBounded('/api/certificates', { headers });
       if (res.ok) {
         const json = await res.json();
         if (json?.success && Array.isArray(json.data)) {
@@ -1060,7 +1062,7 @@ export const storageService = {
         ...getSessionAuthorizationHeader(),
       };
 
-      const res = await fetch(`/api/reports/official?${query.toString()}`, { headers });
+      const res = await fetchReadBounded(`/api/reports/official?${query.toString()}`, { headers });
       if (res.ok) {
         const json = await res.json();
         if (json?.success && Array.isArray(json.data)) {
@@ -1194,7 +1196,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
 
     // Sync with backend Express API
     try {
-      fetch('/api/landing/settings', {
+      fetchReadBounded('/api/landing/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1208,7 +1210,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
 
   async fetchLandingConfigFromApi(): Promise<LandingPageConfig> {
     try {
-      const res = await fetch('/api/landing/settings');
+      const res = await fetchReadBounded('/api/landing/settings');
       if (res.ok) {
         const json = await res.json();
         if (json?.success && json.data) {
@@ -1799,7 +1801,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
       isPublished: true,
       lastUpdated: new Date().toISOString(),
     };
-    const response = await fetch('/api/registry-schema', {
+    const response = await fetchReadBounded('/api/registry-schema', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getSessionAuthorizationHeader() },
       body: JSON.stringify(published),
@@ -1822,7 +1824,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
   },
 
   async refreshRegistryFormSchemaFromCloud(): Promise<RegistryFormSchema> {
-    const response = await fetch('/api/registry-schema', {
+    const response = await fetchReadBounded('/api/registry-schema', {
       headers: getSessionAuthorizationHeader(),
     });
     const result = await response.json().catch(() => null);

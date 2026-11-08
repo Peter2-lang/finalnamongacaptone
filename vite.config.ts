@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [
             /^\/api(?:\/|$)/,
             /^\/assets\//,
+            /\.(?:m?js|css|json|map|wasm)(?:$|\?)/i,
             /^\/(?:sw|registerSW)\.js$/,
             /^\/workbox-/,
           ],

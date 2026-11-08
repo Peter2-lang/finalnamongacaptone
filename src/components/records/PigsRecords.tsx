@@ -1,3 +1,4 @@
+import {usePagePreference,text,tagQuery,choice,flag,integer,dateFilter,recordReference,preferenceNavigationVersion} from '../../hooks/usePagePreference';
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
@@ -359,36 +360,37 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     storageService.getRegistryFormSchema()
   );
 
+  const preferenceOwner=`${currentUser?.id||'guest'}:${currentRole}:${currentUser?.assignedBarangay||''}`;
   // Search & Filter State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchScope, setSearchScope] = useState<'all' | 'tag' | 'owner'>('all');
-  const [selectedBarangay, setSelectedBarangay] = useState<string>(
-    currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : 'all'
-  );
-  const [swineTypeFilter, setSwineTypeFilter] = useState<string>('all');
-  const [farmScaleFilter, setFarmScaleFilter] = useState<string>('all');
-  const [asfZoneFilter, setAsfZoneFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [biosecurityFilter, setBiosecurityFilter] = useState<'all' | 'warning' | 'no_warning'>('all');
-  const [readyFilter, setReadyFilter] = useState<'all' | 'ready' | 'not_ready'>('all');
-  const [ageFilter, setAgeFilter] = useState<'all' | 'under_1m' | '1_3m' | '4_6m' | '7_12m' | 'over_1y'>('all');
-  const [registeredFrom, setRegisteredFrom] = useState('');
-  const [registeredTo, setRegisteredTo] = useState('');
-  const [showArchived, setShowArchived] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = usePagePreference(preferenceOwner,'records','search','',tagQuery);
+  const [searchScope, setSearchScope] = usePagePreference(preferenceOwner,'records','searchScope','all',choice(['all','tag','owner'] as const));
+  const [selectedBarangay,setSelectedBarangay]=usePagePreference(preferenceOwner,'records','barangay',currentRole==='focal'&&currentUser?.assignedBarangay?currentUser.assignedBarangay:'all',currentRole==='focal'?choice([currentUser?.assignedBarangay||'all']):text);
+  const [swineTypeFilter, setSwineTypeFilter] = usePagePreference(preferenceOwner,'records','swineTypeFilter','all',text);
+  const [farmScaleFilter, setFarmScaleFilter] = usePagePreference(preferenceOwner,'records','farmScaleFilter','all',text);
+  const [asfZoneFilter, setAsfZoneFilter] = usePagePreference(preferenceOwner,'records','asfZoneFilter','all',text);
+  const [statusFilter, setStatusFilter] = usePagePreference(preferenceOwner,'records','statusFilter','all',text);
+  const [biosecurityFilter, setBiosecurityFilter] = usePagePreference(preferenceOwner,'records','biosecurityFilter','all',choice(['all','warning','no_warning'] as const));
+  const [readyFilter, setReadyFilter] = usePagePreference(preferenceOwner,'records','readyFilter','all',choice(['all','ready','not_ready'] as const));
+  const [ageFilter, setAgeFilter] = usePagePreference(preferenceOwner,'records','ageFilter','all',choice(['all','under_1m','1_3m','4_6m','7_12m','over_1y'] as const));
+  const [registeredFrom, setRegisteredFrom] = usePagePreference(preferenceOwner,'records','registeredFrom','',dateFilter);
+  const [registeredTo, setRegisteredTo] = usePagePreference(preferenceOwner,'records','registeredTo','',dateFilter);
+  const [showArchived, setShowArchived] = usePagePreference(preferenceOwner,'records','archived',false,flag);
 
   // Sorting State
-  const [sortFieldKey, setSortFieldKey] = useState<string>('registeredAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortFieldKey, setSortFieldKey] = usePagePreference(preferenceOwner,'records','sortFieldKey','registeredAt',text);
+  const [sortOrder, setSortOrder] = usePagePreference(preferenceOwner,'records','sortOrder','desc',choice(['asc','desc'] as const));
 
   // Pagination State
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(25);
+  const [currentPage, setCurrentPage] = usePagePreference(preferenceOwner,'records','page',1,integer(100000));
+  const [pageSize, setPageSize] = usePagePreference(preferenceOwner,'records','pageSize',25,integer(250));
 
   // Column Picker Management
   const [visibleColumnIds, setVisibleColumnIds] = useState<Record<string, boolean>>({});
   const [showColumnPicker, setShowColumnPicker] = useState<boolean>(false);
 
   // Modals & Selection
+  const [viewingId,setViewingId]=usePagePreference(preferenceOwner,'records','record','',recordReference);
+  const [hasFreshRecords,setHasFreshRecords]=useState(false);
   const [viewingRecord, setViewingRecord] = useState<SwineRecord | null>(null);
   const viewingRecordCloseRef = useRef<HTMLButtonElement>(null);
   const [expandedFarmerKey, setExpandedFarmerKey] = useState<string | null>(null);
@@ -425,7 +427,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     if (!viewingRecord) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setViewingRecord(null);
+      if (event.key === 'Escape') closeRecord();
     };
     document.addEventListener('keydown', onEscape);
     requestAnimationFrame(() => viewingRecordCloseRef.current?.focus());
@@ -476,6 +478,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   }, []);
 
   const handleFetchFromDatabase = async (isManual = false) => {
+    if(!isManual){setHasFreshRecords(false);setViewingRecord(null);}
     if (isManual) {
       setIsRefreshingDb(true);
       setRefreshNotice('Fetching latest records...');
@@ -489,6 +492,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         barangay: currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : undefined,
       });
       onRefresh();
+      setHasFreshRecords(true);
       if (isManual) {
         setRefreshNotice(`${total} records loaded`);
         setTimeout(() => setRefreshNotice(''), 3500);
@@ -530,16 +534,15 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     setShowBulkDeleteModal(false);
   }, [showArchived]);
 
-  useEffect(() => {
-    if (initialViewingRecordId) {
-      const found = swineList.find(
-        s => s.id === initialViewingRecordId || s.pigIdTag === initialViewingRecordId
-      );
-      if (found) {
-        setViewingRecord(found);
-      }
-    }
-  }, [initialViewingRecordId, swineList]);
+  useEffect(()=>{if(initialViewingRecordId)setViewingId(initialViewingRecordId);},[initialViewingRecordId]);
+  useEffect(()=>{
+    if(!hasFreshRecords)return;
+    if(!viewingId){setViewingRecord(null);return;}
+    const found=swineList.find(record=>record.id===viewingId&&!record.isArchived&&(currentRole!=='focal'||record.barangay===currentUser?.assignedBarangay));
+    setViewingRecord(found||null);
+  },[hasFreshRecords,viewingId,swineList]);
+  const openRecord=(record:SwineRecord)=>{setViewingId(record.id);setViewingRecord(record);};
+  const closeRecord=()=>{setViewingId('');setViewingRecord(null);};
 
   // Table Print & Import States
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
@@ -638,25 +641,13 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     }
   }, []);
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    customColumnFilters,
-    searchTerm,
-    searchScope,
-    selectedBarangay,
-    swineTypeFilter,
-    farmScaleFilter,
-    asfZoneFilter,
-    statusFilter,
-    biosecurityFilter,
-    readyFilter,
-    ageFilter,
-    registeredFrom,
-    registeredTo,
-    showArchived,
-  ]);
+  const filterSignature=JSON.stringify([customColumnFilters,searchTerm,searchScope,selectedBarangay,swineTypeFilter,farmScaleFilter,asfZoneFilter,statusFilter,biosecurityFilter,readyFilter,ageFilter,registeredFrom,registeredTo,showArchived]);
+  const previousFilters=useRef({signature:filterSignature,navigation:preferenceNavigationVersion()});
+  useEffect(()=>{
+    const previous=previousFilters.current;const navigation=preferenceNavigationVersion();
+    previousFilters.current={signature:filterSignature,navigation};
+    if(previous.signature!==filterSignature&&previous.navigation===navigation)setCurrentPage(1);
+  },[filterSignature]);
 
   // Active Fields from Schema
   const activeFields: ActiveFieldItem[] = useMemo(() => {
@@ -1274,7 +1265,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     swine: SwineRecord,
     farmerKey: string
   ) => {
-    if (action === 'view') setViewingRecord(swine);
+    if (action === 'view') openRecord(swine);
     else if (action === 'farmer') {
       const nextExpandedKey = expandedFarmerKey === farmerKey ? null : farmerKey;
       setExpandedFarmerKey(nextExpandedKey);
@@ -2602,7 +2593,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <div className="mt-2 flex justify-end border-t border-stone-100 pt-2">
                 <button
                   type="button"
-                  onClick={() => setViewingRecord(swine)}
+                  onClick={() => openRecord(swine)}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-700"
                 ><InterfaceText source="View Details" /></button>
               </div>
@@ -3354,7 +3345,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
       </div>
 
       {/* ===================== VIEW DETAILS MODAL ===================== */}
-      {viewingRecord && (
+      {viewingRecord && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4">
           <div
             role="dialog"
@@ -3393,7 +3384,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
               <button
                 ref={viewingRecordCloseRef}
                 type="button"
-                onClick={() => setViewingRecord(null)}
+                onClick={() => closeRecord()}
                 aria-label="Close record details"
                 className="text-white/70 hover:text-white p-2 rounded-xl hover:bg-white/10 transition cursor-pointer"
               >
@@ -3590,7 +3581,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     type="button"
                     onClick={() => {
                       const rec = viewingRecord;
-                      setViewingRecord(null);
+                      closeRecord();
                       onViewOnMap(rec);
                     }}
                     className="px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white font-bold flex items-center gap-1.5 transition cursor-pointer text-xs shadow-2xs"
@@ -3603,7 +3594,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   type="button"
                   onClick={() => {
                     const rec = viewingRecord;
-                    setViewingRecord(null);
+                    closeRecord();
                     setPrintSingleRecord(rec);
                   }}
                   className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
@@ -3616,7 +3607,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   disabled={isDownloadingRecordPdf}
                   onClick={() => {
                     const record = viewingRecord;
-                    setViewingRecord(null);
+                    closeRecord();
                     requestRecordPdfDownload(record);
                   }}
                   className="px-3 py-1.5 rounded-xl border border-emerald-700 bg-white text-emerald-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs disabled:opacity-50"
@@ -3629,7 +3620,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     type="button"
                     onClick={() => {
                       const rec = viewingRecord;
-                      setViewingRecord(null);
+                      closeRecord();
                       onEditSwine(rec);
                     }}
                     className="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
@@ -3642,7 +3633,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                   type="button"
                   onClick={() => {
                     const rec = viewingRecord;
-                    setViewingRecord(null);
+                    closeRecord();
                     onIssueCertificate(rec);
                   }}
                   className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer text-xs"
@@ -3653,7 +3644,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {archiveConfirmRecord && (
         <div role="dialog" aria-modal="true" aria-labelledby="archive-record-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">

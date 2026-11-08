@@ -1,3 +1,4 @@
+import {fetchReadBounded} from './readFetch';
 import { uploadCertificateTemplateSourceDirect, uploadImageDirect } from './directUpload.ts';
 import {
   Barangay,
@@ -63,8 +64,9 @@ async function getFreshAuthHeaders(): Promise<Record<string, string>> {
 }
 
 async function loginAt(endpoint: string, identifier: string, password: string): Promise<{ user: UserAccount; role: string; assignedBarangay?: string; token: string }> {
-  const res = await fetch(endpoint, {
+  const res = await fetchReadBounded(endpoint, {
     method: 'POST',
+    signal:AbortSignal.timeout(25000),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: identifier, email: identifier, password, clientProjectRef: supabaseProjectRef }),
   });
@@ -130,7 +132,7 @@ export const authApi = {
       }
 
       storageService.setSessionToken(session.access_token);
-      const response = await fetch('/api/auth/superadmin-profile', {
+      const response = await fetchReadBounded('/api/auth/superadmin-profile', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
@@ -182,7 +184,7 @@ export const authApi = {
       storageService.setSessionToken(null);
       return null;
     }
-    const res = await fetch('/api/auth/profile', { headers: getAuthHeaders(), signal: AbortSignal.timeout(25000) });
+    const res = await fetchReadBounded('/api/auth/profile', { headers: getAuthHeaders(), signal: AbortSignal.timeout(25000) });
     const result = await res.json().catch(() => null);
     if (!res.ok || !result?.success) {
       console.warn('[AUTH] session_restore_profile_rejected', {
@@ -206,7 +208,7 @@ export const authApi = {
   },
 
   async updateProfile(profile: Pick<UserAccount, 'name' | 'phone'>): Promise<UserAccount> {
-    const res = await fetch('/api/auth/profile', {
+    const res = await fetchReadBounded('/api/auth/profile', {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify(profile),
@@ -235,7 +237,7 @@ export const authApi = {
 export const accountsApi = {
   async getAll(): Promise<UserAccount[]> {
     const headers = await getFreshAuthHeaders();
-    const res = await fetch('/api/accounts', {
+    const res = await fetchReadBounded('/api/accounts', {
       method: 'GET',
       headers,
     });
@@ -249,7 +251,7 @@ export const accountsApi = {
 
   async create(user: Partial<UserAccount> & { initialPassword: string; confirmPassword: string }): Promise<UserAccount> {
     const headers = await getFreshAuthHeaders();
-    const res = await fetch('/api/accounts', {
+    const res = await fetchReadBounded('/api/accounts', {
       method: 'POST',
       headers,
       body: JSON.stringify(user),
@@ -264,7 +266,7 @@ export const accountsApi = {
 
   async resetPassword(id: string, initialPassword: string, confirmPassword: string): Promise<void> {
     const headers = await getFreshAuthHeaders();
-    const res = await fetch(`/api/accounts/${encodeURIComponent(id)}/reset-password`, {
+    const res = await fetchReadBounded(`/api/accounts/${encodeURIComponent(id)}/reset-password`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ initialPassword, confirmPassword }),
@@ -278,7 +280,7 @@ export const accountsApi = {
 
   async update(id: string, user: Partial<UserAccount>): Promise<UserAccount> {
     const headers = await getFreshAuthHeaders();
-    const res = await fetch(`/api/accounts/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/accounts/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers,
       body: JSON.stringify(user),
@@ -293,7 +295,7 @@ export const accountsApi = {
 
   async delete(id: string): Promise<boolean> {
     const headers = await getFreshAuthHeaders();
-    const res = await fetch(`/api/accounts/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/accounts/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers,
     });
@@ -307,7 +309,7 @@ export const accountsApi = {
 
 export const moduleDataApi = {
   async get<T>(key: string): Promise<T> {
-    const res = await fetch(`/api/module-data/${encodeURIComponent(key)}`, {
+    const res = await fetchReadBounded(`/api/module-data/${encodeURIComponent(key)}`, {
       headers: await getFreshAuthHeaders(),
     });
     const data = await res.json().catch(() => null);
@@ -320,7 +322,7 @@ export const moduleDataApi = {
   },
 
   async save<T>(key: string, value: T): Promise<T> {
-    const res = await fetch(`/api/module-data/${encodeURIComponent(key)}`, {
+    const res = await fetchReadBounded(`/api/module-data/${encodeURIComponent(key)}`, {
       method: 'PUT',
       headers: await getFreshAuthHeaders(),
       body: JSON.stringify({ data: value }),
@@ -346,7 +348,7 @@ export const biosecurityApi = {
 
 export const farmersApi = {
   async getAll(): Promise<any[]> {
-    const res = await fetch('/api/farmers', {
+    const res = await fetchReadBounded('/api/farmers', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -366,7 +368,7 @@ export const farmersApi = {
       farmerId,
       isArchived: String(isArchived),
     });
-    const res = await fetch(`/api/swine?${params}`, {
+    const res = await fetchReadBounded(`/api/swine?${params}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -381,7 +383,7 @@ export const farmersApi = {
 
 export const barangaysApi = {
   async getAll(): Promise<Barangay[]> {
-    const res = await fetch('/api/barangays', {
+    const res = await fetchReadBounded('/api/barangays', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -394,7 +396,7 @@ export const barangaysApi = {
   },
 
   async create(barangay: Partial<Barangay>): Promise<Barangay> {
-    const res = await fetch('/api/barangays', {
+    const res = await fetchReadBounded('/api/barangays', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(barangay),
@@ -406,7 +408,7 @@ export const barangaysApi = {
   },
 
   async update(id: string, barangay: Partial<Barangay>): Promise<Barangay> {
-    const res = await fetch(`/api/barangays/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/barangays/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(barangay),
@@ -418,7 +420,7 @@ export const barangaysApi = {
   },
 
   async deactivate(id: string): Promise<void> {
-    const res = await fetch(`/api/barangays/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/barangays/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -430,7 +432,7 @@ export const barangaysApi = {
 
 export const dashboardApi = {
   async getStats(): Promise<any> {
-    const res = await fetch('/api/dashboard/stats', {
+    const res = await fetchReadBounded('/api/dashboard/stats', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -449,7 +451,7 @@ export const certificatesApi = {
       ? `/api/certificates?filter_barangay=${encodeURIComponent(barangay)}`
       : '/api/certificates';
 
-    const res = await fetch(url, {
+    const res = await fetchReadBounded(url, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -462,7 +464,7 @@ export const certificatesApi = {
   },
 
   async create(cert: Partial<IssuedCertificate>): Promise<IssuedCertificate> {
-    const res = await fetch('/api/certificates', {
+    const res = await fetchReadBounded('/api/certificates', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(cert),
@@ -476,7 +478,7 @@ export const certificatesApi = {
   },
 
   async update(id: string, cert: Partial<IssuedCertificate>): Promise<IssuedCertificate> {
-    const res = await fetch(`/api/certificates/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/certificates/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(cert),
@@ -490,7 +492,7 @@ export const certificatesApi = {
   },
 
   async archive(controlNumber: string): Promise<void> {
-    const res = await fetch(`/api/certificates/${encodeURIComponent(controlNumber)}`, {
+    const res = await fetchReadBounded(`/api/certificates/${encodeURIComponent(controlNumber)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -504,7 +506,7 @@ export const certificatesApi = {
 
 export const messagesApi = {
   async getAll(): Promise<MessageItem[]> {
-    const res = await fetch('/api/messages', {
+    const res = await fetchReadBounded('/api/messages', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -517,7 +519,7 @@ export const messagesApi = {
   },
 
   async send(msg: Partial<MessageItem>): Promise<MessageItem> {
-    const res = await fetch('/api/messages', {
+    const res = await fetchReadBounded('/api/messages', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(msg),
@@ -531,7 +533,7 @@ export const messagesApi = {
   },
 
   async markRead(id: string): Promise<boolean> {
-    const res = await fetch(`/api/messages/${encodeURIComponent(id)}/read`, {
+    const res = await fetchReadBounded(`/api/messages/${encodeURIComponent(id)}/read`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
     });
@@ -541,7 +543,7 @@ export const messagesApi = {
   },
 
   async delete(id: string): Promise<boolean> {
-    const res = await fetch(`/api/messages/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/messages/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -556,7 +558,7 @@ export const mediaApi = {
     const url = category && category !== 'ALL'
       ? `/api/media?category=${encodeURIComponent(category)}`
       : '/api/media';
-    const res = await fetch(url, {
+    const res = await fetchReadBounded(url, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -569,7 +571,7 @@ export const mediaApi = {
   },
 
   async upload(payload: { fileName: string; fileUrl?: string; filePath?: string; base64?: string; mimeType?: string; category?: string; altText?: string }): Promise<any> {
-    const res = await fetch('/api/media/upload', {
+    const res = await fetchReadBounded('/api/media/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
@@ -609,7 +611,7 @@ export const mediaApi = {
       throw new Error('Choose a JPEG, PNG, WebP, or GIF image no larger than 15 MB.');
     }
     const filePath = await uploadImageDirect(file, 'certificate');;
-    const res = await fetch('/api/certificate-assets/upload', {
+    const res = await fetchReadBounded('/api/certificate-assets/upload', {
       method: 'POST',
       headers: await getFreshAuthHeaders(),
       body: JSON.stringify({ fileName: file.name, mimeType: file.type, filePath }),
@@ -627,7 +629,7 @@ export const mediaApi = {
   },
 
   async delete(id: string): Promise<boolean> {
-    const res = await fetch(`/api/media/${encodeURIComponent(id)}`, {
+    const res = await fetchReadBounded(`/api/media/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -639,7 +641,7 @@ export const mediaApi = {
 
 export const settingsApi = {
   async getPublishedLandingCms(): Promise<LandingCmsConfig> {
-    const res = await fetch('/api/landing-cms/published', { cache: 'no-store' });
+    const res = await fetchReadBounded('/api/landing-cms/published', { cache: 'no-store' });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
@@ -649,7 +651,7 @@ export const settingsApi = {
   },
 
   async getLandingCmsDraft(): Promise<LandingCmsConfig> {
-    const res = await fetch('/api/admin/landing-cms/draft', { headers: getAuthHeaders(), cache: 'no-store' });
+    const res = await fetchReadBounded('/api/admin/landing-cms/draft', { headers: getAuthHeaders(), cache: 'no-store' });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.success === false) throw new Error(data?.error || `Request failed (${res.status}). Please try again.`);
     if (!res.ok || !data?.success || !data.config) {
@@ -659,7 +661,7 @@ export const settingsApi = {
   },
 
   async saveLandingCmsDraft(config: LandingCmsConfig): Promise<LandingCmsConfig> {
-    const res = await fetch('/api/admin/landing-cms/draft', {
+    const res = await fetchReadBounded('/api/admin/landing-cms/draft', {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(config),
@@ -673,7 +675,7 @@ export const settingsApi = {
   },
 
   async publishLandingCms(config: LandingCmsConfig): Promise<LandingCmsConfig> {
-    const res = await fetch('/api/admin/landing-cms/publish', {
+    const res = await fetchReadBounded('/api/admin/landing-cms/publish', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(config),
@@ -694,7 +696,7 @@ export const settingsApi = {
     mimeType: string;
   }> {
     const filePath = await uploadImageDirect(file, 'landing');;
-    const res = await fetch('/api/admin/landing-cms/upload', {
+    const res = await fetchReadBounded('/api/admin/landing-cms/upload', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ fileName: file.name, mimeType: file.type, filePath, category }),
@@ -708,7 +710,7 @@ export const settingsApi = {
   },
 
   async getLandingConfig(): Promise<any> {
-    const res = await fetch('/api/landing-config', {
+    const res = await fetchReadBounded('/api/landing-config', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -718,7 +720,7 @@ export const settingsApi = {
   },
 
   async saveLandingConfig(config: any): Promise<any> {
-    const res = await fetch('/api/landing-config', {
+    const res = await fetchReadBounded('/api/landing-config', {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(config),
@@ -729,7 +731,7 @@ export const settingsApi = {
   },
 
   async getSidebarTheme(): Promise<SidebarTheme> {
-    const res = await fetch('/api/admin/sidebar-theme', {
+    const res = await fetchReadBounded('/api/admin/sidebar-theme', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -742,7 +744,7 @@ export const settingsApi = {
   },
 
   async saveSidebarTheme(theme: SidebarTheme): Promise<SidebarTheme> {
-    const res = await fetch('/api/admin/sidebar-theme', {
+    const res = await fetchReadBounded('/api/admin/sidebar-theme', {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(theme),
@@ -756,7 +758,7 @@ export const settingsApi = {
   },
 
   async getRegistryFormSchema(): Promise<RegistryFormSchema> {
-    const res = await fetch('/api/admin/registry-form-schema', {
+    const res = await fetchReadBounded('/api/admin/registry-form-schema', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -766,7 +768,7 @@ export const settingsApi = {
   },
 
   async saveRegistryFormSchema(schema: RegistryFormSchema): Promise<RegistryFormSchema> {
-    const res = await fetch('/api/admin/registry-form-schema', {
+    const res = await fetchReadBounded('/api/admin/registry-form-schema', {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(schema),

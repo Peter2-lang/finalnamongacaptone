@@ -8,9 +8,10 @@ import { registerDynamicImportRecovery } from './utils/chunkLoadRecovery';
 import { initializeBuildTracking, wasBuildUpdated, markBuildReloaded, APP_BUILD_ID } from './utils/buildMetadata';
 import './index.css';
 
+const buildUpdated=wasBuildUpdated();
 initializeBuildTracking();
 registerDynamicImportRecovery();
-if (wasBuildUpdated() && markBuildReloaded()) {
+if (buildUpdated && markBuildReloaded()) {
   console.info('Detected a newer application build. Reloading once to load the current shell.', APP_BUILD_ID);
   window.location.reload();
 }

@@ -1,3 +1,4 @@
+import {usePagePreference,text,choice} from '../../hooks/usePagePreference';
 import { InterfaceText } from '../../i18n/interfaceText';
 import { farmerIdentity } from '../../utils/farmerIdentity.ts';
 import React, { useState } from 'react';
@@ -72,10 +73,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenBatchModal,
 }) => {
   const { t, getSwineTypeLabel, getFarmScaleLabel, getAsfZoneLabel } = useLanguage();
+  const preferenceOwner=`${currentUser?.id||'guest'}:${currentRole}:${currentUser?.assignedBarangay||''}`;
   const [isFarmRegModalOpen, setIsFarmRegModalOpen] = useState<boolean>(false);
-  const [selectedBgFilter, setSelectedBgFilter] = useState<string>(
-    currentRole === 'focal' && currentUser?.assignedBarangay ? currentUser.assignedBarangay : 'all'
-  );
+  const [selectedBgFilter,setSelectedBgFilter]=usePagePreference(preferenceOwner,'dashboard','barangay',currentRole==='focal'&&currentUser?.assignedBarangay?currentUser.assignedBarangay:'all',currentRole==='focal'?choice([currentUser?.assignedBarangay||'all']):text);
 
   const committedList = swineList.filter(s => s.isSynced === true || s.pendingArchiveSync === true);
   const pendingCount = swineList.filter(s=>s.isSynced === false).length;
@@ -148,8 +148,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   type GraphType = 'pie' | 'donut' | 'bar' | 'hbar' | 'area' | 'line';
   type GraphDimension = 'category' | 'barangay' | 'status' | 'valuation' | 'biosecurity';
 
-  const [graphType, setGraphType] = useState<GraphType>('pie');
-  const [graphDimension, setGraphDimension] = useState<GraphDimension>('category');
+  const [graphType, setGraphType] = usePagePreference<GraphType>(preferenceOwner,'dashboard','graph','pie',choice(['pie','donut','bar','hbar','area','line'] as const));
+  const [graphDimension, setGraphDimension] = usePagePreference<GraphDimension>(preferenceOwner,'dashboard','dimension','category',choice(['category','barangay','status','valuation','biosecurity'] as const));
 
   // Chart Datasets & Metric Builders
   const categoryChartData = [

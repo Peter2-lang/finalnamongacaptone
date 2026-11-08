@@ -1,6 +1,7 @@
 import { translateInterfaceText } from '../../i18n/interfaceText';
 import React, { ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { reloadCurrentPage } from '../../utils/moduleLoading';
 import { isDynamicImportFailure } from '../../utils/chunkLoadRecovery';
 
 interface Props {
@@ -49,8 +50,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </p>
             <button
               onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
+                void reloadCurrentPage();
               }}
               className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs px-4 py-2 rounded-xl transition cursor-pointer"
             >

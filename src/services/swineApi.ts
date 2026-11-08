@@ -76,6 +76,7 @@ export const swineApi = {
 
     const res = await fetch(endpoint, {
       method: 'GET',
+      signal:AbortSignal.timeout(25000),
       headers: getAuthHeaders(),
     });
 
@@ -102,6 +103,7 @@ export const swineApi = {
   async getById(id: string): Promise<SwineRecord> {
     const res = await fetch(`/api/swine-records/${encodeURIComponent(id)}`, {
       method: 'GET',
+      signal:AbortSignal.timeout(25000),
       headers: getAuthHeaders(),
     });
 

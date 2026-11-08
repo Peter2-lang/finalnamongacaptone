@@ -10,7 +10,7 @@ export async function requestJson<T>(url: string, init: RequestInit = {}, authen
     if (error || !data.session) throw new Error('Please sign in again to continue.');
     headers.set('Authorization', `Bearer ${data.session.access_token}`);
   }
-  const response = await fetch(url, { ...init, headers });
+  const response = await fetch(url, { signal:AbortSignal.timeout(25000), ...init, headers });
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok || !body || typeof body !== 'object' || ('success' in body && body.success === false)) {
     const message = body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' ? body.error : `Request failed (${response.status}). Please try again.`;

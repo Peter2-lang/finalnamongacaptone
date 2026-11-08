@@ -4,7 +4,7 @@ export function isDynamicImportFailure(error: unknown): boolean {
     : error && typeof error === 'object' && 'message' in error
       ? String(error.message)
       : String(error ?? '');
-  return /failed to fetch dynamically imported module|error loading dynamically imported module|dynamically imported module|chunkloaderror|loading chunk .* failed/i
+  return /failed to fetch dynamically imported module|error loading dynamically imported module|dynamically imported module|chunkloaderror|loading chunk .* failed|failed to load module script|importing a module script failed|MIME type|unexpected token.*</i
     .test(message);
 }
 
