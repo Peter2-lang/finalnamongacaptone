@@ -11,6 +11,8 @@ test('public data states, ranking, filters, refresh, CMS and chatbot lifecycle',
   return route.fulfill({json:{success:true,data:[],config:cms}});
  });
  await page.goto('/');
+ await expect(page.getByText('3 Stations',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('100% Free / Protected Zone',{exact:true})).toHaveCount(0);
  await expect(page.getByText('Published fixture title',{exact:true})).toBeVisible();
  await expect(page.getByText('Not Yet Available',{exact:true})).toBeVisible();
  await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(15);

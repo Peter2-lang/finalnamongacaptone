@@ -2,7 +2,7 @@
 
 ## Root causes
 
-The landing page treated zero as missing and substituted CMS/demo population values. CMS statistics bypassed real calculations entirely. Barangay cards used sample populations, names, phone numbers and a default Green zone. Top 15 was a fixed list. The detail modal also asserted clearance without evidence. The chatbot reused panel coordinates for its launcher and had conflicting Escape handlers.
+The landing page treated zero as missing and substituted CMS/demo population values. CMS statistics bypassed real calculations entirely. Barangay cards used sample populations, names, phone numbers and a default Green zone. Top 15 was a fixed list. The detail modal also asserted clearance without evidence. A separate surveillance block asserted all-Green municipal status, zero outbreaks and three checkpoints; the legal banner hardcoded setback distances and fines. These unsupported assertions now use actual aggregates, No Verified Data, or references to verified source text. The chatbot reused panel coordinates for its launcher and had conflicting Escape handlers.
 
 ## Data contract
 

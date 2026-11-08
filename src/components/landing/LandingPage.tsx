@@ -851,11 +851,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1">
                 <div className="flex items-center justify-between text-xs text-emerald-300 font-semibold">
-                  <span>Municipal Zone Status</span>
+                  <span>Approved Assessments</span>
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-white">Green Zone</div>
-                <div className="text-[11px] text-emerald-100/70">100% Free / Protected Zone</div>
+                <div className="text-2xl sm:text-3xl font-black text-white">{registry?.assessedBarangays ?? pendingValue}</div>
+                <div className="text-[11px] text-emerald-100/70">Barangays with verified assessments</div>
               </div>
 
               <div className="p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1">
@@ -863,17 +863,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span>Active Outbreaks</span>
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-emerald-300">0 Reported</div>
-                <div className="text-[11px] text-emerald-100/70">Zero mortality cluster incidents</div>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-300">No Verified Data</div>
+                <div className="text-[11px] text-emerald-100/70">Outbreak reporting is not published</div>
               </div>
 
               <div className="p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1">
                 <div className="flex items-center justify-between text-xs text-emerald-300 font-semibold">
-                  <span>RSBSA Georeferencing</span>
+                  <span>Configured Barangays</span>
                   <Layers className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-white">40 / 40</div>
-                <div className="text-[11px] text-emerald-100/70">Barangays indexed on GIS</div>
+                <div className="text-2xl sm:text-3xl font-black text-white">{registry?.coveredBarangays ?? pendingValue}</div>
+                <div className="text-[11px] text-emerald-100/70">Official municipal registry directory</div>
               </div>
 
               <div className="p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-1">
@@ -881,8 +881,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span>Quarantine Checkpoints</span>
                   <Activity className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-white">3 Stations</div>
-                <div className="text-[11px] text-emerald-100/70">24/7 boundary wheel disinfection</div>
+                <div className="text-2xl sm:text-3xl font-black text-white">No Verified Data</div>
+                <div className="text-[11px] text-emerald-100/70">Checkpoint operations require verification</div>
               </div>
             </div>
 
@@ -894,7 +894,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="font-bold text-xs text-white">Green Zone (Free / Protected)</span>
                 </div>
                 <p className="text-[11px] text-emerald-100/70 leading-relaxed">
-                  Regular swine movement permitted with standard Barangay Clearance and Veterinary Health Certificate (VHC).
+                  A Green classification is shown only when an approved barangay assessment records it. Consult verified published rules for movement requirements.
                 </p>
               </div>
 
@@ -904,7 +904,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="font-bold text-xs text-white">Yellow Zone (Buffer / Surveillance)</span>
                 </div>
                 <p className="text-[11px] text-emerald-100/70 leading-relaxed">
-                  Heightened border disinfection and blood sampling. Swine transport strictly regulated by Municipal Livestock Task Force.
+                  A Yellow classification is shown only when recorded in an approved assessment. Consult verified published rules for applicable precautions.
                 </p>
               </div>
 
@@ -914,7 +914,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="font-bold text-xs text-white">Red Zone (Infected / Quarantine)</span>
                 </div>
                 <p className="text-[11px] text-emerald-100/70 leading-relaxed">
-                  Total freeze on all live swine and pork movement within 1km–7km containment radius. (None currently in Hinunangan).
+                  A Red classification is shown only when recorded in an approved assessment. Consult verified published rules for applicable restrictions.
                 </p>
               </div>
             </div>
@@ -949,40 +949,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <span className="text-xs font-bold text-amber-300 uppercase tracking-wider block">
-                    Mandatory Locational Guidelines • Municipal Ordinance No. 2025-59
+                    Verified Published Legal Documents
                   </span>
                   <h3 className="text-lg sm:text-xl font-black text-white mt-0.5">
-                    Official Buffer Zones & Environmental Setbacks
+                    Consult the Published Source Text
                   </h3>
                 </div>
                 <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold border border-white/20">
-                  Enforced by Municipal Livestock Task Force (MLTF)
+                  Source verification required
                 </span>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-center">
-                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">50m</span>
+                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">See source</span>
                   <span className="text-xs font-bold text-white block mt-0.5">Backyard Piggery</span>
-                  <span className="text-[10px] text-emerald-200 block">Setback from residential houses</span>
+                  <span className="text-[10px] text-emerald-200 block">Verified residential setback provisions</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-center">
-                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">100m</span>
+                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">See source</span>
                   <span className="text-xs font-bold text-white block mt-0.5">Commercial Piggery</span>
-                  <span className="text-[10px] text-emerald-200 block">Setback from built-up zones & resorts</span>
+                  <span className="text-[10px] text-emerald-200 block">Verified commercial setback provisions</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-center">
-                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">25m</span>
+                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">See source</span>
                   <span className="text-xs font-bold text-white block mt-0.5">Water Bodies</span>
-                  <span className="text-[10px] text-emerald-200 block">Setback from rivers, creeks & wells</span>
+                  <span className="text-[10px] text-emerald-200 block">Verified water protection provisions</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-center">
-                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">₱2,500</span>
+                  <span className="text-2xl sm:text-3xl font-black text-amber-300 block">See source</span>
                   <span className="text-xs font-bold text-white block mt-0.5">Penal Fines</span>
-                  <span className="text-[10px] text-emerald-200 block">+ Immediate pen closure on 3rd offense</span>
+                  <span className="text-[10px] text-emerald-200 block">Verified penalty provisions</span>
                 </div>
               </div>
             </div>
