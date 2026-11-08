@@ -43,10 +43,11 @@ export function useRoleTheme(role: UserRole | 'landing') {
     };
 
     window.addEventListener('da_master_config_updated', handleUpdate);
+    void masterConfigService.syncWithBackend(role);
     return () => {
       window.removeEventListener('da_master_config_updated', handleUpdate);
     };
-  }, []);
+  }, [role]);
 
   // Determine target role config:
   // super_admin & admin use config.roles.admin

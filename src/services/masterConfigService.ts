@@ -49,12 +49,7 @@ export class MasterConfigService {
       },
     ]);
 
-    // Initial background fetch from API
-    if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        this.syncWithBackend().catch(() => {});
-      }, 100);
-    }
+    // Fetch only after the application has restored a verified Super Admin profile.
   }
 
   private loadFromStorage<T>(key: string, fallback: T): T {
@@ -80,7 +75,9 @@ export class MasterConfigService {
     }
   }
 
-  public async syncWithBackend(): Promise<void> {
+  public async syncWithBackend(role: string): Promise<void> {
+    // This only suppresses unauthorized client requests; the server still authorizes access.
+    if (role !== 'super_admin') return;
     try {
       const json = await this.request<{ success: boolean; config: MasterSystemConfig; versions: ConfigVersionEntry[]; auditLogs: ConfigAuditLogEntry[] }>('/api/config/master');
       {

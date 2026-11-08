@@ -19,6 +19,7 @@ const oldQuery=pool.query;
  if(text.includes('AS farmers,') && publicDatabaseError)throw new Error('private connection details');
  if(text.includes('AS farmers,'))return {rows:[{farmers:0,barangays:[],audits:[]}]};
  if(text.includes('from "users"'))return {rows:[positional(users,{id:userId,uid:'fixture',email:'fixture@example.invalid',name:'Fixture',role,authUserId:userId,active,isActive:active,status:active?'active':'inactive',assignedBarangay:barangay,permissions:[]})]};
+ if(text.includes('from "system_settings"'))return {rows:[]};
  if(text.includes('from "swine_records"'))return {rows:text.includes('count(*)')?[[0]]:[]};
  throw new Error('Unexpected fixture database query: '+text);
 };
@@ -69,6 +70,13 @@ test('import preserves role restrictions and rejects excessive or unsafe batches
  assert.equal((await request('/api/swine-records/import','POST',{records:Array(101).fill(record),batchId:'fixture-import'})).status,400);
  assert.equal((await request('/api/swine-records/import','POST',{records:[record]})).status,400);
  assert.equal((await request('/api/swine-records/import','POST',{records:[record],batchId:'fixture-import',newFields:[{fieldKey:'constructor',label:'Unsafe',type:'text'}]})).status,400);
+});
+
+test('master configuration remains Super Admin-only with JSON denials',async()=>{
+ for(role of ['admin','focal','agent']) {
+  const response=await request('/api/config/master');assert.equal(response.status,403);assert.match(response.headers.get('content-type')||'',/application\/json/);assert.deepEqual(await response.json(),{success:false,error:'Super administrator access required.'});
+ }
+ role='super_admin';const response=await request('/api/config/master');assert.equal(response.status,200);assert.equal((await response.json()).success,true);
 });
 
 test('assistant APIs use verified roles, read scoped live counts and handle failures',async()=>{
