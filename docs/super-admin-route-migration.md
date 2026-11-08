@@ -48,4 +48,16 @@ The first new test run used `layout` as the expected internal tab name; the exis
 
 ## Release
 
-The route implementation is committed as `5a79b03`. Production deployment and live anonymous route checks are recorded after release below. Authenticated production login/logout and authorized legacy redirect still require a working real Super Admin session; those flows were verified using isolated browser fixtures, not a live account.
+The route implementation is committed as `5a79b03`. Release commit `bb7d1e5f0c9375d07f7ebcedd5b8c2e8df591761` is deployed to production as `dpl_CXgx4BnAzwam6HrcVhu3VsmdNCV7` (READY, Vite, remote build completed in approximately 52 seconds). The stable domain resolves to this exact release. The new URL is https://lguhinunanganswineregistry.vercel.app/kamirani. Authenticated production login/logout and authorized legacy redirect still require a working real Super Admin session; those flows were verified using isolated browser fixtures, not a live account.
+
+
+Live production checks passed in both desktop and mobile browsers:
+
+- `/kamirani` renders the dedicated sign-in and remains at the new URL after refresh, without a landing-page flash.
+- `/kamirani/layout` preserves its deep-link URL while presenting sign-in to an anonymous visitor.
+- Anonymous `/superadmin` and `/superadmin/layout` render access denied, keep their original URLs, and never mount the authenticated workspace.
+- Anonymous pages issue zero restricted master-configuration requests.
+- A direct unauthenticated `/api/config/master` request returns actual JSON HTTP 401.
+- A deployment-scoped post-release scan found no error/fatal logs in the observed window. Long-term monitoring and log drains were not assessed.
+
+These production checks used the actual deployed site without API interception. The authenticated role/login/logout/redirect cases passed in the isolated desktop/mobile browser suite; a real Super Admin account check remains necessary to verify those cases against production credentials.
