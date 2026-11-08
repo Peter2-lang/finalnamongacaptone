@@ -10,12 +10,14 @@ const {pool}=await import('../db/index.ts');
 const {users,swineRecords}=await import('../db/schema.ts');
 const {supabaseAuthClient}=await import('../lib/supabaseServer.ts');
 const userId='00000000-0000-4000-8000-000000000001';
-let role='admin',active=true,barangay='Ambacon';
+let role='admin',active=true,barangay='Ambacon', publicDatabaseError=false;
 const queries:Array<{text:string;params:any[]}>=[];
 const positional=(table:any,row:any)=>Object.keys(getTableColumns(table)).map(key=>row[key]??null);
 const oldQuery=pool.query;
 (pool as any).query=async(config:any,params:any[]=[])=>{
  const text=typeof config==='string'?config:config.text;queries.push({text,params});
+ if(text.includes('AS farmers,') && publicDatabaseError)throw new Error('private connection details');
+ if(text.includes('AS farmers,'))return {rows:[{farmers:0,barangays:[],audits:[]}]};
  if(text.includes('from "users"'))return {rows:[positional(users,{id:userId,uid:'fixture',email:'fixture@example.invalid',name:'Fixture',role,authUserId:userId,active,isActive:active,status:active?'active':'inactive',assignedBarangay:barangay,permissions:[]})]};
  if(text.includes('from "swine_records"'))return {rows:text.includes('count(*)')?[[0]]:[]};
  throw new Error('Unexpected fixture database query: '+text);
@@ -89,5 +91,18 @@ test('assistant APIs use verified roles, read scoped live counts and handle fail
  assistantReplies=[{functionCalls:[{name:'query_registry',args:{period:'today'}}]},{text:'Sign in to access private registry statistics.'}];
  const before=queries.length;
  response=await fetch(base+'/api/public/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'How many new records today?',role:'super_admin'})});
- assert.equal(response.status,200);assert.match((await response.json()).reply,/Sign in/);assert.equal(queries.length,before);
+ assert.equal(response.status,200);assert.match((await response.json()).reply,/Sign in/);assert.equal(queries.length,before+1);assert.ok(queries.at(-1)!.text.includes('AS farmers,'));
+});
+
+ test('public registry endpoint exposes only read-only aggregates without authentication',async()=>{
+ const response=await fetch(base+'/api/public/registry-summary');
+ assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.deepEqual(await response.json(),{coveredBarangays:0,registeredFarmers:0,activeSwine:0,readyToSell:0,assessedBarangays:0,compliancePercent:null,barangays:[]});
+ const denied=await fetch(base+'/api/public/registry-summary',{method:'POST'});assert.equal(denied.status,401);
+ });
+
+test('public database failures are 503, never fabricated zero counts or private diagnostics',async()=>{
+ publicDatabaseError=true;
+ try { const response=await fetch(base+'/api/public/registry-summary');assert.equal(response.status,503);const body=await response.json();assert.equal(body.activeSwine,undefined);assert.equal(JSON.stringify(body).includes('private connection'),false); }
+ finally {publicDatabaseError=false;}
 });

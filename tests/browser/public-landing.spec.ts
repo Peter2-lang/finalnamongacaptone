@@ -1,0 +1,36 @@
+import {test,expect} from '@playwright/test';
+import {INITIAL_LANDING_CMS_CONFIG} from '../../src/data/initialLandingCmsData';
+import {HINUNANGAN_BARANGAYS} from '../../src/data/barangays';
+test('public data states, ranking, filters, refresh, CMS and chatbot lifecycle',async({page})=>{
+ let failed=false,zero=false;
+ const cms={...INITIAL_LANDING_CMS_CONFIG,heroTitle:'Published fixture title'};
+ await page.route('**/api/**',async route=>{
+  const path=new URL(route.request().url()).pathname;
+  if(path==='/api/public/assistant/chat')return route.fulfill({json:{success:true,reply:'Verified public fixture response.'}});
+  if(path==='/api/public/registry-summary')return route.fulfill({status:failed?503:200,json:failed?{error:'Unavailable'}:{coveredBarangays:40,registeredFarmers:3,activeSwine:zero?0:820,readyToSell:zero?0:40,assessedBarangays:0,compliancePercent:null,barangays:HINUNANGAN_BARANGAYS.map((b,i)=>({id:b.id,name:b.name,code:b.code,swineCount:zero?0:40-i,readyToSellCount:zero?0:1,riskLevel:i===0?'yellow':null}))}});
+  return route.fulfill({json:{success:true,data:[],config:cms}});
+ });
+ await page.goto('/');
+ await expect(page.getByText('Published fixture title',{exact:true})).toBeVisible();
+ await expect(page.getByText('Not Yet Available',{exact:true})).toBeVisible();
+ await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(15);
+ await expect(page.locator('#barangays h4').first()).toHaveText('Ambacon');
+ await page.getByPlaceholder('Search barangay by name or code...').fill('Ambacon');
+ await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(1);
+ await page.getByPlaceholder('Search barangay by name or code...').fill('');
+ await page.getByRole('button',{name:'🟡 Yellow (Buffer)',exact:true}).click();
+ await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(1);
+ await page.getByRole('button',{name:'All Zones',exact:true}).click();
+ await page.getByRole('button',{name:'All 40 Barangays'}).click();
+ await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(40);
+ const launcher=page.locator('.biosecurity-assistant-launcher');
+ await launcher.click();const panel=page.locator('.biosecurity-assistant-panel');await expect(panel).toBeVisible();
+ const chatInput=panel.locator('input').last();await chatInput.fill('Explain the public registry');await chatInput.press('Enter');await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Minimize assistant',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Expand assistant',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Close assistant',exact:true}).click();await expect(panel).toHaveCount(0);await expect(launcher).toHaveCount(1);
+ const box=await launcher.boundingBox();const viewport=page.viewportSize()!;expect(viewport.width-box!.x-box!.width).toBeGreaterThanOrEqual(16);expect(viewport.width-box!.x-box!.width).toBeLessThan(40);expect(viewport.height-box!.y-box!.height).toBeLessThan(40);
+ await launcher.click();await expect(panel).toBeVisible();await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
+ cms.heroTitle='Updated published CMS title';zero=true;await page.reload();await expect(page.getByText('Updated published CMS title',{exact:true})).toBeVisible();await expect(page.getByText(/No active swine records registered/)).toBeVisible();await page.getByRole('button',{name:'All 40 Barangays'}).click();await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(40);
+ failed=true;await page.reload();await expect(page.getByText(/Database temporarily unavailable/)).toBeVisible();await expect(page.getByText('Unavailable',{exact:true})).toHaveCount(4);
+});

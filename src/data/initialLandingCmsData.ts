@@ -13,9 +13,9 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
   metaKeywords: 'DA Hinunangan, Swine Registry, African Swine Fever, Southern Leyte, RSBSA, Biosecurity, Livestock Philippines, SLSU Extension',
   faviconUrl: '/icon.svg',
   systemLogoUrl: '/icon.svg',
-  contactEmail: 'agri.hinunangan@gmail.com',
-  contactPhone: '(053) 578-2011',
-  address: 'Municipal Agriculture Office, Hinunangan Town Hall Compound, Southern Leyte 6601',
+  contactEmail: 'Pending administrator review',
+  contactPhone: 'Pending administrator review',
+  address: 'Office address pending administrator review',
 
   // Header & Navigation
   headerTitle: 'Municipal Agriculture Office - Hinunangan',
@@ -169,16 +169,16 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
     {
       id: 'stat-2',
       label: 'Registered Hog Raisers',
-      value: '1,240+',
+      value: 'Database aggregate',
       icon: 'Users',
-      description: 'RSBSA validated backyard & commercial producers',
+      description: 'Distinct active registered farmer identities',
       visible: true,
       order: 2,
     },
     {
       id: 'stat-3',
       label: 'Actively Tracked Swine',
-      value: '3,850+',
+      value: 'Database aggregate',
       icon: 'Layers',
       description: 'Ear-tagged and digitally profiled with health records',
       visible: true,
@@ -187,9 +187,9 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
     {
       id: 'stat-4',
       label: 'Biosecurity Compliance',
-      value: '96.4%',
+      value: 'Not Yet Available',
       icon: 'ShieldCheck',
-      description: 'Zero ASF outbreaks recorded in Hinunangan municipality',
+      description: 'Based on latest approved assessments only',
       visible: true,
       order: 4,
     },
@@ -252,7 +252,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
       id: 'soc-fb',
       platform: 'facebook',
       label: 'LGU Hinunangan Official Facebook',
-      url: 'https://facebook.com/LGUHinunanganOfficial',
+      url: '',
       handle: '@LGUHinunanganOfficial',
       enabled: true,
       order: 1,
@@ -280,7 +280,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
       platform: 'email',
       label: 'MAO Extension Maildesk',
       url: 'mailto:agri.hinunangan@gmail.com',
-      handle: 'agri.hinunangan@gmail.com',
+      handle: 'Pending administrator review',
       enabled: true,
       order: 4,
     },
@@ -291,7 +291,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
       title: 'Municipal Free Swine Deworming & Biosecurity Kit Distribution',
       content: 'The Municipal Agriculture Office conducted on-site visitations in Labrador, Calag-itan, and Canipaan to distribute footbath disinfectants and ear tags for newly registered piglets.',
       platform: 'facebook',
-      postUrl: 'https://facebook.com/LGUHinunanganOfficial',
+      postUrl: '',
       date: 'September 14, 2026',
       author: 'MAO Extension Team',
       visible: true,
@@ -303,7 +303,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
       title: 'Strict Swill Feeding Ban in Hinunangan Enforced',
       content: 'Reminder to all backyard raisers: Feeding food scraps/kanin baboy is strictly prohibited under National ASF Task Force advisories. Please report any violations to your Barangay Focal Person.',
       platform: 'facebook',
-      postUrl: 'https://facebook.com/LGUHinunanganOfficial',
+      postUrl: '',
       date: 'September 10, 2026',
       author: 'Veterinary Quarantine Division',
       visible: true,
@@ -315,7 +315,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
       title: 'Ready-to-Sell Swine Market Bulletin Released for Local Meat Traders',
       content: 'Licensed meat traders and agents can now browse certified market-ready finishers directly through the DA Hinunangan Portal with verified weights and health certifications.',
       platform: 'facebook',
-      postUrl: 'https://facebook.com/LGUHinunanganOfficial',
+      postUrl: '',
       date: 'September 05, 2026',
       author: 'Livestock Marketing Desk',
       visible: true,
@@ -353,7 +353,7 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
   // Announcement Bar
   announcement: {
     enabled: true,
-    text: 'NOTICE: ASF Green Zone Clearance status maintained across all 40 barangays of Hinunangan. Regular registry compliance required for livestock transport permits.',
+    text: 'Consult the registry for approved barangay assessments and verified public information.',
     linkText: 'Read Guidelines',
     linkUrl: '#biosecurity',
     startDate: '2026-09-01',
@@ -366,10 +366,10 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
 
   // Contact Section
   contactTitle: 'Get in Touch with Agriculture Officers',
-  contactSubtitle: 'Visit our municipal extension office or contact our 24/7 veterinary hotline.',
+  contactSubtitle: 'Contact details require administrator verification before publication.',
   officeName: 'Municipal Agriculture Office (MAO) Hinunangan',
-  officeHours: 'Monday to Friday: 8:00 AM – 5:00 PM • Field Officers on Weekend On-Call Duty',
-  hotlineEmergency: '(053) 578-2011 / 0917-888-9999',
+  officeHours: 'Office hours pending administrator review',
+  hotlineEmergency: 'Pending administrator review',
   mapImageUrl: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80',
 
   // Footer Management
@@ -411,13 +411,8 @@ export const INITIAL_LANDING_CMS_CONFIG: LandingCmsConfig = {
     },
     {
       id: 'col-contacts',
-      title: 'Emergency Hotlines',
-      links: [
-        { id: 'c1', label: 'ASF Emergency Hotline: (053) 578-2011', url: 'tel:0535782011' },
-        { id: 'c2', label: 'Mobile Dispatch: 0917-888-9999', url: 'tel:09178889999' },
-        { id: 'c3', label: 'Email: agri.hinunangan@gmail.com', url: 'mailto:agri.hinunangan@gmail.com' },
-        { id: 'c4', label: 'Hinunangan Town Hall Compound', url: '#contact' },
-      ],
+      title: 'Contact Information',
+      links: [{ id: 'contact-review', label: 'Pending administrator review', url: '#contact' }],
     },
   ],
 

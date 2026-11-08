@@ -92,17 +92,17 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     y: Math.max(16, window.innerHeight - BUTTON_SIZE - 24),
   });
 
+  const [viewportHeight, setViewportHeight] = useState(() => window.visualViewport?.height || window.innerHeight);
   const [position, setPosition] = useState<{ x: number; y: number }>(() => DEFAULT_LAUNCHER_POSITION());
 
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ startX: number; startY: number; panelLeft: number; panelTop: number; pointerId: number } | null>(null);
-  const launcherDragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; hasMoved: boolean } | null>(null);
   const hasMovedRef = useRef(false);
 
   const clampWithinViewport = (x: number, y: number, width = BUTTON_SIZE, height = BUTTON_SIZE) => {
     const margin = 12;
     const maxX = Math.max(margin, window.innerWidth - width - margin);
-    const maxY = Math.max(margin, window.innerHeight - height - margin);
+    const maxY = Math.max(margin, (window.visualViewport?.height || window.innerHeight) + (window.visualViewport?.offsetTop || 0) - height - margin);
     return {
       x: Math.min(Math.max(margin, x), maxX),
       y: Math.min(Math.max(margin, y), maxY),
@@ -111,15 +111,22 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
 
   const openAssistant = () => {
     const panelWidth = window.innerWidth >= 640 ? 440 : Math.max(0, window.innerWidth - 24);
-    const panelHeight = Math.min(580, window.innerHeight * 0.85);
+    const panelHeight = Math.min(580, (window.visualViewport?.height || window.innerHeight) * 0.85);
     setPosition(prev => clampWithinViewport(prev.x, prev.y, panelWidth, panelHeight));
     setIsOpen(true);
     setIsMinimized(false);
   };
 
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { setIsOpen(false); setIsMinimized(false); setPosition(DEFAULT_LAUNCHER_POSITION()); } };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, []);
+
   // Clamp the visible assistant surface when the viewport changes.
   useEffect(() => {
     const handleResize = () => {
+      setViewportHeight(window.visualViewport?.height || window.innerHeight);
       const visibleSurface = isOpen ? panelRef.current : launcherRef.current;
       const width = visibleSurface?.offsetWidth || (isOpen
         ? (window.innerWidth >= 640 ? 440 : Math.max(0, window.innerWidth - 24))
@@ -134,57 +141,10 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
     };
 
     window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
     handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    return () => { window.removeEventListener('resize', handleResize); window.visualViewport?.removeEventListener('resize', handleResize); };
   }, [isOpen, isMinimized]);
-
-  const handleLauncherPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const pointerStart = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: position.x,
-      originY: position.y,
-      hasMoved: false,
-    };
-    launcherDragRef.current = pointerStart;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  };
-
-  const handleLauncherPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!launcherDragRef.current || launcherDragRef.current.pointerId !== e.pointerId) return;
-    const dx = e.clientX - launcherDragRef.current.startX;
-    const dy = e.clientY - launcherDragRef.current.startY;
-    if (Math.hypot(dx, dy) > 8) {
-      launcherDragRef.current.hasMoved = true;
-      const width = launcherRef.current?.offsetWidth || BUTTON_SIZE;
-      const height = launcherRef.current?.offsetHeight || BUTTON_SIZE;
-      const next = clampWithinViewport(launcherDragRef.current.originX + dx, launcherDragRef.current.originY + dy, width, height);
-      setPosition(next);
-    }
-  };
-
-  const handleLauncherPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const dragState = launcherDragRef.current;
-    if (!dragState || dragState.pointerId !== e.pointerId) return;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
-    const didDrag = dragState.hasMoved;
-    launcherDragRef.current = null;
-    if (!didDrag) {
-      openAssistant();
-    }
-  };
-
-  const handleLauncherPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (launcherDragRef.current?.pointerId === e.pointerId) {
-      launcherDragRef.current = null;
-    }
-  };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -304,21 +264,6 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
         inputRef.current?.focus();
       }, 150);
     }
-  }, [isOpen, isMinimized]);
-
-  // Keyboard shortcut: Escape to close/minimize
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        if (!isMinimized) {
-          setIsMinimized(true);
-        } else {
-          setIsOpen(false);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isMinimized]);
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -544,23 +489,16 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
         <button
           ref={launcherRef}
           type="button"
-          onPointerDown={handleLauncherPointerDown}
-          onPointerMove={handleLauncherPointerMove}
-          onPointerUp={handleLauncherPointerUp}
-          onPointerCancel={handleLauncherPointerCancel}
-          onClick={event => {
-            if (event.detail === 0) openAssistant();
-          }}
+          onClick={openAssistant}
           aria-label={translateInterfaceText("Open Biosecurity Assistant")}
           title={translateInterfaceText("Open Biosecurity Assistant")}
           className="biosecurity-assistant-launcher fixed z-40 flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 shadow-xl hover:shadow-2xl border-2 border-emerald-500/30 transition-transform hover:scale-105 active:scale-95 focus:outline-hidden focus:ring-4 focus:ring-emerald-500/30"
           style={{
             width: `${BUTTON_SIZE}px`,
             height: `${BUTTON_SIZE}px`,
-            left: `${position.x}px`,
-            top: `${position.y}px`,
-            cursor: 'grab',
-            touchAction: 'none',
+            right: 'max(24px, env(safe-area-inset-right))',
+            bottom: 'max(24px, env(safe-area-inset-bottom))',
+            cursor: 'pointer',
           }}
         >
           <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
@@ -592,7 +530,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
           className={`biosecurity-assistant-panel fixed z-40 w-[calc(100vw-24px)] sm:w-[440px] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden transition-[height] duration-200 ease-in-out ${
             position ? '' : 'bottom-4 right-4 sm:bottom-6 sm:right-6'
           } ${
-            isMinimized ? 'h-14 sm:h-16' : 'h-[580px] max-h-[85vh]'
+            isMinimized ? 'h-14 sm:h-16' : 'h-[580px] max-h-[85dvh]'
           }`}
           style={{
             ...(position
@@ -603,6 +541,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
                   right: 'auto',
                 }
               : {}),
+            maxHeight: `min(85dvh, ${Math.max(100, viewportHeight - 24)}px)`,
             boxShadow: '0 20px 50px -10px rgba(6, 78, 59, 0.25), 0 10px 20px -5px rgba(0, 0, 0, 0.1)',
             touchAction: 'none',
           }}
@@ -646,7 +585,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
             </div>
 
             {/* Header Control Buttons */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div onPointerDown={event => event.stopPropagation()} className="flex items-center gap-1 shrink-0">
               <button type="button" onClick={clearConversation} title={t('assistant_new_chat', 'New Chat / Clear Conversation')} aria-label={t('assistant_new_chat', 'New Chat / Clear Conversation')} className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10"><RotateCcw className="w-4 h-4" /></button>
               <button
                 type="button"
@@ -659,7 +598,7 @@ export const BiosecurityAssistant: React.FC<BiosecurityAssistantProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={() => { setIsOpen(false); setIsMinimized(false); setPosition(DEFAULT_LAUNCHER_POSITION()); }}
                 className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 aria-label="Close assistant"
                 title={translateInterfaceText("Close chat")}

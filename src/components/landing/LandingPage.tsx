@@ -81,8 +81,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     };
 
     loadLiveConfig();
+    const cmsTimer = window.setInterval(loadLiveConfig, 30000);
+    window.addEventListener('focus', loadLiveConfig);
     window.addEventListener('da_landing_cms_updated', handleUpdate);
-    return () => window.removeEventListener('da_landing_cms_updated', handleUpdate);
+    return () => { clearInterval(cmsTimer); window.removeEventListener('focus', loadLiveConfig); window.removeEventListener('da_landing_cms_updated', handleUpdate); };
   }, []);
 
   const cmsConfig = overrideCmsConfig || publishedConfig;
@@ -95,14 +97,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [selectedBarangayDetail, setSelectedBarangayDetail] = useState<{
     name: string;
     code: string;
-    riskLevel: 'green' | 'yellow' | 'red';
+    riskLevel: string;
     focalPersonName: string;
     contactNumber: string;
-    swineCount: number;
-    readyToSellCount: number;
+    swineCount: number | string;
+    readyToSellCount: number | string;
     isUrban?: boolean;
     latitude: number;
     longitude: number;
+    classification?: string;
+    lastAssessmentDate?: string;
   } | null>(null);
 
   // Legal Ordinances Modal & Search State
@@ -113,7 +117,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const legalLandingConfig = cmsConfig.legalDocumentsConfig || DEFAULT_LEGAL_DOCUMENTS_CONFIG;
 
   const displayedLegalDocuments = useMemo(() => {
-    let docs = allLegalDocuments.filter(d => !d.isArchived && d.status !== 'archived');
+    let docs = allLegalDocuments.filter(d => !d.isArchived && d.status === 'verified');
     if (legalDocSearch.trim()) {
       const q = legalDocSearch.toLowerCase().trim();
       return docs.filter(
@@ -136,24 +140,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return docs.slice(0, legalLandingConfig.maxFeaturedDocuments || 6);
   }, [allLegalDocuments, legalLandingConfig, legalDocSearch]);
 
-  const top15BarangayNames = [
-    'Poblacion',
-    'Labrador',
-    'Canipaan',
-    'Bangcas A',
-    'Bangcas B',
-    'Ambacon',
-    'Badiangon',
-    'Calag-itan',
-    'Catbaloyan',
-    'Ilag',
-    'Ingan',
-    'Manalog',
-    'Nava',
-    'Otikon',
-    'Pondol',
-  ];
-
   const getYouTubeEmbedUrl = (url: string) => {
     if (!url) return '';
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
@@ -163,57 +149,37 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return url;
   };
 
-  const effectiveSwineList = swineList && swineList.length > 0 ? swineList : storageService.getSwineRecords();
-  const effectiveBarangays = barangays && barangays.length > 0 ? barangays : storageService.getBarangays();
-
-  const readyToSellCount = effectiveSwineList.filter(s => !s.isArchived && s.readyToSell).length;
-  const totalSwine = effectiveSwineList.filter(s => !s.isArchived).length;
-  const uniqueFarmers = new Set(effectiveSwineList.filter(s => !s.isArchived).map(s => s.farmerName)).size;
-
-  const enrichedBarangays = useMemo(() => {
-    return HINUNANGAN_BARANGAYS.map(geo => {
-      const liveBg = effectiveBarangays.find(b => b.name.toLowerCase() === geo.name.toLowerCase());
-      const swineInBg = effectiveSwineList.filter(
-        s => !s.isArchived && (s.barangay || '').toLowerCase() === geo.name.toLowerCase()
-      );
-      const readyInBg = swineInBg.filter(s => s.readyToSell).length;
-      return {
-        id: geo.id,
-        name: geo.name,
-        code: geo.code,
-        riskLevel: (liveBg?.riskLevel || geo.defaultRiskLevel || 'green') as 'green' | 'yellow' | 'red',
-        focalPersonName: liveBg?.focalPersonName || geo.focalPersonName,
-        contactNumber: liveBg?.contactNumber || geo.contactNumber,
-        swineCount: swineInBg.length > 0 ? swineInBg.length : geo.defaultSwineCount,
-        readyToSellCount: readyInBg > 0 ? readyInBg : geo.defaultReadyToSellCount,
-        isUrban: geo.isUrban,
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-      };
-    });
-  }, [effectiveBarangays, effectiveSwineList]);
-
-  const displayedBarangays = useMemo(() => {
-    let list = enrichedBarangays;
-    if (barangayViewMode === 'top15' && !barangaySearch.trim()) {
-      list = list.filter(b =>
-        top15BarangayNames.some(name => name.toLowerCase() === b.name.toLowerCase())
-      );
-    }
-    if (barangaySearch.trim()) {
-      const q = barangaySearch.toLowerCase().trim();
-      list = list.filter(
-        b =>
-          b.name.toLowerCase().includes(q) ||
-          b.code.toLowerCase().includes(q) ||
-          b.focalPersonName.toLowerCase().includes(q)
-      );
-    }
-    if (barangayRiskFilter !== 'all') {
-      list = list.filter(b => b.riskLevel === barangayRiskFilter);
-    }
-    return list;
-  }, [enrichedBarangays, barangayViewMode, barangaySearch, barangayRiskFilter]);
+  const [registry, setRegistry] = useState<any>(null);
+  const [registryError, setRegistryError] = useState(false);
+  useEffect(() => {
+    let disposed = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/public/registry-summary', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Registry unavailable');
+        const body = await response.json();
+        if (!disposed) { setRegistry(body); setRegistryError(false); }
+      } catch { if (!disposed) { setRegistry(null); setRegistryError(true); } }
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    return () => { disposed = true; clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
+  const pendingValue = registryError ? 'Unavailable' : 'Loading…';
+  const enrichedBarangays = (registry?.barangays || HINUNANGAN_BARANGAYS).map((entry: any) => {
+    const geo = HINUNANGAN_BARANGAYS.find(b => b.name.toLowerCase() === entry.name.toLowerCase());
+    const live = registry ? entry : null;
+    return { ...geo, id: entry.id, name: entry.name, latitude: geo?.latitude ?? 0, longitude: geo?.longitude ?? 0, code: live?.code || 'Not configured', riskLevel: live?.riskLevel || 'unknown',
+      focalPersonName: live?.focalPersonName || 'Assignment not published', contactNumber: live?.contactNumber || 'Not published',
+      classification: live?.classification || 'Not Yet Assessed', lastAssessmentDate: live?.lastAssessmentDate || 'Not Yet Assessed',
+      swineCount: live?.swineCount ?? (registry ? 0 : pendingValue),
+      readyToSellCount: live?.readyToSellCount ?? (registry ? 0 : pendingValue) };
+  });
+  let displayedBarangays = [...enrichedBarangays].sort((a: any,b: any) => Number(b.swineCount)-Number(a.swineCount) || a.name.localeCompare(b.name));
+  if (barangayViewMode === 'top15') displayedBarangays = displayedBarangays.filter((b: any) => Number(b.swineCount) > 0).slice(0,15);
+  const search = barangaySearch.trim().toLowerCase();
+  displayedBarangays = displayedBarangays.filter((b: any) => (!search || `${b.name} ${b.code}`.toLowerCase().includes(search)) && (barangayRiskFilter === 'all' || b.riskLevel === barangayRiskFilter));
 
   const bg = cmsConfig.interfaceBackground || {
     enabled: true,
@@ -427,75 +393,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {cmsConfig.stats && cmsConfig.stats.filter(s => s.visible).length > 0 ? (
-                cmsConfig.stats
-                  .filter(s => s.visible)
-                  .map(stat => (
-                    <div
-                      key={stat.id}
-                      className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center"
-                    >
-                      <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                        {stat.label}
-                      </span>
-                      <span
-                        className="text-3xl sm:text-4xl font-black mt-1 block"
-                        style={{ color: theme.headingColor || '#064e3b' }}
-                      >
-                        {stat.value}
-                      </span>
-                      {stat.description && (
-                        <span className="text-[11px] text-stone-400 mt-1 block">{stat.description}</span>
-                      )}
-                    </div>
-                  ))
-              ) : (
-                <>
-                  <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Swine" /></span>
-                    <span
-                      className="text-3xl sm:text-4xl font-black mt-1 block"
-                      style={{ color: theme.headingColor || '#064e3b' }}
-                    >
-                      {totalSwine || cmsConfig.statSwineCount || '3,850+'}<InterfaceText source="Heads" /></span>
-                    <span className="text-[11px] text-stone-400 mt-1 block">Actively monitored</span>
-                  </div>
-
-                  <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-amber-200 shadow-sm text-center bg-amber-50/30">
-                    <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
-                      Incoming Ready to Sell
-                    </span>
-                    <span className="text-3xl sm:text-4xl font-black text-amber-900 mt-1 block">
-                      {readyToSellCount || cmsConfig.statMarketReadyCount || '142'}<InterfaceText source="Heads" /></span>
-                    <span className="text-[11px] text-amber-700 mt-1 block">Market harvest ready</span>
-                  </div>
-
-                  <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
-                      Jurisdiction Barangays
-                    </span>
-                    <span
-                      className="text-3xl sm:text-4xl font-black mt-1 block"
-                      style={{ color: theme.headingColor || '#064e3b' }}
-                    >
-                      {effectiveBarangays.length || cmsConfig.statBarangayCount || '40'} Barangays
-                    </span>
-                    <span className="text-[11px] text-stone-400 mt-1 block">100% Hinunangan covered</span>
-                  </div>
-
-                  <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block"><InterfaceText source="Registered Raisers" /></span>
-                    <span
-                      className="text-3xl sm:text-4xl font-black mt-1 block"
-                      style={{ color: theme.headingColor || '#064e3b' }}
-                    >
-                      {uniqueFarmers || cmsConfig.statFarmerCount || '1,240+'} Farmers
-                    </span>
-                    <span className="text-[11px] text-stone-400 mt-1 block">RSBSA verified</span>
-                  </div>
-                </>
-              )}
+              {[
+                ['Covered Barangays', registry?.coveredBarangays ?? pendingValue],
+                ['Registered Hog Raisers', registry?.registeredFarmers ?? pendingValue],
+                ['Actively Tracked Swine', registry?.activeSwine ?? pendingValue],
+                ['Biosecurity Compliance', registry ? (registry.compliancePercent == null ? 'Not Yet Available' : `${registry.compliancePercent}%`) : pendingValue],
+              ].map(([label, value]) => <div key={label} className="bg-white/95 p-6 rounded-2xl border border-stone-200 shadow-sm text-center">
+                <span className="text-xs font-semibold text-stone-500 uppercase block">{label}</span>
+                <span className="text-2xl font-black text-emerald-900 block mt-1">{value}</span>
+              </div>)}
             </div>
+            <p role="status" className="text-xs text-stone-600 mt-3">{registryError ? 'Database temporarily unavailable. Please try again shortly.' : !registry ? 'Loading committed registry records…' : `Assessment coverage: ${registry.assessedBarangays}/${registry.coveredBarangays} barangays. Compliance = compliant latest approved assessments ÷ latest approved assessments × 100. ${registry.activeSwine === 0 ? 'No active swine records registered.' : ''}`}</p>
 
             {/* 15 Barangays & Biosecurity Directory Showcase */}
             <div className="mt-10 pt-10 border-t border-stone-200/70 space-y-6">
@@ -512,7 +420,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       color: theme.headingColor || '#064e3b',
                     }}
                   >
-                    15 Barangays of Hinunangan • Biosecurity & Swine Status
+                    {barangayViewMode === 'top15' ? 'Top 15 Barangays by Registered Swine Population' : 'All 40 Barangays — Biosecurity & Swine Status'}
                   </h3>
                   <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-2xl leading-relaxed">
                     Live biosecurity zoning, active swine population, and designated agricultural focal officers across Hinunangan, Southern Leyte.
@@ -530,7 +438,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         : 'text-stone-700 hover:text-emerald-800'
                     }`}
                   >
-                    Top 15 Barangays ({top15BarangayNames.length})
+                    Top 15 Barangays
                   </button>
                   <button
                     type="button"
@@ -541,7 +449,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         : 'text-stone-700 hover:text-emerald-800'
                     }`}
                   >
-                    All 40 Barangays ({enrichedBarangays.length})
+                    All {enrichedBarangays.length} Barangays
                   </button>
                 </div>
               </div>
@@ -555,7 +463,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     type="text"
                     value={barangaySearch}
                     onChange={e => setBarangaySearch(e.target.value)}
-                    placeholder="Search barangay by name, code, or focal person..."
+                    placeholder="Search barangay by name or code..."
                     className="w-full pl-9 pr-4 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                   />
                   {barangaySearch && (
@@ -595,7 +503,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               {/* Barangay Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                {displayedBarangays.map(bg => {
+                {displayedBarangays.map((bg: any) => {
                   const isGreen = bg.riskLevel === 'green';
                   const isYellow = bg.riskLevel === 'yellow';
 
@@ -618,14 +526,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           </div>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase whitespace-nowrap shrink-0 border ${
-                              isGreen
+                              bg.riskLevel === 'unknown' ? 'bg-stone-100 text-stone-700 border-stone-300' : isGreen
                                 ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                                 : isYellow
                                 ? 'bg-amber-100 text-amber-900 border-amber-300'
                                 : 'bg-red-100 text-red-900 border-red-300'
                             }`}
                           >
-                            {isGreen ? 'Green Zone' : isYellow ? 'Yellow Zone' : 'Red Zone'}
+                            {bg.riskLevel === 'unknown' ? (registryError ? 'No Verified Data' : 'Not Yet Assessed') : isGreen ? 'Green Zone' : isYellow ? 'Yellow Zone' : 'Red Zone'}
                           </span>
                         </div>
 
@@ -641,6 +549,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           </div>
                         </div>
 
+                        <p className="text-[10px] text-stone-500">Assessment: {bg.classification} · {bg.lastAssessmentDate}</p>
                         {/* Focal Person Contact */}
                         <div className="text-[11px] text-stone-600 space-y-0.5 pt-0.5">
                           <div className="font-semibold text-stone-800 truncate" title={bg.focalPersonName}>
@@ -666,7 +575,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {displayedBarangays.length === 0 && (
                 <div className="p-8 text-center bg-white/80 rounded-2xl border border-stone-200 space-y-2">
                   <MapPin className="w-8 h-8 text-stone-300 mx-auto" />
-                  <p className="text-xs font-bold text-stone-600">No barangays matching your search filter.</p>
+                  <p className="text-xs font-bold text-stone-600">{registryError ? 'Barangay populations temporarily unavailable. The official list remains available under All Barangays.' : !registry ? 'Loading barangay records…' : registry.activeSwine === 0 && barangayViewMode === 'top15' ? 'No active swine records to rank. View All Barangays for the official directory.' : 'No barangays matching your search filter.'}</p>
                   <button
                     onClick={() => {
                       setBarangaySearch('');
@@ -1422,10 +1331,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 space-y-4 text-center">
               <span className="text-xs font-bold text-red-400 uppercase tracking-wider block">
-                24/7 Rapid Response ASF Emergency Hotline
+                Published Emergency Hotline
               </span>
               <a
-                href={`tel:${cmsConfig.hotlineEmergency}`}
+                href={/^[+\d ()-]+$/.test(cmsConfig.hotlineEmergency || '') ? `tel:${cmsConfig.hotlineEmergency}` : undefined}
                 className="text-2xl sm:text-3xl font-black text-amber-300 block hover:underline"
               >
                 {cmsConfig.hotlineEmergency}
@@ -1575,7 +1484,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         : 'bg-red-400 text-red-950'
                     }`}
                   >
-                    {selectedBarangayDetail.riskLevel === 'green'
+                    {selectedBarangayDetail.riskLevel === 'unknown' ? 'Not Yet Assessed' : selectedBarangayDetail.riskLevel === 'green'
                       ? translateInterfaceText("Green Zone (Free)")
                       : selectedBarangayDetail.riskLevel === 'yellow'
                       ? translateInterfaceText("Yellow Zone (Buffer)")
@@ -1607,7 +1516,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-2xl sm:text-3xl font-black text-emerald-950 block mt-0.5">
                     {selectedBarangayDetail.swineCount}
                   </span>
-                  <span className="text-[10px] text-stone-400">Heads tagged in RSBSA</span>
+                  <span className="text-[10px] text-stone-400">Active registry records</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-center">
@@ -1615,7 +1524,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-2xl sm:text-3xl font-black text-amber-900 block mt-0.5">
                     {selectedBarangayDetail.readyToSellCount}
                   </span>
-                  <span className="text-[10px] text-amber-700/80">Market-ready liveweight</span>
+                  <span className="text-[10px] text-amber-700/80">Eligible records marked ready to sell</span>
                 </div>
               </div>
 
@@ -1630,7 +1539,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span className="text-[11px] text-stone-500">Barangay Livestock Extension Officer</span>
                   </div>
                   <a
-                    href={`tel:${selectedBarangayDetail.contactNumber}`}
+                    href={selectedBarangayDetail.contactNumber === 'Not published' ? undefined : `tel:${selectedBarangayDetail.contactNumber}`}
                     className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -1652,14 +1561,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200">
-                    <span className="font-semibold text-stone-700">ASF Quarantine Inspection</span>
+                    <span className="font-semibold text-stone-700">Approved assessment ({selectedBarangayDetail.lastAssessmentDate})</span>
                     <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Cleared & Monitored
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {selectedBarangayDetail.classification}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200">
-                    <span className="font-semibold text-stone-700">Livestock Movement Permitting</span>
-                    <span className="text-stone-700 font-semibold">VHC & Barangay Permit Required</span>
+                    <span className="font-semibold text-stone-700">Movement Requirements</span>
+                    <span className="text-stone-700 font-semibold">Consult verified published ordinances</span>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { loadPublicRegistrySummary } from './publicRegistry.ts';
 import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
 import { answerAssistant, type Generate } from './assistantEngine.ts';
 import type { ASFRegulatoryDocument } from '../types.ts';
@@ -141,7 +142,7 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     const isPublicRoute =
       req.path === '/api/health' ||
       (req.method === 'POST' && ['/api/auth/login', '/api/auth/superadmin-login', '/api/public/assistant/chat'].includes(req.path)) ||
-      (req.method === 'GET' && ['/api/landing-cms/published', '/api/landing-config', '/api/landing/settings', '/api/legal-documents', '/api/barangays'].includes(req.path));
+      (req.method === 'GET' && ['/api/public/registry-summary', '/api/landing-cms/published', '/api/landing-config', '/api/landing/settings', '/api/legal-documents', '/api/barangays'].includes(req.path));
 
     const authorization = req.headers.authorization || '';
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
@@ -1225,6 +1226,13 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
           await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[req.params.key]);
           const stored = await client.query('SELECT setting_value FROM public.system_settings WHERE setting_key = $1 FOR UPDATE',[req.params.key]);
           const existing = stored.rows[0]?.setting_value || [];
+          if (user.isFocal && req.params.key === 'biosecurity_audits') {
+            items = items.map((item:any) => {
+              const previous = existing.find((old:any) => old.id === item.id);
+              // Focal edits require fresh administrative approval; untouched rows keep approval.
+              return JSON.stringify(previous) === JSON.stringify(item) ? item : { ...item, reviewStatus: 'draft' };
+            });
+          }
           if (user.isFocal) {
             const other = existing.filter((item:any)=>!scopeBiosecurityItems([item],user.assignedBarangay).length);
             if (items.some((item:any)=>other.some((row:any)=>row.id===item.id))) {
@@ -2770,6 +2778,12 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to update system settings.' });
     }
+  });
+
+  app.get('/api/public/registry-summary', async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try { return res.json(await loadPublicRegistrySummary()); }
+    catch { return res.status(503).json({ success: false, error: 'Public registry data temporarily unavailable.' }); }
   });
 
   app.get('/api/landing-config', async (_req, res) => {

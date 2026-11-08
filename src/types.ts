@@ -780,6 +780,7 @@ export interface RegistryFormSchema {
 
 // Barangay Biosecurity Audit & Compliance
 export interface BarangayBiosecurityAudit {
+  reviewStatus?: 'draft' | 'approved';
   id: string;
   barangay: string;
   barangayId?: string;

@@ -169,6 +169,7 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
       perimeterFencingAudit: !!auditForm.perimeterFencingAudit,
       asfZone: (auditForm.asfZone as RiskLevel) || 'green',
       status: status,
+      reviewStatus: auditForm.reviewStatus === 'approved' ? 'approved' : 'draft',
       notes: auditForm.notes || 'Routine biosecurity and biosurveillance audit conducted.',
       updatedAt: new Date().toISOString(),
     };
@@ -1491,6 +1492,10 @@ export const BarangayBiosecurity: React.FC<BarangayBiosecurityProps> = ({
                 />
               </div>
 
+              {['admin', 'super_admin'].includes(currentUser?.role || currentRole || '') && <label className="flex items-center gap-2 text-xs font-semibold">
+                <input type="checkbox" checked={auditForm.reviewStatus === 'approved'} onChange={e => setAuditForm({ ...auditForm, reviewStatus: e.target.checked ? 'approved' : 'draft' })} />
+                Approve this assessment for public reporting
+              </label>}
               <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
