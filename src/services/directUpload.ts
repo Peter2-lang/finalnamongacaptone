@@ -22,27 +22,32 @@ export async function uploadLegalDocumentDirect(file: File, documentId: string):
     'application/pdf': ['pdf'],
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
     'image/jpeg': ['jpg', 'jpeg'],
-    'image/png': ['png'],
+    'image/png': ['png'], 'image/webp': ['webp'], 'image/tiff': ['tif', 'tiff'], 'text/plain': ['txt'], 'text/csv': ['csv'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
   };
-  if (!accepted[file.type]?.includes(extension)) {
-    throw new Error('Choose a PDF, DOCX, JPEG, or PNG legal document with a matching file extension.');
+  const mimeType = Object.keys(accepted).find(type => accepted[type].includes(extension)) || file.type;
+  if (!accepted[mimeType]?.includes(extension)) {
+    throw new Error('Choose a supported legal document with a matching file extension.');
   }
   const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  const matches = file.type === 'application/pdf'
+  const matches = mimeType === 'image/webp' ? String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP'
+    : mimeType === 'image/tiff' ? (bytes[0] === 0x49 && bytes[1] === 0x49 && bytes[2] === 42) || (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[3] === 42)
+    : mimeType.startsWith('text/') ? !bytes.includes(0)
+    : mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ? bytes[0] === 0x50 && bytes[1] === 0x4b
+    : mimeType === 'application/pdf'
     ? String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-'
-    : file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    : mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ? bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04
-      : file.type === 'image/jpeg'
+      : mimeType === 'image/jpeg'
         ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
         : bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
   if (!matches) throw new Error('The legal document contents do not match the declared file type.');
 
   const ticket = await requestJson<{ bucket: string; filePath: string; token: string }>('/api/storage/upload-url', {
     method: 'POST',
-    body: JSON.stringify({ target: 'legal-document', documentId, fileName: file.name, mimeType: file.type }),
+    body: JSON.stringify({ target: 'legal-document', documentId, fileName: file.name, mimeType }),
   });
   const result = await supabase.storage.from(ticket.bucket).uploadToSignedUrl(ticket.filePath, ticket.token, file, {
-    contentType: file.type,
+    contentType: mimeType,
   });
   if (result.error) throw new Error(`Unable to upload legal document: ${result.error.message}`);
   return ticket.filePath;

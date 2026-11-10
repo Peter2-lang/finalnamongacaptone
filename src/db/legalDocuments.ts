@@ -58,7 +58,13 @@ export async function mutateLegalDocument(
             },
           ]
         : (document.versionHistory || []);
-      const clean = { ...document, auditLogs: old?.auditLogs || [], versionHistory };
+      const clean = { ...document, auditLogs: old?.auditLogs || [], versionHistory,
+        importProvenance: document.importProvenance ? {
+          ...document.importProvenance,
+          reviewedBy: actor.userId,
+          uploadedAt: old?.importProvenance?.uploadedAt || new Date().toISOString(),
+        } : undefined,
+      };
       if (operation === 'create') {
         await client.query('INSERT INTO legal_documents (id, document) VALUES ($1, $2)', [id, JSON.stringify(clean)]);
       } else {

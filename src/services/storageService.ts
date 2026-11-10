@@ -1542,7 +1542,7 @@ Prepared for regional trade accreditation and ASF Green Zone maintenance.`,
       data: { document: ASFRegulatoryDocument; attachment: LegalSourceAttachment };
     }>(`/api/legal-documents/${encodeURIComponent(documentId)}/attachments`, {
       method: 'POST',
-      body: JSON.stringify({ filePath, fileName: file.name, mimeType: file.type }),
+      body: JSON.stringify({ filePath, fileName: file.name, mimeType: ({ pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', tif: 'image/tiff', tiff: 'image/tiff', webp: 'image/webp', txt: 'text/plain', csv: 'text/csv', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } as Record<string, string>)[file.name.split('.').pop()?.toLowerCase() || ''] || file.type }),
     });
     const document = result.data.document;
     this.saveAsfRegulations([

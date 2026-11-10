@@ -1327,19 +1327,19 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'image/jpeg',
-        'image/png',
+        'image/png', 'image/webp', 'image/tiff', 'text/plain', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       ];
       const extension = typeof fileName === 'string' ? fileName.split('.').pop()?.toLowerCase() : '';
       const extensionsByType: Record<string, string[]> = {
         'application/pdf': ['pdf'],
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
         'image/jpeg': ['jpg', 'jpeg'],
-        'image/png': ['png'],
+        'image/png': ['png'], 'image/webp': ['webp'], 'image/tiff': ['tif', 'tiff'], 'text/plain': ['txt'], 'text/csv': ['csv'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
       };
       if (typeof documentId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(documentId) ||
           typeof fileName !== 'string' || !extensionsByType[mimeType]?.includes(extension || '') ||
           !legalTypes.includes(mimeType)) {
-        return res.status(400).json({ success: false, error: 'Choose a PDF, DOCX, JPEG, or PNG file and a valid legal document.' });
+        return res.status(400).json({ success: false, error: 'Choose a supported legal source file and a valid legal document.' });
       }
       try {
         const existing = await pool.query('SELECT id FROM public.legal_documents WHERE id = $1', [documentId]);

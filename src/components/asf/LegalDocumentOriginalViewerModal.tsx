@@ -1,3 +1,4 @@
+import { originalPageImages } from '../../services/legalExtraction';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useEffect, useState } from 'react';
 import {
@@ -35,6 +36,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
   const [viewMode, setViewMode] = useState<'extracted' | 'source_preview' | 'side_by_side'>('side_by_side');
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [attachmentError, setAttachmentError] = useState('');
+  const [pageImages, setPageImages] = useState<string[]>([]);
   const attachment = initialAttachment || document?.sourceDocuments?.find(item => item.isCurrent) || document?.sourceDocuments?.[0];
 
   useEffect(() => {
@@ -54,9 +56,26 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
     return () => { active = false; };
   }, [isOpen, document?.id, attachment?.id, attachment?.storagePath, attachment?.url]);
 
+  useEffect(() => {
+    if (isOpen) setCurrentPage(document?.importProvenance?.pages[0]?.pageNumber || 1);
+  }, [isOpen, document?.id]);
+  useEffect(() => {
+    setPageImages([]); let alive = true;
+    if (attachmentUrl && /docx|wordprocessingml|tiff/i.test(attachment?.fileType || attachment?.name || '')) {
+      void fetch(attachmentUrl).then(async response => {
+        if (!response.ok) throw new Error('Unable to load original page.');
+        const images = await originalPageImages(new File([await response.blob()], attachment?.name || 'source'), currentPage);
+        if (alive) setPageImages(images);
+      }).catch(error => { if (alive) setAttachmentError(error.message); });
+    }
+    return () => { alive = false; };
+  }, [attachmentUrl, attachment?.fileType, attachment?.name, currentPage]);
+
   if (!isOpen || !document) return null;
 
-  const totalPages = document.articles?.reduce(
+  const firstPage = document.importProvenance?.pages[0]?.pageNumber || 1;
+  const pageText = document.importProvenance?.pages.find(page => page.pageNumber === currentPage)?.text;
+  const totalPages = document.importProvenance?.pages.at(-1)?.pageNumber || document.articles?.reduce(
     (max, a) => Math.max(max, ...a.sections.map(s => Number(s.scannedPageRef) || 1)),
     1
   ) || 1;
@@ -174,8 +193,8 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
         <div className="no-print flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-2">
           <div className="flex items-center gap-2">
             <button
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage <= firstPage}
+              onClick={() => setCurrentPage(prev => Math.max(firstPage, prev - 1))}
               className="rounded p-1 text-slate-600 hover:bg-slate-200 disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -230,7 +249,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center bg-slate-900/5">
-                  {attachmentUrl && /^image\/(jpeg|png)$/i.test(attachment?.fileType || '') ? (
+                  {pageImages.length ? <div>{pageImages.map((url, i) => <img key={i} src={url} alt={`Original page ${currentPage}, image ${i + 1}`} className="w-full" />)}</div> : attachmentUrl && /^image\/(jpeg|png|webp)$/i.test(attachment?.fileType || '') ? (
                     <img
                       src={attachmentUrl}
                       alt="Scanned original page"
@@ -238,10 +257,10 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                       className="max-h-[600px] w-auto shadow-md rounded border border-slate-300 transition-transform"
                     />
                   ) : attachmentUrl && attachment?.fileType === 'application/pdf' ? (
-                    <iframe title={`Original ${document.officialNumber}`} src={attachmentUrl} className="h-full min-h-[480px] w-full bg-white" />
+                    <iframe title={`Original ${document.officialNumber}`} src={`${attachmentUrl}#page=${currentPage}`} className="h-full min-h-[480px] w-full bg-white" />
                   ) : attachmentUrl ? (
                     <div className="p-6 text-center text-sm text-slate-700">
-                      DOCX source is stored securely. Use Download to open the original document.
+                      Original source is stored securely. Use Download to open it. {attachmentError}
                     </div>
                   ) : (
                     <div className="p-6 text-center text-sm text-slate-500">
@@ -262,7 +281,7 @@ export const LegalDocumentOriginalViewerModal: React.FC<LegalDocumentOriginalVie
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {pageSections.length === 0 ? (
+                  {pageText !== undefined ? <p className="whitespace-pre-wrap text-xs leading-relaxed">{pageText}</p> : document.fullText && !document.articles?.length ? <p className="whitespace-pre-wrap text-xs">{document.fullText}</p> : pageSections.length === 0 ? (
                     <div className="text-center py-12 text-slate-400 text-xs">
                       No specific sections mapped to Page {currentPage}. Showing all document sections below:
                       <div className="mt-4 space-y-3 text-left">

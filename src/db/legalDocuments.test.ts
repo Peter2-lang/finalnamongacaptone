@@ -105,3 +105,20 @@ test('verification requires an uploaded current source and explicit completeness
     }],
   }), true);
 });
+
+test('import audit attribution comes from the authenticated server actor', async () => {
+  let stored: any;
+  const mock = { connect: async () => ({
+    query: async (sql: string, values: unknown[] = []) => {
+      if (sql.includes('INSERT INTO legal_documents')) stored = JSON.parse(String(values[1]));
+      return { rows: [] };
+    }, release: () => {},
+  }) } as unknown as Pool;
+  const doc = { ...ALL_ASF_REGULATIONS[0], importProvenance: {
+    batchId: 'batch-fixture', sourceFileName: 'source.docx', uploadedAt: '1900-01-01', reviewedBy: 'spoofed', method: 'native XML', warnings: [], pages: [{ pageNumber: 1, text: 'WHEREAS original source text.' }],
+  } };
+  await mutateLegalDocument(mock, 'create', doc.id, doc, { userId: 'authenticated-user', username: 'Admin', role: 'admin' });
+  assert.equal(stored.importProvenance.reviewedBy, 'authenticated-user');
+  assert.notEqual(stored.importProvenance.uploadedAt, '1900-01-01');
+  assert.equal(stored.importProvenance.pages[0].text, 'WHEREAS original source text.');
+});

@@ -13,3 +13,6 @@ dev-dist/
 
 playwright-report/
 test-results/
+
+# Generated from pinned OCR packages by Vite
+public/legal-ocr/

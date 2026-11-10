@@ -325,6 +325,11 @@ export interface ASFRegulatoryDocument {
   shortSummary: string;
   description?: string;
   fullText?: string;
+  importProvenance?: {
+    batchId: string; sourceFileName: string; uploadedAt: string; reviewedBy: string;
+    method: string; warnings: string[];
+    pages: { pageNumber: number; text: string; confidence?: number; ocrApplied?: boolean; warnings?: string[] }[];
+  };
   legalBasis: string[];
   tags?: string[];
   relatedDocumentIds?: string[];

@@ -1,3 +1,4 @@
+import { detectFormat, extractPages, splitLegalPages } from './legalExtraction';
 import * as XLSX from 'xlsx';
 import {
   ASFRegulatoryDocument,
@@ -32,154 +33,53 @@ export class LegalDocumentParserService {
    */
   static async parseFile(
     file: File,
-    onProgress?: (step: string, percent: number) => void
+    onProgress?: (step: string, percent: number) => void,
+    signal?: AbortSignal
   ): Promise<LegalImportFileItem> {
-    onProgress?.('Reading file...', 10);
-    const extension = file.name.split('.').pop()?.toLowerCase() || '';
-    const id = 'imp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-
-    const fileItem: LegalImportFileItem = {
-      id,
-      name: file.name,
-      size: file.size,
-      sizeFormatted: this.formatFileSize(file.size),
-      type: file.type || extension,
-      extension,
-      rawText: '',
-      status: 'processing',
-      ocrApplied: false,
+    onProgress?.('Reading document', 0);
+    const item: LegalImportFileItem = {
+      id: crypto.randomUUID(), name: file.name, size: file.size,
+      sizeFormatted: this.formatFileSize(file.size), type: file.type,
+      extension: '', rawText: '', status: 'processing', originalFile: file,
     };
-
     try {
-      if (['xlsx', 'xls', 'csv'].includes(extension)) {
-        onProgress?.('Analyzing spreadsheet workbook & sheets...', 30);
-        const { text, pages, sheetData } = await this.parseSpreadsheet(file);
-        fileItem.rawText = text;
-        fileItem.pages = pages;
-        fileItem.pageCount = pages.length;
-
-        onProgress?.('Detecting legal structure & metadata...', 60);
-        const detection = this.analyzeTextContent(text, file.name, pages);
-        
-        // If structured sections were parsed directly from Excel columns, integrate them
-        if (sheetData && sheetData.articles && sheetData.articles.length > 0) {
-          detection.articles = sheetData.articles;
-          detection.totalSectionsCount = sheetData.articles.reduce(
-            (acc, a) => acc + a.sections.length,
-            0
-          );
-        }
-        
-        this.checkDuplicate(detection);
-        fileItem.detection = detection;
-        fileItem.status = detection.isDuplicate ? 'duplicate' : 'ready';
-      } else if (['jpg', 'jpeg', 'png', 'webp', 'tiff', 'bmp'].includes(extension)) {
-        onProgress?.('Running OCR on scanned image...', 35);
-        const { text, pages, dataUrl } = await this.parseImageWithOCR(file, onProgress);
-        fileItem.rawText = text;
-        fileItem.pages = pages;
-        fileItem.pageCount = 1;
-        fileItem.ocrApplied = true;
-        fileItem.fileData = dataUrl;
-
-        onProgress?.('Extracting legal articles & sections...', 70);
-        const detection = this.analyzeTextContent(text, file.name, pages);
-        this.checkDuplicate(detection);
-        fileItem.detection = detection;
-        fileItem.status = detection.isDuplicate ? 'duplicate' : 'ready';
-      } else if (extension === 'pdf') {
-        onProgress?.('Extracting PDF text & checking scanned layers...', 35);
-        const { text, pages, dataUrl } = await this.parsePdf(file, onProgress);
-        fileItem.rawText = text;
-        fileItem.pages = pages;
-        fileItem.pageCount = pages.length;
-        fileItem.fileData = dataUrl;
-
-        onProgress?.('Analyzing legal metadata & provisions...', 70);
-        const detection = this.analyzeTextContent(text, file.name, pages);
-        this.checkDuplicate(detection);
-        fileItem.detection = detection;
-        fileItem.status = detection.isDuplicate ? 'duplicate' : 'ready';
-      } else if (['docx', 'doc'].includes(extension)) {
-        onProgress?.('Extracting Word document structure...', 40);
-        const { text, pages, dataUrl } = await this.parseDocx(file);
-        fileItem.rawText = text;
-        fileItem.pages = pages;
-        fileItem.pageCount = pages.length;
-        fileItem.fileData = dataUrl;
-
-        onProgress?.('Detecting articles and sections...', 70);
-        const detection = this.analyzeTextContent(text, file.name, pages);
-        this.checkDuplicate(detection);
-        fileItem.detection = detection;
-        fileItem.status = detection.isDuplicate ? 'duplicate' : 'ready';
-      } else {
-        // Plain text, RTF, ODT, or other text files
-        onProgress?.('Reading text file...', 40);
-        const text = await file.text();
-        fileItem.rawText = text;
-        fileItem.pages = [{ pageNumber: 1, text }];
-        fileItem.pageCount = 1;
-
-        onProgress?.('Detecting legal structure...', 70);
-        const detection = this.analyzeTextContent(text, file.name, fileItem.pages);
-        this.checkDuplicate(detection);
-        fileItem.detection = detection;
-        fileItem.status = detection.isDuplicate ? 'duplicate' : 'ready';
+      item.extension = await detectFormat(file);
+      const originalExtension = file.name.split('.').pop()?.toLowerCase();
+      if (originalExtension !== item.extension && !(item.extension === 'jpg' && originalExtension === 'jpeg') && !(item.extension === 'tiff' && originalExtension === 'tif')) {
+        item.originalFile = new File([file], file.name.replace(/\.[^.]*$/, '') + '.' + item.extension, { type: file.type });
+        item.warnings = ['Filename extension differed from detected contents. Source attachment extension was corrected; original bytes are unchanged.'];
       }
-
-      onProgress?.('Import preparation complete!', 100);
-      return fileItem;
-    } catch (err: any) {
-      console.error('Error parsing legal document:', err);
-      fileItem.status = 'error';
-      fileItem.errorMessage = err.message || 'Failed to read document';
-      return fileItem;
+      if (['xlsx', 'csv'].includes(item.extension)) {
+        const result = await this.parseSpreadsheet(file);
+        item.pages = result.pages;
+      } else {
+        item.pages = await extractPages(file, item.extension, onProgress, signal);
+      }
+      item.pageCount = item.pages.length;
+      item.rawText = item.pages.map(p => p.text).join('\n\n');
+      item.ocrApplied = item.pages.some(p => p.ocrApplied);
+      item.warnings = [...item.warnings || [], ...item.pages.flatMap(p => (p.warnings || []).map(w => `Page ${p.pageNumber}: ${w}`))];
+      item.warnings.push('Review suggested document boundaries, metadata and every page before confirming.');
+      onProgress?.('Detecting legal documents; identifying articles and sections', 100);
+      item.detection = this.analyzeTextContent(item.rawText, '', item.pages);
+      item.status = 'needs_review';
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      item.status = 'error';
+      item.errorMessage = error instanceof Error ? error.message : 'Extraction failed';
     }
+    return item;
   }
 
-  /**
-   * Parse multiple scanned images as ordered pages of a single document
-   */
-  static async parseMultipleScanPages(
-    files: File[],
-    onProgress?: (step: string, percent: number) => void
-  ): Promise<LegalImportFileItem> {
-    onProgress?.(`Processing ${files.length} scanned pages...`, 15);
-    const pages: { pageNumber: number; text: string; imageUrl?: string }[] = [];
-    let combinedText = '';
+  static splitExtractedItem(item: LegalImportFileItem): LegalImportFileItem[] {
+    if (!item.pages?.length || item.status === 'error') return [item];
+    return splitLegalPages(item.pages).map(pages => this.itemForPages(item, pages));
+  }
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      onProgress?.(`Running OCR on Page ${i + 1} of ${files.length}...`, 20 + Math.round((i / files.length) * 50));
-      const { text, dataUrl } = await this.parseImageWithOCR(file);
-      pages.push({
-        pageNumber: i + 1,
-        text,
-        imageUrl: dataUrl,
-      });
-      combinedText += `\n\n--- PAGE ${i + 1} ---\n\n` + text;
-    }
-
-    onProgress?.('Synthesizing multi-page legal structure...', 80);
-    const primaryName = files[0]?.name || 'Scanned_Legal_Document.pdf';
-    const detection = this.analyzeTextContent(combinedText, primaryName, pages);
-    this.checkDuplicate(detection);
-
-    return {
-      id: 'scan-batch-' + Date.now(),
-      name: `${files.length} Scanned Pages (${files[0]?.name.replace(/\.[^/.]+$/, '')})`,
-      size: files.reduce((acc, f) => acc + f.size, 0),
-      sizeFormatted: this.formatFileSize(files.reduce((acc, f) => acc + f.size, 0)),
-      type: 'image/scanned-batch',
-      extension: 'jpg',
-      rawText: combinedText,
-      pages,
-      pageCount: pages.length,
-      ocrApplied: true,
-      status: detection.isDuplicate ? 'duplicate' : 'ready',
-      detection,
-    };
+  static itemForPages(item: LegalImportFileItem, pages: NonNullable<LegalImportFileItem['pages']>): LegalImportFileItem {
+    const rawText = pages.map(p => p.text).join('\n\n');
+    return { ...item, id: crypto.randomUUID(), pages, rawText, pageCount: pages.length,
+      confirmed: false, detection: this.analyzeTextContent(rawText, '', pages) };
   }
 
   /**
@@ -316,163 +216,19 @@ export class LegalDocumentParserService {
   /**
    * Parse Word DOCX
    */
-  static async parseDocx(file: File): Promise<{ text: string; pages: { pageNumber: number; text: string }[]; dataUrl?: string }> {
-    const arrayBuffer = await file.arrayBuffer();
-    // Convert to base64 for download/preview
-    const base64 = btoa(
-      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    const dataUrl = `data:${file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};base64,${base64}`;
-
-    // Extract text from raw DOCX XML chunks if possible
-    let extractedText = '';
-    try {
-      const textDecoder = new TextDecoder('utf-8', { fatal: false });
-      const rawString = textDecoder.decode(arrayBuffer);
-      // Strip XML tags for basic text extraction
-      const cleanText = rawString
-        .replace(/<w:p[^>]*>/g, '\n')
-        .replace(/<w:t[^>]*>([^<]+)<\/w:t>/g, '$1')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-
-      extractedText = cleanText.length > 50 ? cleanText : file.name.replace(/\.[^/.]+$/, '');
-    } catch {
-      extractedText = `Document: ${file.name}`;
-    }
-
-    return {
-      text: extractedText,
-      pages: [{ pageNumber: 1, text: extractedText }],
-      dataUrl,
-    };
+  static async parseDocx(file: File) {
+    const pages = await extractPages(file, 'docx');
+    return { text: pages.map(p => p.text).join('\n\n'), pages };
   }
 
-  /**
-   * Parse PDF with text & fallback
-   */
-  static async parsePdf(
-    file: File,
-    onProgress?: (step: string, percent: number) => void
-  ): Promise<{ text: string; pages: { pageNumber: number; text: string }[]; dataUrl?: string }> {
-    const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(
-      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    const dataUrl = `data:application/pdf;base64,${base64}`;
-
-    let extractedText = '';
-    const pages: { pageNumber: number; text: string }[] = [];
-
-    try {
-      const textDecoder = new TextDecoder('utf-8', { fatal: false });
-      const rawString = textDecoder.decode(arrayBuffer);
-      
-      // Basic PDF text stream extraction
-      const matches = rawString.match(/BT[\s\S]*?ET/g);
-      if (matches && matches.length > 0) {
-        const textParts = matches.map(m => {
-          return m
-            .replace(/\((.*?)\)\s*Tj/g, '$1 ')
-            .replace(/\[(.*?)\]\s*TJ/g, '$1 ')
-            .replace(/<[^>]+>/g, '')
-            .replace(/\\(\d{3})/g, '')
-            .replace(/\\/g, '');
-        });
-        extractedText = textParts.join('\n');
-      }
-
-      // If PDF has specific markers, synthesize sections
-      if (!extractedText || extractedText.length < 50) {
-        extractedText = `PDF Document: ${file.name}\nSize: ${this.formatFileSize(file.size)}`;
-      }
-
-      // Break into synthetic pages based on page markers
-      const pageSplits = extractedText.split(/--- PAGE \d+ ---|\f/);
-      if (pageSplits.length > 1) {
-        pageSplits.forEach((pText, idx) => {
-          if (pText.trim()) {
-            pages.push({ pageNumber: idx + 1, text: pText.trim() });
-          }
-        });
-      } else {
-        pages.push({ pageNumber: 1, text: extractedText });
-      }
-    } catch {
-      extractedText = `PDF Document: ${file.name}`;
-      pages.push({ pageNumber: 1, text: extractedText });
-    }
-
-    return {
-      text: extractedText,
-      pages,
-      dataUrl,
-    };
+  static async parsePdf(file: File, onProgress?: (step: string, percent: number) => void) {
+    const pages = await extractPages(file, 'pdf', onProgress);
+    return { text: pages.map(p => p.text).join('\n\n'), pages };
   }
 
-  /**
-   * Image OCR simulation / extraction
-   */
-  static async parseImageWithOCR(
-    file: File,
-    onProgress?: (step: string, percent: number) => void
-  ): Promise<{ text: string; pages: { pageNumber: number; text: string; imageUrl: string }[]; dataUrl: string }> {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    onProgress?.('Extracting OCR text from high-resolution scan...', 50);
-
-    // Contextual extraction heuristics based on file name or simulated OCR text
-    let ocrText = '';
-    const nameLower = file.name.toLowerCase();
-
-    if (nameLower.includes('2025-59') || nameLower.includes('piggery') || nameLower.includes('poultry')) {
-      ocrText = `MUNICIPAL ORDINANCE NO. 2025-59\n` +
-        `Republic of the Philippines\nProvince of Southern Leyte\nMunicipality of Hinunangan\nOFFICE OF THE SANGGUNIANG BAYAN\n\n` +
-        `AN ORDINANCE REGULATING THE OPERATIONS OF COMMERCIAL AND BACKYARD PIGGERY, POULTRY, AND OTHER LIVESTOCK OR ANIMAL FARMS IN HINUNANGAN, SOUTHERN LEYTE REVISING FOR THE PURPOSE MUNICIPAL ORDINANCE NO. 2000-02.\n\n` +
-        `Author: Hon. Gezar S. Ngoho\n` +
-        `ARTICLE I - TITLE AND OBJECTIVES\n` +
-        `SECTION 1. Title - This Ordinance shall be known as the "Hinunangan Piggery and Poultry Regulation Ordinance of 2025".\n` +
-        `SECTION 2. Objectives - To promote biosecurity against African Swine Fever (ASF), safeguard public health, and balance agricultural growth.\n\n` +
-        `ARTICLE II - SCOPE AND DEFINITION OF TERMS\n` +
-        `SECTION 3. Scope and Coverage - Applied to all commercial and backyard piggery and poultry farms within Hinunangan.\n` +
-        `SECTION 4. Definition of Terms - (a) Backyard Farm: 1 to 20 heads; (b) Commercial Farm: More than 20 heads.\n\n` +
-        `ARTICLE III - MUNICIPAL LIVESTOCK TASK FORCE\n` +
-        `SECTION 7. Creation of Task Force - Composed of Municipal Mayor, Municipal Agriculturist, Sanitary Inspector, MENRO, and PNP.\n\n` +
-        `ARTICLE IV - LOCATIONAL DESIGN STANDARDS\n` +
-        `SECTION 9. Minimum Setback Distances - Farms must maintain at least 500 meters from residential zones, 25 meters from national roads, and 100 meters from water sources.\n\n` +
-        `ARTICLE IX - PENAL CLAUSE\n` +
-        `SECTION 21. Penalties - 1st Offense: Php 1,000.00; 2nd Offense: Php 1,500.00; 3rd Offense: Php 2,500.00 and revocation of business permit.`;
-    } else if (nameLower.includes('376') || nameLower.includes('resolution')) {
-      ocrText = `RESOLUTION NO. 376 SERIES OF 2026\n` +
-        `Republic of the Philippines\nProvince of Southern Leyte\nMunicipality of Hinunangan\nOFFICE OF THE SANGGUNIANG BAYAN\n\n` +
-        `RESOLUTION MANDATING THE SYSTEMATIC REGISTRATION AND RSBSA GEOREFERENCING OF LOCAL BREEDERS, BACKYARD HOG RAISERS, AND RUMINANTS IN THE MUNICIPALITY OF HINUNANGAN.\n\n` +
-        `Author: Hon. Aida T. Bulingit\n` +
-        `SECTION 1. Mandatory Barangay Swine Census - All 40 barangays shall conduct monthly swine census.\n` +
-        `SECTION 2. Biosecurity Self-Assessment - Raisers must maintain footbaths and prohibit swill feeding.`;
-    } else if (nameLower.includes('2023-144') || nameLower.includes('provincial')) {
-      ocrText = `PROVINCIAL ORDINANCE NO. 2023-144\n` +
-        `Republic of the Philippines\nProvince of Southern Leyte\nSANGGUNIANG PANLALAWIGAN\n\n` +
-        `AN ORDINANCE STRENGTHENING THE AFRICAN SWINE FEVER (ASF) PREVENTION AND CONTROL PROGRAM IN THE PROVINCE OF SOUTHERN LEYTE.\n` +
-        `SECTION 1. Provincial Quarantine Checkpoints - Establishing 24/7 border control.\n` +
-        `SECTION 2. Prohibition of Swill Feeding - Banning kitchen food scraps for swine.`;
-    } else {
-      ocrText = `LEGAL DOCUMENT: ${file.name.replace(/\.[^/.]+$/, '').toUpperCase()}\n` +
-        `Republic of the Philippines\nMunicipality of Hinunangan\n\n` +
-        `SECTION 1. Title - Official regulations and biosecurity measures.\n` +
-        `SECTION 2. General Provisions - Standard mandates and compliance guidelines.`;
-    }
-
-    return {
-      text: ocrText,
-      pages: [{ pageNumber: 1, text: ocrText, imageUrl: dataUrl }],
-      dataUrl,
-    };
+  static async parseImageWithOCR(file: File, onProgress?: (step: string, percent: number) => void) {
+    const pages = await extractPages(file, await detectFormat(file), onProgress);
+    return { text: pages.map(p => p.text).join('\n\n'), pages, dataUrl: pages[0]?.imageUrl || '' };
   }
 
   /**
@@ -487,9 +243,9 @@ export class LegalDocumentParserService {
     const cleanText = text.replace(/\r\n/g, '\n');
 
     // 1. Identify Document Type
-    let docType: LegalDocumentType = 'municipal_ordinance';
-    let docTypeName = 'Municipal Ordinance';
-    let category: LegalDocumentCategory = 'ordinance';
+    let docType: LegalDocumentType = 'other';
+    let docTypeName = 'Unclassified legal document';
+    let category: LegalDocumentCategory = 'other';
 
     if (/REPUBLIC\s+ACT/i.test(cleanText) || /R\.A\.\s*NO/i.test(cleanText) || /RA\s+[0-9]+/i.test(cleanText)) {
       docType = 'republic_act';
@@ -529,11 +285,19 @@ export class LegalDocumentParserService {
       category = 'national_reference';
     }
 
+    const primaryHeading = cleanText.match(/^(PROVINCIAL\s+ORDINANCE|MUNICIPAL\s+ORDINANCE|ORDINANCE|RESOLUTION)\s+NO\.?/im);
+    if (primaryHeading) {
+      const heading = primaryHeading[1].toUpperCase();
+      docType = heading === 'RESOLUTION' ? 'resolution' : heading.startsWith('PROVINCIAL') ? 'provincial_ordinance' : 'municipal_ordinance';
+      docTypeName = heading === 'RESOLUTION' ? 'Resolution' : heading.startsWith('PROVINCIAL') ? 'Provincial Ordinance' : 'Municipal Ordinance';
+      category = heading === 'RESOLUTION' ? 'resolution' : 'ordinance';
+    }
+
     // 2. Identify Document Number & Series Year
     let officialNumber = '';
-    let seriesYear = new Date().getFullYear().toString();
+    let seriesYear = '';
 
-    const numMatch = cleanText.match(/(?:ORDINANCE|RESOLUTION|EXECUTIVE\s+ORDER|ADMINISTRATIVE\s+ORDER|ORDER|NO\.)\s*(?:NO\.?)?\s*([0-9]{4}-[0-9]+|[0-9]+-[0-9]{4}|[0-9]+(?:\s*SERIES\s+OF\s+[0-9]{4})?|[0-9]{2,4}-[0-9]{1,4})/i) ||
+    const numMatch = cleanText.match(/(?:ORDINANCE|RESOLUTION|EXECUTIVE\s+ORDER|ADMINISTRATIVE\s+ORDER|ORDER|NO\.)\s*(?:NO\.?)?\s*([0-9]{4}-[0-9]+|[0-9]+-[0-9]{4}|[0-9]+|[0-9]{2,4}-[0-9]{1,4})/i) ||
       cleanText.match(/NO\.\s*([0-9A-Z\-_]+)/i);
 
     if (numMatch && numMatch[1]) {
@@ -543,47 +307,30 @@ export class LegalDocumentParserService {
       if (yrMatch) {
         seriesYear = yrMatch[0];
       }
-    } else {
-      // Fallback to filename detection
-      const fileNumMatch = fileName.match(/([0-9]{4}[-_][0-9]+|[0-9]+[-_][0-9]{4}|[0-9]+)/);
-      if (fileNumMatch) {
-        officialNumber = fileNumMatch[0].replace('_', '-');
-      } else {
-        officialNumber = '2025-01';
-      }
     }
+
+    seriesYear ||= cleanText.match(/SERIES\s+OF\s+(20[0-9]{2})/i)?.[1] || '';
 
     // 3. Identify Jurisdiction
-    let jurisdiction = 'Municipality of Hinunangan, Southern Leyte';
+    let jurisdiction = '';
     let jurisdictionLevel: 'Municipal' | 'Provincial' | 'National' | 'Regional' = 'Municipal';
-    let issuingAuthority = 'Sangguniang Bayan of Hinunangan';
+    let issuingAuthority = '';
+    const authorityLine = cleanText.split('\n').find(line => /SANGGUNIANG|OFFICE OF/i.test(line));
+    if (authorityLine) issuingAuthority = authorityLine.trim();
 
-    if (/SOUTHERN\s+LEYTE\s+STATE\s+UNIVERSITY|SLSU/i.test(cleanText)) {
-      jurisdiction = 'SLSU / Municipal Agriculture Office';
-      jurisdictionLevel = 'Regional';
-      issuingAuthority = 'SLSU Extension Center & MAO Hinunangan';
-    } else if (/PROVINCIAL|SANGGUNIANG\s+PANLALAWIGAN/i.test(cleanText)) {
-      jurisdiction = 'Province of Southern Leyte';
-      jurisdictionLevel = 'Provincial';
-      issuingAuthority = 'Sangguniang Panlalawigan of Southern Leyte';
-    } else if (/DEPARTMENT\s+OF\s+AGRICULTURE|BUREAU\s+OF\s+ANIMAL/i.test(cleanText)) {
-      jurisdiction = 'National / Republic of the Philippines';
-      jurisdictionLevel = 'National';
-      issuingAuthority = 'Department of Agriculture (DA-BAI)';
-    }
+    const jurisdictionLine = cleanText.split('\n').find(line => /^(?:Province|Municipality|City)\s+of\s+/i.test(line.trim()));
+    jurisdiction = jurisdictionLine?.trim() || '';
+    if (/PROVINCIAL|SANGGUNIANG\s+PANLALAWIGAN/i.test(cleanText.slice(0, 1400))) jurisdictionLevel = 'Provincial';
+    else if (/DEPARTMENT\s+OF|REPUBLIC\s+ACT/i.test(cleanText.slice(0, 1400))) jurisdictionLevel = 'National';
 
     // 4. Identify Title
     let title = '';
-    const titleMatch = cleanText.match(/(?:AN\s+ORDINANCE|RESOLUTION|A\s+RESOLUTION|AN\s+ACT|AN\s+ORDER)\s+([^\n\r]+(?:\n[^\n\r]+){0,4})/i);
-    if (titleMatch && titleMatch[0]) {
-      title = titleMatch[0].replace(/\s+/g, ' ').trim();
-    } else {
-      title = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').toUpperCase();
-    }
+    const titleMatch = cleanText.match(/^(?:AN\s+ORDINANCE|A\s+RESOLUTION|RESOLUTION(?!\s+NO\.?\s)|AN\s+ACT|AN\s+ORDER)\s+[^\n]+(?:\n(?!WHEREAS|SECTION|ARTICLE|Author|Sponsor|RESOLVED|NOW,)[^\n]+)*/im);
+    title = titleMatch?.[0]?.trim() || '';
 
     // 5. Identify Author & Signatories
     let author: string | undefined;
-    const authorMatch = cleanText.match(/(?:Author|Authored\s+by|Sponsor|Introduced\s+by|Hon\.)\s*:?\s*([A-Za-z\.\s]+(?:[A-Z]\.?\s+[A-Za-z]+)?)/i);
+    const authorMatch = cleanText.match(/^(?:Author|Authored by|Sponsor|Introduced by)[ \t]*:?[ \t]*([^\n]+)/im);
     if (authorMatch && authorMatch[1]) {
       author = authorMatch[1].trim();
     }
@@ -592,10 +339,10 @@ export class LegalDocumentParserService {
     const articles = this.extractArticlesAndSections(cleanText, pages);
 
     // 7. Extract Penalties
-    const penalties = this.extractPenalties(cleanText);
+    const penalties = [];
 
     // 8. Extract Locational Rules & Setbacks
-    const locationalRules = this.extractLocationalRules(cleanText);
+    const locationalRules = [];
 
     // 9. Extract Referenced Laws
     const referencedLaws = this.extractReferencedLaws(cleanText);
@@ -626,11 +373,22 @@ export class LegalDocumentParserService {
       author,
       title,
       category,
-      status: 'active',
-      dateEnacted: new Date().toISOString().split('T')[0],
-      effectiveDate: new Date().toISOString().split('T')[0],
+      status: 'draft',
+      dateEnacted: (() => {
+        const match = cleanText.match(/(?:APPROVED|ENACTED|ADOPTED)[ \t]*(?:ON)?[ \t:,-]*(\d{4}-\d{2}-\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i);
+        if (!match) return undefined;
+        const raw = match[1];
+        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const named = raw.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+        const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        const year = Number(iso?.[1] || named?.[3]);
+        const month = iso ? Number(iso[2]) - 1 : months.indexOf(named?.[1].toLowerCase() || '');
+        const day = Number(iso?.[3] || named?.[2]);
+        const date = new Date(Date.UTC(year, month, day));
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day ? date.toISOString().slice(0, 10) : undefined;
+      })(),
       tags,
-      legalBasis: ['1987 Philippine Constitution', 'Local Government Code of 1991 (RA 7160)', 'PD 856 (Code on Sanitation)'],
+      legalBasis: [],
       referencedLaws,
       classificationPath,
       articles,
@@ -683,7 +441,7 @@ export class LegalDocumentParserService {
       }
 
       // Check if line is an Article Header
-      const artMatch = line.match(/^ARTICLE\s+([IVXLCDM0-9]+)\s*[-–—.]?\s*(.*)$/i);
+      const artMatch = line.match(/^(?:ARTICLE|CHAPTER)\s+([IVXLCDM0-9]+)\s*[-–—.]?\s*(.*)$/i);
       if (artMatch) {
         flushArticle();
         const artNum = `ARTICLE ${artMatch[1].toUpperCase()}`;
@@ -691,21 +449,21 @@ export class LegalDocumentParserService {
         currentArticle = {
           id: 'art-' + (articles.length + 1),
           articleNumber: artNum,
-          articleTitle: artTitle.toUpperCase(),
+          articleTitle: artTitle,
           sections: [],
         };
         continue;
       }
 
       // Check if line is a Section Header
-      const secMatch = line.match(/^SECTION\s+([0-9]+[A-Za-z]?)\s*[-–—.]?\s*(.*)$/i);
+      const secMatch = line.match(/^(?:SECTION|SEC\.)\s+([0-9]+[A-Za-z]?)\s*[-–—.]?\s*(.*)$/i);
       if (secMatch) {
         flushSection();
         if (!currentArticle) {
           currentArticle = {
             id: 'art-1',
-            articleNumber: 'ARTICLE I',
-            articleTitle: 'GENERAL PROVISIONS & MANDATES',
+            articleNumber: '',
+            articleTitle: 'Sections without an article heading',
             sections: [],
           };
         }
@@ -727,6 +485,7 @@ export class LegalDocumentParserService {
           content: '',
           scannedPageRef: pageRef,
         };
+        currentSectionContentLines = secMatch[2] ? [secMatch[2].trim()] : [];
         continue;
       }
 
@@ -738,143 +497,12 @@ export class LegalDocumentParserService {
 
     flushArticle();
 
-    // If no articles/sections found with regex, create default organized structure
-    if (articles.length === 0 || articles.reduce((acc, a) => acc + a.sections.length, 0) === 0) {
-      const defaultSections: LegalArticleSection[] = [
-        {
-          id: 'sec-auto-1',
-          sectionNumber: 'Section 1',
-          sectionTitle: 'Title and Scope',
-          content: text.slice(0, 500) || 'Official regulatory provisions.',
-          scannedPageRef: 1,
-        },
-        {
-          id: 'sec-auto-2',
-          sectionNumber: 'Section 2',
-          sectionTitle: 'General Provisions and Biosecurity Guidelines',
-          content: text.slice(500, 2000) || 'Mandates biosecurity compliance and swine registry.',
-          scannedPageRef: 1,
-        },
-      ];
-
-      articles.push({
-        id: 'art-default-1',
-        articleNumber: 'ARTICLE I',
-        articleTitle: 'TITLE, SCOPE AND GENERAL PROVISIONS',
-        sections: defaultSections,
-      });
-    }
-
     return articles;
   }
 
-  /**
-   * Extract penalties from legal text
-   */
-  private static extractPenalties(text: string) {
-    const penalties: { offenseTier: string; finePhp: number; punitiveActions: string; imprisonment?: string }[] = [];
-
-    if (/1st\s+Offense|First\s+Offense/i.test(text)) {
-      penalties.push({
-        offenseTier: '1st Offense',
-        finePhp: 1000,
-        punitiveActions: 'Written warning and mandatory 7-day biosecurity compliance rectification.',
-      });
-    }
-    if (/2nd\s+Offense|Second\s+Offense/i.test(text)) {
-      penalties.push({
-        offenseTier: '2nd Offense',
-        finePhp: 1500,
-        punitiveActions: 'Final notice and mandatory disinfection inspection.',
-      });
-    }
-    if (/3rd\s+Offense|Third\s+Offense|Subsequent/i.test(text)) {
-      penalties.push({
-        offenseTier: '3rd Offense & Subsequent',
-        finePhp: 2500,
-        punitiveActions: 'Revocation of Mayor\'s Permit and farm closure / depopulation.',
-        imprisonment: '1 to 6 months imprisonment at the discretion of the court.',
-      });
-    }
-
-    if (penalties.length === 0) {
-      penalties.push(
-        { offenseTier: '1st Offense', finePhp: 1000, punitiveActions: 'Written warning and biosecurity citation' },
-        { offenseTier: '2nd Offense', finePhp: 1500, punitiveActions: 'Administrative fine and inspection order' },
-        { offenseTier: '3rd Offense', finePhp: 2500, punitiveActions: 'Permit cancellation and closure' }
-      );
-    }
-
-    return penalties;
-  }
-
-  /**
-   * Extract locational rules & buffer distances
-   */
-  private static extractLocationalRules(text: string) {
-    const rules: { item: string; distanceMeters: number; description: string }[] = [];
-
-    const dist500 = text.match(/500\s*(?:meters|m)/i);
-    if (dist500) {
-      rules.push({
-        item: 'Residential & Built-up Buffer',
-        distanceMeters: 500,
-        description: 'Minimum setback distance from residential zones and institutional buildings.',
-      });
-    }
-
-    const dist25 = text.match(/25\s*(?:meters|m)/i);
-    if (dist25) {
-      rules.push({
-        item: 'National & Provincial Road Setback',
-        distanceMeters: 25,
-        description: 'Minimum setback from national and provincial thoroughfares.',
-      });
-    }
-
-    const dist100 = text.match(/100\s*(?:meters|m)/i);
-    if (dist100) {
-      rules.push({
-        item: 'Groundwater & Water Resource Protection',
-        distanceMeters: 100,
-        description: 'Setback distance from water bodies, deep wells, and tourism zones.',
-      });
-    }
-
-    return rules;
-  }
-
-  /**
-   * Extract referenced laws
-   */
   private static extractReferencedLaws(text: string) {
-    const refs: { title: string; docNumber?: string; matchedDocId?: string; existsInSystem: boolean }[] = [];
-    const allExisting = storageService.getAsfRegulations();
-
-    const patterns = [
-      { regex: /PD\s*856|Presidential\s+Decree\s+No\.?\s*856/i, title: 'PD 856 (Code on Sanitation of the Philippines)', docNumber: '856' },
-      { regex: /RA\s*7160|Republic\s+Act\s+No\.?\s*7160/i, title: 'Republic Act No. 7160 (Local Government Code of 1991)', docNumber: '7160' },
-      { regex: /Ordinance\s+No\.?\s*2000-02/i, title: 'Municipal Ordinance No. 2000-02 (Hinunangan Hog Raising)', docNumber: '2000-02' },
-      { regex: /DOH\s+AO\s+2019-0047|Administrative\s+Order\s+No\.?\s*2019-0047/i, title: 'DOH Administrative Order No. 2019-0047', docNumber: '2019-0047' },
-      { regex: /Resolution\s+No\.?\s*R-674/i, title: 'HLURB Resolution No. R-674 Series of 2000', docNumber: 'R-674' },
-      { regex: /DA\s+Administrative\s+Order\s+No\.?\s*06/i, title: 'DA Administrative Order No. 06 Series of 2021 (BABay ASF)', docNumber: '06-2021' },
-    ];
-
-    patterns.forEach(p => {
-      if (p.regex.test(text)) {
-        const existing = allExisting.find(
-          doc => doc.officialNumber.includes(p.docNumber) || doc.title.toLowerCase().includes(p.docNumber.toLowerCase())
-        );
-        refs.push({
-          title: p.title,
-          docNumber: p.docNumber,
-          matchedDocId: existing?.id,
-          existsInSystem: Boolean(existing),
-        });
-      }
-    });
-
-    return refs;
+    const matches = Array.from(text.matchAll(/(?:Republic Act|RA|Presidential Decree|PD|Ordinance|Resolution|Administrative Order)\s+(?:No\.?\s*)?[A-Z]?[-\d]+/gi));
+    return [...new Set(matches.map(match => match[0]))].map(title => ({ title, existsInSystem: false }));
   }
 
   /**
@@ -883,8 +511,7 @@ export class LegalDocumentParserService {
   private static generateLegalTags(text: string, docTypeName: string, jurisdiction: string): string[] {
     const tags = new Set<string>();
     tags.add(docTypeName);
-    tags.add('Hinunangan');
-    tags.add('Southern Leyte');
+    if (jurisdiction) tags.add(jurisdiction);
 
     const keywords = [
       'ASF', 'African Swine Fever', 'Piggery', 'Poultry', 'Livestock', 'Biosecurity',
@@ -953,10 +580,10 @@ export class LegalDocumentParserService {
       jurisdiction: detection.jurisdiction,
       issuingAuthority: detection.issuingAuthority,
       author: detection.author,
-      signatory: detection.signatory || 'Hon. Reynaldo C. Fernandez',
-      signatoryTitle: detection.signatoryTitle || 'Municipal Mayor',
+      signatory: detection.signatory || '',
+      signatoryTitle: detection.signatoryTitle || '',
       dateEnacted: detection.dateEnacted,
-      effectiveDate: detection.effectiveDate || nowStr.split('T')[0],
+      effectiveDate: detection.effectiveDate || '',
       status: detection.status,
       shortSummary: detection.title.length > 150 ? detection.title.slice(0, 147) + '...' : detection.title,
       fullText: fileItem?.rawText || '',
@@ -978,15 +605,14 @@ export class LegalDocumentParserService {
         rationale: r.description,
       })),
       penalties: detection.penalties,
-      sourceDocuments: fileItem ? [
-        {
-          id: 'src-' + Date.now(),
-          name: fileItem.name,
-          url: fileItem.fileData || '',
-          uploadedAt: nowStr,
-          fileSize: fileItem.sizeFormatted,
-        }
-      ] : [],
+      sourceDocuments: [],
+      importProvenance: fileItem ? {
+        batchId: fileItem.batchId || fileItem.id,
+        sourceFileName: fileItem.name,
+        pages: (fileItem.pages || []).map(p => ({ pageNumber: p.pageNumber, text: p.text, confidence: p.confidence, ocrApplied: p.ocrApplied, warnings: p.warnings })),
+        warnings: fileItem.warnings || [], uploadedAt: nowStr,
+        method: 'native XML / PDF.js / Tesseract.js', reviewedBy: importedBy,
+      } : undefined,
       versionHistory: [
         {
           version: 1,

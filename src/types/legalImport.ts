@@ -14,7 +14,12 @@ export interface LegalImportFileItem {
   ocrApplied?: boolean;
   ocrConfidence?: number;
   rawText: string;
-  pages?: { pageNumber: number; text: string; imageUrl?: string }[];
+  originalFile?: File;
+  batchId?: string;
+  confirmed?: boolean;
+  savedDocumentId?: string;
+  warnings?: string[];
+  pages?: import('../services/legalExtraction').SourcePage[];
   detection?: LegalImportDetectionResult;
 }
 

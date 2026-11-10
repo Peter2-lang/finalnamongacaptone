@@ -1,3 +1,4 @@
+import { prepareLegalOcrAssets } from './scripts/prepare-legal-ocr-assets.mjs';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -7,6 +8,7 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   validateBrowserSupabaseConfig({ ...loadEnv(mode, process.cwd(), ''), ...process.env });
+  prepareLegalOcrAssets();
   const buildStamp = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || `${Date.now()}`;
   return {
     define: {
@@ -20,6 +22,7 @@ export default defineConfig(({ mode }) => {
         workbox: {
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
+          globIgnores: ['**/legal-ocr/**'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json,geojson}'],
           skipWaiting: true,
           clientsClaim: true,
@@ -27,6 +30,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [
             /^\/api(?:\/|$)/,
             /^\/assets\//,
+            /^\/legal-ocr\//,
             /\.(?:m?js|css|json|map|wasm)(?:$|\?)/i,
             /^\/(?:sw|registerSW)\.js$/,
             /^\/workbox-/,

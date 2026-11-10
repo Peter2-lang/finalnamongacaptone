@@ -1,3 +1,5 @@
+import { loadReviewDraft, saveReviewDraft } from '../../services/legalOcrCheckpoint';
+import { inspectLegalFile, type FileInspection } from '../../services/legalExtraction';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -60,32 +62,27 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
 }) => {
   const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'batch_summary'>('upload');
   const [files, setFiles] = useState<File[]>([]);
-  const [isMultiPageScanMode, setIsMultiPageScanMode] = useState(false);
+  const [inspections, setInspections] = useState<Map<File, FileInspection>>(new Map());
   const [processedItems, setProcessedItems] = useState<LegalImportFileItem[]>([]);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
 
   // Processing progress state
   const [currentProgressText, setCurrentProgressText] = useState('Initializing parser...');
   const [currentProgressPercent, setCurrentProgressPercent] = useState(0);
-  const [processingChecklist, setProcessingChecklist] = useState<{ label: string; done: boolean }[]>([
-    { label: 'Reading file & payload...', done: false },
-    { label: 'Extracting text content...', done: false },
-    { label: 'Running OCR on scanned layers...', done: false },
-    { label: 'Identifying document type & category...', done: false },
-    { label: 'Detecting jurisdiction & series year...', done: false },
-    { label: 'Detecting articles & hierarchical sections...', done: false },
-    { label: 'Detecting subsections (a, b, i, ii)...', done: false },
-    { label: 'Detecting penalties & setback rules...', done: false },
-    { label: 'Linking statutory references (PD 856, etc.)...', done: false },
-    { label: 'Checking duplicate records...', done: false },
-    { label: 'Building normalized database structure...', done: false },
-  ]);
 
   // Review & Correction state
   const [showOriginalComparison, setShowOriginalComparison] = useState(false);
-  const [activeArticleTab, setActiveArticleTab] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processingAbort = useRef<AbortController | null>(null);
+  const textCursor = useRef({ pageIndex: -1, offset: 0 });
+  const [saving, setSaving] = useState(false);
+  const [jobNotice, setJobNotice] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const authorized = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+  const cancelProcessing = () => { processingAbort.current?.abort(); setStep('upload'); };
+  useEffect(() => () => processingAbort.current?.abort(), []);
+
 
   useEffect(() => {
     if (!isOpen) return;
@@ -96,12 +93,37 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !currentUser?.id || !authorized) return;
+    let alive = true;
+    void loadReviewDraft(currentUser.id).then(async value => {
+      if (alive && Array.isArray(value) && value.length) {
+        const items = value as LegalImportFileItem[];
+        setProcessedItems(items.map(item => ({ ...item, confirmed: false }))); setActiveItemIndex(0); setStep('review'); setConfirmed(false);
+        setFiles([...new Set(items.map(item => item.originalFile).filter((file): file is File => !!file))]);
+      } else {
+        const job = await loadReviewDraft(`job:${currentUser.id}`) as { files?: File[]; status?: string; message?: string } | undefined;
+        if (alive && job?.files?.length && job.status !== 'saved') {
+          setFiles(job.files); setJobNotice(`Previous job: ${job.status}. ${job.message || ''} Select Process to resume using completed page checkpoints.`);
+          for (const file of job.files) void inspectLegalFile(file).then(info => setInspections(prev => new Map(prev).set(file, info)));
+        } else if (alive) { setStep('upload'); setFiles([]); setProcessedItems([]); setConfirmed(false); }
+      }
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [isOpen, currentUser?.id, authorized]);
+  useEffect(() => {
+    if (step === 'review' && processedItems.length && currentUser?.id) {
+      void saveReviewDraft(currentUser.id, processedItems).catch(() => {});
+    }
+  }, [processedItems, step, currentUser?.id]);
+
   if (!isOpen) return null;
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
     const newFiles = Array.from(selectedFiles);
     setFiles(prev => [...prev, ...newFiles]);
+    for (const file of newFiles) void inspectLegalFile(file).then(info => setInspections(prev => new Map(prev).set(file, info)));
   };
 
   const removeFile = (idx: number) => {
@@ -109,62 +131,33 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
   };
 
   const startProcessing = async () => {
-    if (files.length === 0) return;
-    setStep('processing');
-    setCurrentProgressPercent(10);
-    setCurrentProgressText('Preparing documents for smart extraction...');
-
+    if (!files.length || !authorized) return;
+    processingAbort.current?.abort();
+    const controller = new AbortController(); processingAbort.current = controller;
+    setStep('processing'); setConfirmed(false); setCurrentProgressPercent(0);
     const items: LegalImportFileItem[] = [];
-
-    if (isMultiPageScanMode && files.length > 1) {
-      // Treat multiple image files as ordered pages of a single document
-      const fileItem = await LegalDocumentParserService.parseMultipleScanPages(
-        files,
-        (progressStep, pct) => {
-          setCurrentProgressText(progressStep);
-          setCurrentProgressPercent(pct);
-          updateChecklist(pct);
-        }
-      );
-      items.push(fileItem);
-    } else {
-      // Process files individually (batch support)
+    const batchId = crypto.randomUUID();
+    const recordJob = (status: string, message: string) => saveReviewDraft(`job:${currentUser!.id}`, { batchId, files, status, message, updatedAt: new Date().toISOString() }).catch(() => setJobNotice('Local draft storage is unavailable. Keep this tab open; interrupted OCR will need to be restarted.'));
+    await recordJob('processing', 'Reading document');
+    try {
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setCurrentProgressText(`Processing file ${i + 1} of ${files.length}: ${file.name}`);
-        const fileItem = await LegalDocumentParserService.parseFile(file, (progressStep, pct) => {
-          const overallPct = Math.round(((i + pct / 100) / files.length) * 100);
-          setCurrentProgressText(`[${i + 1}/${files.length}] ${progressStep}`);
-          setCurrentProgressPercent(overallPct);
-          updateChecklist(overallPct);
-        });
-        items.push(fileItem);
+        const fileItem = await LegalDocumentParserService.parseFile(files[i], (message, pct) => {
+          setCurrentProgressText(`[${i + 1}/${files.length}] ${message}`);
+          void recordJob('processing', message).catch(() => {});
+          setCurrentProgressPercent(Math.round(((i + pct / 100) / files.length) * 100));
+        }, controller.signal);
+        controller.signal.throwIfAborted();
+        items.push(...LegalDocumentParserService.splitExtractedItem({ ...fileItem, batchId }));
       }
+      await recordJob(items.some(item => item.status === 'error') ? 'failed' : 'ready_for_review', 'Extraction completed');
+      await saveReviewDraft(currentUser!.id, items).catch(() => setJobNotice('Unable to persist review draft. Keep this tab open until saving.'));
+      setProcessedItems(items); setActiveItemIndex(0); setStep('review');
+    } catch (error) {
+      if (processingAbort.current !== controller) return;
+      await recordJob(controller.signal.aborted ? 'cancelled' : 'failed', 'Processing interrupted').catch(() => {});
+      if (!controller.signal.aborted) window.alert(error instanceof Error ? error.message : 'Processing failed');
+      setStep('upload');
     }
-
-    // Mark all checklist items as done
-    setProcessingChecklist(prev => prev.map(item => ({ ...item, done: true })));
-    setCurrentProgressPercent(100);
-    setCurrentProgressText('Smart extraction completed successfully!');
-
-    setProcessedItems(items);
-    setActiveItemIndex(0);
-
-    setTimeout(() => {
-      setStep('review');
-    }, 600);
-  };
-
-  const updateChecklist = (pct: number) => {
-    setProcessingChecklist(prev =>
-      prev.map((item, idx) => {
-        const threshold = (idx / prev.length) * 100;
-        return {
-          ...item,
-          done: pct >= threshold,
-        };
-      })
-    );
   };
 
   const activeItem = processedItems[activeItemIndex];
@@ -178,6 +171,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
       ...updates,
     };
     
+    updatedDetection.totalSectionsCount = updatedDetection.articles.reduce((count, article) => count + article.sections.length, 0);
     // Update classification path dynamically
     updatedDetection.classificationPath = [
       'Legal Documents',
@@ -191,8 +185,9 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
     const updatedItems = [...processedItems];
     updatedItems[activeItemIndex] = {
       ...activeItem,
-      detection: updatedDetection,
+      detection: updatedDetection, confirmed: false,
     };
+    setConfirmed(false);
     setProcessedItems(updatedItems);
   };
 
@@ -208,29 +203,16 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
     updateActiveDetection({ articles: newArticles });
   };
 
-  // Add new section to an article
-  const addNewSection = (articleIndex: number) => {
-    if (!activeDetection) return;
-    const newArticles = [...activeDetection.articles];
-    const targetArticle = { ...newArticles[articleIndex] };
-    const nextSecNum = targetArticle.sections.length + 1;
-    targetArticle.sections.push({
-      id: `sec-${Date.now()}-${nextSecNum}`,
-      sectionNumber: `Section ${nextSecNum}`,
-      sectionTitle: 'New Section Title',
-      content: 'Enter legal section body text...',
-      scannedPageRef: 1,
-    });
-    newArticles[articleIndex] = targetArticle;
-    updateActiveDetection({ articles: newArticles });
-  };
-
   // Confirm and persist imported documents to database
   const handleConfirmAndSave = async () => {
+    if (!authorized || !confirmed || saving || processedItems.some(i => i.status === 'error' || !i.confirmed || !i.detection?.title.trim() || !i.detection?.officialNumber.trim() || !i.rawText.trim())) return;
+    if (!navigator.onLine || storageService.getSimulatedOffline()) { window.alert('An online connection is required to save the original and legal record.'); return; }
+    setSaving(true);
     try {
     const importedDocs: ASFRegulatoryDocument[] = [];
     const performerName = currentUser?.fullName || currentUser?.username || 'Admin';
 
+    const registry = await storageService.fetchAsfRegulationsFromApi();
     for (const item of processedItems) {
       if (item.detection) {
         const doc = LegalDocumentParserService.convertDetectionToDocument(
@@ -239,7 +221,12 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
           performerName
         );
 
-        if (item.detection.isDuplicate && item.detection.duplicateAction === 'overwrite') {
+        doc.id = item.savedDocumentId || `legal-import-${item.id}`;
+        const existing = registry.find(saved => saved.id === doc.id);
+        if (existing) doc.sourceDocuments = existing.sourceDocuments;
+        if (item.savedDocumentId || existing) {
+          await storageService.updateAsfRegulation(doc, performerName, 'Retry Smart Import');
+        } else if (item.detection.isDuplicate && item.detection.duplicateAction === 'overwrite') {
           await storageService.updateAsfRegulation(doc, performerName, 'Overwritten via Smart Import');
         } else if (item.detection.isDuplicate && item.detection.duplicateAction === 'new_version') {
           await storageService.updateAsfRegulation(doc, performerName, `Updated to Version ${(doc.versionHistory?.length || 1)} via Smart Import`);
@@ -247,6 +234,11 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
           await storageService.addAsfRegulation(doc, performerName);
         }
 
+        item.savedDocumentId = doc.id;
+        await saveReviewDraft(currentUser!.id, processedItems);
+        if (!item.originalFile) throw new Error('Original source is missing. Select and process the upload again.');
+        const attachment = existing?.sourceDocuments?.find(source => source.originalFileName === item.originalFile?.name) || await storageService.uploadLegalDocumentAttachment(doc.id, item.originalFile);
+        doc.sourceDocuments = [attachment];
         // Record in Import History log
         storageService.addLegalImportHistory({
           id: `hist-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -271,11 +263,13 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
       }
     }
 
+    await saveReviewDraft(currentUser!.id, []);
+    await saveReviewDraft(`job:${currentUser!.id}`, { status: 'saved' });
     onImportSuccess(importedDocs);
     onClose();
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'Unable to import legal documents.');
-    }
+    } finally { setSaving(false); }
   };
 
   return (
@@ -302,7 +296,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { processingAbort.current?.abort(); onClose(); }}
             aria-label="Close smart legal document import"
             className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
           >
@@ -330,7 +324,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                   ref={fileInputRef}
                   onChange={e => handleFileSelect(e.target.files)}
                   multiple
-                  accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.tiff,.webp"
+                  accept=".pdf,.docx,.txt,.xlsx,.csv,.jpg,.jpeg,.png,.tif,.tiff,.webp"
                   className="hidden"
                 />
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg group-hover:scale-105 transition-transform">
@@ -340,7 +334,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                   Drop Legal Documents Here, or <span className="text-emerald-700 underline"><InterfaceText source="Browse Files" /></span>
                 </h3>
                 <p className="mt-1 text-xs text-slate-500 max-w-lg">
-                  Supported formats: PDF, Word (DOC/DOCX), Excel / Spreadsheet (XLS/XLSX/CSV), Text (TXT/RTF/ODT), and Scanned Images (JPG/PNG/TIFF/WEBP) with Automatic OCR.
+                  Supported: PDF, DOCX, XLSX/CSV, TXT, JPG, PNG, multipage TIFF and WebP. Convert legacy DOC to DOCX or PDF. OCR runs locally; keep this tab open until review is ready.
                 </p>
 
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -354,30 +348,6 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                     <ImageIcon className="h-3.5 w-3.5" /> High-Res Scanned Images & OCR
                   </span>
                 </div>
-              </div>
-
-              {/* Multi-page Scan Mode Toggle */}
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4 border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
-                    <Layers className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-800">Multi-Page Scanned Document Mode</div>
-                    <div className="text-xs text-slate-500">
-                      Combine multiple image files as ordered pages of a single Ordinance/Resolution rather than separate files.
-                    </div>
-                  </div>
-                </div>
-                <label className="relative inline-flex cursor-pointer items-center">
-                  <input
-                    type="checkbox"
-                    checked={isMultiPageScanMode}
-                    onChange={e => setIsMultiPageScanMode(e.target.checked)}
-                    className="peer sr-only"
-                  />
-                  <div className="peer h-6 w-11 rounded-full bg-slate-300 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-emerald-600 peer-checked:after:translate-x-full"></div>
-                </label>
               </div>
 
               {/* Selected Files List */}
@@ -408,8 +378,9 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                             <p className="truncate text-xs font-medium text-slate-800">{file.name}</p>
                             <p className="text-[10px] text-slate-400">
                               {LegalDocumentParserService.formatFileSize(file.size)}
-                              {isMultiPageScanMode ? ` • Page ${idx + 1}` : ''}
+
                             </p>
+                            <p className="text-[10px] text-emerald-800">{inspections.get(file) ? `${inspections.get(file)!.format.toUpperCase()} • ${inspections.get(file)!.pageCount ?? 'Unknown'} pages • ${inspections.get(file)!.status} • OCR ${inspections.get(file)!.ocrRequired ? 'required' : 'not required'} • ${inspections.get(file)!.error || 'Ready to Process'}` : 'Inspecting actual file contents…'}</p>
                           </div>
                         </div>
                         <button
@@ -426,6 +397,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
             </div>
           )}
 
+          {jobNotice && <p role="status" className="text-xs text-amber-800">{jobNotice}</p>}
           {/* STEP 2: PROCESSING & REAL-TIME CHECKLIST */}
           {step === 'processing' && (
             <div className="flex flex-col items-center justify-center py-8 space-y-6">
@@ -446,28 +418,14 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                 </div>
               </div>
 
-              <div className="w-full max-w-md rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                <div className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                  Smart Import Pipeline
-                </div>
-                {processingChecklist.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs py-1">
-                    <span className={item.done ? 'text-slate-800 font-medium' : 'text-slate-400'}>
-                      {item.label}
-                    </span>
-                    {item.done ? (
-                      <span className="flex items-center gap-1 text-emerald-600 font-bold">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Done
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-slate-400">pending</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+
             </div>
           )}
 
+          {step === 'review' && processedItems.some(item => item.status === 'error') && <div role="alert" className="p-4 bg-red-50 text-red-800 rounded-xl">
+            {processedItems.filter(item => item.status === 'error').map(item => <p key={item.id}>{item.name}: {item.errorMessage}</p>)}
+            <button onClick={startProcessing} className="underline font-bold">Retry extraction</button>
+          </div>}
           {/* STEP 3: REVIEW & CORRECTION WIZARD */}
           {step === 'review' && activeItem && activeDetection && (
             <div className="space-y-6">
@@ -496,6 +454,51 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                 </div>
               )}
 
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3 text-xs">
+                <label className="block font-bold"><input type="checkbox" checked={!!activeItem.confirmed} onChange={e => {
+                  const next = [...processedItems]; next[activeItemIndex] = { ...activeItem, confirmed: e.target.checked }; setProcessedItems(next);
+                }} /> Confirm this document's text, metadata and page range</label>
+                <p className="font-bold">Suggested document: pages {activeItem.pages?.[0]?.pageNumber}–{activeItem.pages?.at(-1)?.pageNumber}. Review all boundaries.</p>
+                {(activeItem.warnings || []).map((warning, i) => <p key={i}>{warning}</p>)}
+                <label>Split before page <select defaultValue="" onChange={e => {
+                  const index = Number(e.target.value); if (!index) return;
+                  const pages = activeItem.pages || [];
+                  const next = [...processedItems]; next.splice(activeItemIndex, 1,
+                    LegalDocumentParserService.itemForPages(activeItem, pages.slice(0, index)),
+                    LegalDocumentParserService.itemForPages(activeItem, pages.slice(index)));
+                  setProcessedItems(next); setConfirmed(false); e.target.value = '';
+                }}><option value="">Choose boundary</option>{activeItem.pages?.slice(1).map((p, i) => <option key={p.pageNumber} value={i + 1}>{p.pageNumber}</option>)}</select></label>
+                <button className="ml-3 underline" disabled={!processedItems[activeItemIndex + 1] || activeItem.originalFile !== processedItems[activeItemIndex + 1]?.originalFile} onClick={() => {
+                  const next = [...processedItems]; const following = next[activeItemIndex + 1];
+                  next.splice(activeItemIndex, 2, LegalDocumentParserService.itemForPages(activeItem, [...activeItem.pages || [], ...following.pages || []]));
+                  setProcessedItems(next); setConfirmed(false);
+                }}>Merge with next document</button>
+              </div>
+              <div className="space-y-4">
+                {activeItem.pages?.map((page, pageIndex) => <div key={page.pageNumber} className="grid gap-3 md:grid-cols-2 border rounded-xl p-3">
+                  <div><p className="text-xs font-bold">Source page {page.pageNumber}</p>
+                    {(page.images || (page.imageUrl ? [page.imageUrl] : [])).map((url, i) => <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`Original page ${page.pageNumber}, image ${i + 1}`} className="w-full" /></a>)}
+                    {!page.imageUrl && !page.images?.length && <p className="whitespace-pre-wrap text-xs">{page.nativeText || page.text}</p>}
+                  </div>
+                  <label className="text-xs font-bold">Extracted text — page {page.pageNumber}
+                    <textarea className="w-full min-h-80 border rounded p-2 font-normal" value={page.text} onSelect={e => { textCursor.current = { pageIndex, offset: e.currentTarget.selectionStart }; }} onChange={e => {
+                      const pages = activeItem.pages!.map((p, i) => i === pageIndex ? { ...p, text: e.target.value } : p);
+                      const next = [...processedItems]; next[activeItemIndex] = { ...activeItem, confirmed: false, pages, rawText: pages.map(p => p.text).join('\n\n'), detection: { ...activeDetection, articles: LegalDocumentParserService.extractArticlesAndSections(pages.map(p => p.text).join('\n\n'), pages) } };
+                      setProcessedItems(next); setConfirmed(false);
+                    }} />
+                    <button className="underline mr-3" onClick={() => {
+                      const cursor = textCursor.current;
+                      if (cursor.pageIndex !== pageIndex || cursor.offset <= 0 || cursor.offset >= page.text.length) { window.alert('Place the text cursor inside the page transcription at the document boundary first.'); return; }
+                      const pages = activeItem.pages!; const before = { ...page, text: page.text.slice(0, cursor.offset) }; const after = { ...page, text: page.text.slice(cursor.offset) };
+                      const next = [...processedItems]; next.splice(activeItemIndex, 1,
+                        LegalDocumentParserService.itemForPages(activeItem, [...pages.slice(0, pageIndex), before]),
+                        LegalDocumentParserService.itemForPages(activeItem, [after, ...pages.slice(pageIndex + 1)]));
+                      setProcessedItems(next); setConfirmed(false);
+                    }}>Split document at cursor</button>
+                    <button className="underline" onClick={() => updateActiveDetection({ articles: LegalDocumentParserService.extractArticlesAndSections(activeItem.rawText, activeItem.pages) })}>Rebuild sections from corrected text</button>
+                  </label>
+                </div>)}
+              </div>
               {/* Duplicate Alert Banner */}
               {activeDetection.isDuplicate && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4">
@@ -706,6 +709,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
 
                   </div>
 
+                  <label className="block text-xs font-bold">Issuing authority<input className="block w-full border rounded p-2" value={activeDetection.issuingAuthority} onChange={e => updateActiveDetection({ issuingAuthority: e.target.value })} /></label>
                   {/* Detected Articles & Structured Sections */}
                   <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
                     <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
@@ -757,18 +761,14 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                                 <textarea
                                   rows={2}
                                   value={sec.content}
-                                  onChange={e => updateSection(aIdx, sIdx, { content: e.target.value })}
+                                  readOnly
+                                  aria-label="Section text (correct wording in the page transcription above)"
                                   className="w-full rounded border border-slate-200 p-2 text-xs text-slate-600 focus:border-emerald-500 focus:outline-none"
                                 />
                               </div>
                             ))}
 
-                            <button
-                              onClick={() => addNewSection(aIdx)}
-                              className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900 px-2 py-1 rounded hover:bg-emerald-50 transition-colors"
-                            >
-                              <Plus className="h-3.5 w-3.5" /> Add Section to {art.articleNumber}
-                            </button>
+
                           </div>
                         </div>
                       ))}
@@ -849,13 +849,13 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
             <>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => { processingAbort.current?.abort(); onClose(); }}
                 className="min-h-10 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
               ><InterfaceText source="Cancel" /></button>
               <button
                 type="button"
                 onClick={startProcessing}
-                disabled={files.length === 0}
+                disabled={files.length === 0 || !authorized || files.some(f => !inspections.has(f) || !!inspections.get(f)?.error)}
                 className="flex min-h-10 items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <span>Process & Recognize ({files.length})</span>
@@ -867,7 +867,7 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
           {step === 'processing' && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={cancelProcessing}
               className="min-h-10 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
             ><InterfaceText source="Cancel" /></button>
           )}
@@ -882,18 +882,20 @@ export const LegalSmartImportModal: React.FC<LegalSmartImportModalProps> = ({
                 Back to Upload
               </button>
               <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                <label className="text-xs"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> I reviewed every document, page range and transcription and authorize import.</label>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => { processingAbort.current?.abort(); onClose(); }}
                   className="min-h-10 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                 ><InterfaceText source="Cancel" /></button>
                 <button
                   type="button"
+                  disabled={!authorized || !confirmed || saving || processedItems.some(i => i.status === 'error' || !i.confirmed || !i.detection?.title.trim() || !i.detection?.officialNumber.trim() || !i.rawText.trim())}
                   onClick={handleConfirmAndSave}
                   className="flex min-h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-800 transition-all sm:px-6"
                 >
                   <CheckCircle2 className="h-4 w-4" />
-                  <span>Confirm & Save to Legal Registry</span>
+                  <span>{saving ? 'Saving original and records…' : 'Confirm & Save to Legal Registry'}</span>
                 </button>
               </div>
             </>

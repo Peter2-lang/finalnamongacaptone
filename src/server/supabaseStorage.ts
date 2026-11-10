@@ -20,6 +20,11 @@ const IMAGE_CONTENT_TYPES: Record<string, { extensions: string[]; matches: (file
 };
 
 const LEGAL_DOCUMENT_CONTENT_TYPES: Record<string, { extensions: string[]; matches: (file: Buffer) => boolean }> = {
+  'image/webp': { extensions: ['webp'], matches: file => file.toString('ascii', 0, 4) === 'RIFF' && file.toString('ascii', 8, 12) === 'WEBP' },
+  'image/tiff': { extensions: ['tif', 'tiff'], matches: file => ['49492a00', '4d4d002a'].includes(file.subarray(0, 4).toString('hex')) },
+  'text/plain': { extensions: ['txt'], matches: file => !file.includes(0) },
+  'text/csv': { extensions: ['csv'], matches: file => !file.includes(0) },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { extensions: ['xlsx'], matches: file => file[0] === 0x50 && file[1] === 0x4b },
   'application/pdf': { extensions: ['pdf'], matches: file => file.toString('ascii', 0, 5) === '%PDF-' },
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
     extensions: ['docx'],
