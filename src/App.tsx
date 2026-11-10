@@ -1,3 +1,5 @@
+import { swineApi } from './services/swineApi';
+import { createCoalescedRefresh } from './services/coalescedRefresh';
 import { InterfaceText } from './i18n/interfaceText';
 import { clearConversations } from './services/assistantConversation';
 import { safeReturnPath, tabForPath, normalizePath, routeTabs, canAccessTab, isSuperAdminPath, isLegacySuperAdminPath, superAdminRouteRedirect } from './utils/appRoutes';
@@ -146,6 +148,7 @@ export default function App() {
   };
 
   const [swineList, setSwineList] = useState<SwineRecord[]>(() => storageService.getSwineRecords());
+  const [gisSyncStatus, setGisSyncStatus] = useState('SYNCING');
   const [barangays, setBarangays] = useState<Barangay[]>([]);
   const [landingConfig, setLandingConfig] = useState<LandingPageConfig>(() => ({ ...INITIAL_LANDING_CONFIG }));
   const [landingConfigReady, setLandingConfigReady] = useState(false);
@@ -374,12 +377,6 @@ export default function App() {
       setBarangays([]);
     }
 
-    try {
-      const { records } = await storageService.fetchAllVisibleSwineRecords();
-      setSwineList(records);
-    } catch {
-      setSwineList(storageService.isEffectiveOffline() ? storageService.getSwineRecords() : []);
-    }
 
     const msgs = storageService.getMessages();
     const currUser = storageService.getCurrentUser();
@@ -465,24 +462,99 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !currentUser) return;
-    let active = true;
-    const swineChannel = supabase
-      .channel('swine-records-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'swine_records' }, () => {
-        if (active) void refreshAllData();
-      })
-      .subscribe(status => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Unable to subscribe to swine record changes (${status}).`);
-        }
-      });
+    setReadyTakeoffCount(swineList.filter(record => !record.isArchived &&
+      (record.readyToSell || record.status === 'ready_to_sell') &&
+      !['sold', 'deceased'].includes(String(record.status).toLowerCase()) &&
+      (currentUser?.role !== 'focal' || record.barangay?.toLowerCase() === currentUser.assignedBarangay?.toLowerCase())).length);
+  }, [swineList, currentUser?.role, currentUser?.assignedBarangay]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    setSwineList(storageService.getSwineRecords());
+    let active = true;
+    let realtime = false;
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const refreshQueue = createCoalescedRefresh(async () => {
+      if (!active) return;
+      if (storageService.isEffectiveOffline()) {
+        setSwineList(storageService.getSwineRecords());
+        setGisSyncStatus('OFFLINE/CACHED');
+        return;
+      }
+      setGisSyncStatus('SYNCING');
+      try {
+        const { records } = await storageService.fetchAllVisibleSwineRecords();
+        if (active) setGisSyncStatus(records.some(record => record.isSynced === false) ? 'SYNCING / PENDING CHANGES' : realtime ? 'LIVE' : 'ONLINE / POLLING');
+      } catch {
+        if (active) setGisSyncStatus('CACHED / RETRYING');
+      }
+    });
+    const refresh = () => refreshQueue.request();
+    const schedule = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => void refresh(), 250);
+    };
+    const visibility = () => { if (document.visibilityState === 'visible') schedule(); };
+    const localChange = (event: Event) => {
+      if (!(event as Event & {registrySnapshot?: boolean}).registrySnapshot) schedule();
+    };
+    const offline = () => setGisSyncStatus('OFFLINE/CACHED');
+    const syncStatus = (event: Event) => {
+      const status = (event as CustomEvent).detail;
+      if (status?.state === 'SYNCING') setGisSyncStatus('SYNCING');
+      if (status?.state === 'SYNCED') schedule();
+      if (status?.state === 'OFFLINE') offline();
+    };
+    let swineChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    let checkingCapability = false;
+    const ensureRealtime = async () => {
+      if (!supabase || !active || checkingCapability || storageService.isEffectiveOffline()) return;
+      checkingCapability = true;
+      try {
+        const supported = await swineApi.getRealtimeCapability();
+        if (!active) return;
+        if (!supported) {
+          realtime = false;
+          if (swineChannel) { void supabase.removeChannel(swineChannel); swineChannel = null; }
+          return;
+        }
+        if (swineChannel) return;
+        // Only invalidate: the backend reauthorizes every snapshot.
+        swineChannel = supabase.channel(`swine-records-realtime-${currentUser.id}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'swine_records' }, schedule)
+          .subscribe(status => {
+            if (!active) return;
+            realtime = status === 'SUBSCRIBED';
+            if (realtime || ['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) schedule();
+          });
+      } finally { checkingCapability = false; }
+    };
+    void ensureRealtime();
+    // Poll even with Realtime: deletes, policy changes and missed events need reconciliation.
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') { void ensureRealtime(); void refresh(); }
+    }, 30000);
+    window.addEventListener('swine_records_updated', localChange);
+    window.addEventListener('online', schedule);
+    window.addEventListener('offline', offline);
+    window.addEventListener('da_connectivity_change', schedule);
+    window.addEventListener('da_sync_status_updated', syncStatus);
+    document.addEventListener('visibilitychange', visibility);
+    void refresh();
     return () => {
       active = false;
-      void supabase.removeChannel(swineChannel);
+      refreshQueue.cancel();
+      clearTimeout(debounce);
+      clearInterval(poll);
+      window.removeEventListener('swine_records_updated', localChange);
+      window.removeEventListener('online', schedule);
+      window.removeEventListener('offline', offline);
+      window.removeEventListener('da_connectivity_change', schedule);
+      window.removeEventListener('da_sync_status_updated', syncStatus);
+      document.removeEventListener('visibilitychange', visibility);
+      if (swineChannel) void supabase?.removeChannel(swineChannel);
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.role, currentUser?.assignedBarangay]);
 
   const accountsPageOpen = activeTab === 'accounts' && (currentUser?.role === 'admin' || currentUser?.role === 'super_admin');
   useEffect(() => {
@@ -902,7 +974,7 @@ export default function App() {
         ) : !canAccessTab(displayRole,activeTab) ? <AccessDenied403 moduleName={activeTab.replaceAll('_',' ')} onBackToDashboard={()=>handleTabSelect('dashboard')} /> : displayRole === 'agent' ? (
           activeTab === 'gis' ? (
             <div className="p-4 sm:p-6 w-full">
-              <GisMap swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
+              <GisMap syncStatus={gisSyncStatus} swineList={swineList} barangays={barangays} currentUser={currentUser} currentRole="agent" onViewSwineRecord={handleViewSwineRecord} />
             </div>
           ) : activeTab === 'messages' ? (
             <MessagingCenter
@@ -997,6 +1069,7 @@ export default function App() {
                 </div>
 
                 <GisMap
+                  syncStatus={gisSyncStatus}
                   swineList={
                     displayRole === 'focal' && currentUser?.assignedBarangay
                       ? swineList.filter(s => (s.barangay || '').toLowerCase() === (currentUser.assignedBarangay || '').toLowerCase())

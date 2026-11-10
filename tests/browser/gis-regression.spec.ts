@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import * as XLSX from 'xlsx';
 
 // Component fixtures exercise actual React components and Leaflet, without touching a database.
-async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMediaSettings',props:Record<string,unknown>={}){
+async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMediaSettings'|'SwineForm'|'SwineFarmRegistrationModal',props:Record<string,unknown>={}){
  await page.route('**/api/**',r=>r.fulfill({json:{success:true,data:{},settings:{}}}));
  await page.goto('/tests/browser/component-harness.html');
  await page.waitForLoadState('networkidle');
@@ -10,21 +10,26 @@ async function mount(page:Page,component:'GisMap'|'ImportSwineModal'|'PhotoMedia
   const load=(path:string)=>import(/* @vite-ignore */ path);
   const React=(window as any).auditReact;
   const createRoot=(window as any).auditCreateRoot;
-  const paths={GisMap:'/src/components/gis/GisMap.tsx',ImportSwineModal:'/src/components/records/ImportSwineModal.tsx',PhotoMediaSettings:'/src/components/admin/media/PhotoMediaSettings.tsx'};
+  const paths={SwineFarmRegistrationModal:'/src/components/dashboard/SwineFarmRegistrationModal.tsx',SwineForm:'/src/components/registry/SwineForm.tsx',GisMap:'/src/components/gis/GisMap.tsx',ImportSwineModal:'/src/components/records/ImportSwineModal.tsx',PhotoMediaSettings:'/src/components/admin/media/PhotoMediaSettings.tsx'};
   const mod=await load(paths[component]);
+  if (props.currentUser) {
+   const {storageService}=await load('/src/services/storageService.ts');
+   storageService.setCurrentUser(props.currentUser);
+  }
   const host=document.createElement('div');host.style.cssText='height:800px;width:100%';document.body.replaceChildren(host);
   const root=createRoot(host);const win=window as any;
   win.auditPicks=[];win.auditViews=[];win.auditSuccess=[];
-  if(component==='GisMap'){
+  if(component==='GisMap'||component==='SwineForm'||component==='SwineFarmRegistrationModal'){
    const source=await (await fetch('/src/components/gis/GisMap.tsx')).text();
    const leafletPath=source.match(/from ["']([^"']*\/leaflet\.js[^"']*)["']/)![1];
    const L=(await load(leafletPath)).default;
    L.Map.addInitHook(function(this:any){win.auditMap=this;});
   }
-  const base=component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:(count:number)=>win.auditSuccess.push(count)}:{currentUserRole:'focal'};
+  const base=component==='SwineFarmRegistrationModal'?{isOpen:true,barangays:[],currentUser:{id:'fixture-admin',role:'admin'},onClose:()=>{},onOpenBatchModal:()=>{}}:component==='SwineForm'?{barangays:[],currentUser:{id:'fixture-admin',role:'admin'},onOpenBatchModal:()=>{},onSuccess:(record:any)=>win.auditSuccess.push(record)}:component==='GisMap'?{swineList:[],barangays:[],currentRole:'admin',onPickLocation:(...args:any[])=>win.auditPicks.push(args),onViewSwineRecord:(record:any)=>win.auditViews.push(record.id)}:component==='ImportSwineModal'?{isOpen:false,barangays:[],existingRecords:[],currentUser:null,onClose:()=>{},onSuccess:(count:number)=>win.auditSuccess.push(count)}:{currentUserRole:'focal'};
   win.auditRender=(next:any)=>root.render(React.createElement(mod[component],{...base,...props,...next}));
   win.auditRender({});
-  await new Promise(resolve=>setTimeout(resolve,150));
+  // Wait for Leaflet’s initial 200 ms size reconciliation before camera assertions.
+  await new Promise(resolve=>setTimeout(resolve,300));
  },{component,props});
 }
 
@@ -315,4 +320,68 @@ test('invalid JSON and backend rejection never show a successful import',async({
  await expect(page.getByText(/Isolated persistence rejection/)).toBeVisible();
  await expect(page.getByRole('heading',{name:'Import Results'})).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).auditSuccess)).toEqual([]);
+});
+
+test('GIS empty snapshot and invalid GPS produce no farm pins', async ({page}) => {
+ await mount(page,'GisMap');
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(0);
+ await page.evaluate(()=>(window as any).auditRender({swineList:[{id:'missing',barangay:'Ambacon',latitude:0,longitude:0},{id:'outside',barangay:'Ambacon',latitude:14.6,longitude:121}]}));
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(0);
+ await expect(page.getByRole('status')).toContainText('2 records without valid GPS');
+});
+
+test('GIS authoritative snapshots move stable markers and remove archived or sold records', async ({page}) => {
+ const record={id:'stable',pigIdTag:'HIN-2026-0099',farmerName:'Fixture',barangay:'Ambacon',latitude:10.401804141,longitude:125.18452409,status:'healthy',swineType:'grower',registeredAt:'2026-01-01'};
+ await mount(page,'GisMap',{swineList:[record]});
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(1);
+ await page.evaluate(record=>(window as any).auditRender({swineList:[record]}),{...record,latitude:10.4019});
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(1);
+ await expect.poll(()=>page.evaluate(()=>{
+   let latitude=0;(window as any).auditMap.eachLayer((layer:any)=>{if(layer.options.icon?.options.className==='custom-swine-marker-div')latitude=layer.getLatLng().lat});return latitude;
+ })).toBe(10.4019);
+ await page.evaluate(record=>(window as any).auditRender({swineList:[{...record,isArchived:true}]}),record);
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(0);
+ await page.evaluate(record=>(window as any).auditRender({swineList:[record]}),record);
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(1);
+ await page.evaluate(record=>(window as any).auditRender({swineList:[{...record,status:'sold'}]}),record);
+ await expect(page.locator('.custom-swine-marker-div')).toHaveCount(0);
+});
+
+
+test('registration requires an actual farm pin and keeps form coordinates aligned', async ({page}) => {
+ await mount(page,'SwineForm');
+ const latitude=page.locator('input[placeholder="10.3969"]');
+ const longitude=page.locator('input[placeholder="125.1999"]');
+ await expect(latitude).toHaveValue('');
+ await expect(longitude).toHaveValue('');
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(0);
+ await page.evaluate(()=>(window as any).auditMap.fire('click',{latlng:{lat:10.401804141,lng:125.18452409}}));
+ await expect(latitude).toHaveValue('10.401804141');
+ await expect(longitude).toHaveValue('125.18452409');
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+ await page.getByRole('button',{name:'Clear selected GPS',exact:true}).click();
+ await expect(latitude).toHaveValue('');
+ await expect(longitude).toHaveValue('');
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(0);
+});
+
+test('registration device GPS fills exact farm coordinates and detects its barangay', async ({page}) => {
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:(success:any)=>success({coords:{latitude:10.401804141,longitude:125.18452409}})}}));
+ await mount(page,'SwineForm');
+ await page.getByRole('button',{name:'Current GPS',exact:true}).click();
+ await expect(page.locator('input[placeholder="10.3969"]')).toHaveValue('10.401804141');
+ await expect(page.locator('input[placeholder="125.1999"]')).toHaveValue('125.18452409');
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(1);
+});
+
+
+test('dashboard farm modal reuses registry GPS validation and excludes agents', async ({page}) => {
+ await mount(page,'SwineFarmRegistrationModal');
+ await expect(page.getByRole('dialog',{name:'Swine Farm Registration'})).toBeVisible();
+ await expect(page.locator('input[placeholder="10.3969"]')).toHaveValue('');
+ await expect(page.locator('input[placeholder="125.1999"]')).toHaveValue('');
+ await expect(page.locator('.leaflet-container')).toBeVisible();
+ await expect(page.locator('.custom-manual-pin')).toHaveCount(0);
+ await page.evaluate(()=>(window as any).auditRender({currentUser:{id:'fixture-agent',role:'agent'}}));
+ await expect(page.getByRole('dialog')).toHaveCount(0);
 });

@@ -1,3 +1,4 @@
+import { loadRegistryRealtimeCapability } from './registryRealtime.ts';
 import { loadPublicRegistrySummary } from './publicRegistry.ts';
 import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
 import { answerAssistant, AssistantDataError, type Generate } from './assistantEngine.ts';
@@ -1520,6 +1521,12 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
 
   app.get('/api/swine-records', handleGetSwineRecords);
   app.get('/api/swine', handleGetSwineRecords);
+
+  // Protected by the same middleware as registry reads. Return no rows or policy text.
+  app.get('/api/swine-records/realtime-status', async (_req, res) => {
+    const supported = await loadRegistryRealtimeCapability(sql => pool.query(sql));
+    return res.json({success: true, supported});
+  });
 
   // Single Swine Record Access API
   const handleGetSingleSwine = async (req: express.Request, res: express.Response) => {

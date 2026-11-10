@@ -1,3 +1,4 @@
+import { calculateSwineAge } from '../../utils/swineRegistryLogic';
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import { MapNavigationControls } from './MapNavigationControls';
@@ -56,6 +57,7 @@ import {
 import {
   HeatmapMode,
   computeBarangayGisMetrics,
+  hasValidGisLocation,
   filterSwineByAuthorization,
   generateHeatmapPoints,
   getHeatmapColor,
@@ -136,7 +138,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
   barangays,
   selectedBarangay,
   currentUser,
-  currentRole = currentUser?.role || 'admin',
+  currentRole = currentUser?.role || 'landing',
   onViewSwineRecord,
   onPickLocation,
   isLocationPicker = false,
@@ -236,24 +238,11 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     return computeBarangayGisMetrics(barangays, swineList, authorizedBarangayName);
   }, [barangays, swineList, authorizedBarangayName]);
 
-  const heatmapSwine = useMemo(
-    () => filterSwineForHeatmap(selectedBarangayFilter === 'all' ? swineList : swineList.filter(s => s.barangay.trim().toLowerCase() === selectedBarangayFilter.trim().toLowerCase()), heatmapClasses, heatmapReadyOnly),
-    [swineList, selectedBarangayFilter, heatmapClasses, heatmapReadyOnly]
-  );
-  const heatmapBarangayMetrics = useMemo(
-    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
-    [barangays, heatmapSwine, authorizedBarangayName]
-  );
-
-  // Compute Heatmap Points
-  const heatmapData = useMemo(() => {
-    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
-  }, [heatmapBarangayMetrics, heatmapMode]);
-
   // Filtered Swine Records for Display
   const filteredSwineRecords = useMemo(() => {
     return swineList.filter(s => {
       if (s.isArchived) return false;
+      if (selectedMarketStatus !== 'sold' && ['sold', 'deceased'].includes(String(s.status).toLowerCase())) return false;
 
       // 1. Strict Focal Person Restriction
       if (authorizedBarangayName) {
@@ -309,12 +298,31 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     allBarangayMetrics,
   ]);
 
+  const heatmapSwine = useMemo(
+    () => filterSwineForHeatmap(filteredSwineRecords, heatmapClasses, heatmapReadyOnly),
+    [filteredSwineRecords, heatmapClasses, heatmapReadyOnly]
+  );
+  const heatmapBarangayMetrics = useMemo(
+    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
+    [barangays, heatmapSwine, authorizedBarangayName]
+  );
+
+  // Compute Heatmap Points
+  const heatmapData = useMemo(() => {
+    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
+  }, [heatmapBarangayMetrics, heatmapMode]);
+
   // Swine with valid GPS coordinates
   const swineWithGps = useMemo(() => {
     return filteredSwineRecords.filter(
-      s => typeof s.latitude === 'number' && typeof s.longitude === 'number' && s.latitude > 0 && s.longitude > 0
+      s => hasValidGisLocation(s)
     );
   }, [filteredSwineRecords]);
+
+  useEffect(() => {
+    setSelectedSwineRecord(selected => selected ? swineWithGps.find(record => record.id === selected.id) || null : null);
+    setSelectedFarmerData(null);
+  }, [swineWithGps]);
 
   // Distinct Farmer Markers from swine pens
   const farmerMarkers = useMemo(() => {
@@ -389,7 +397,8 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
 
   // Reactive Synchronize map camera and pin when initialCenter coordinates change
   useEffect(() => {
-    if (initialCenter && initialCenter[0] && initialCenter[1]) {
+    if (isLocationPicker && !initialCenter) setPickedPoint(null);
+    if (initialCenter && Number.isFinite(initialCenter[0]) && Number.isFinite(initialCenter[1])) {
       if (isLocationPicker) setPickedPoint({ lat: initialCenter[0], lng: initialCenter[1] });
       if (!isLocationPicker && !isManualPinMode) {
         setTargetCenter({ lat: initialCenter[0], lng: initialCenter[1] });
@@ -459,6 +468,10 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
     const updated = heatmapBarangayMetrics.find(m => m.barangayName === selectedBarangayData.barangayName);
     if (updated) setSelectedBarangayData(updated);
   }, [heatmapBarangayMetrics]);
+
+  useEffect(() => {
+    if (!settingsLoading && !apiSettings.googleMapsKey) onSwitchToLeaflet?.();
+  }, [settingsLoading, apiSettings.googleMapsKey, onSwitchToLeaflet]);
 
   if (settingsLoading) return <div role="status" className="p-6">Loading map configuration…</div>;
   if (!apiSettings.googleMapsKey) {
@@ -724,7 +737,7 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     <option value="farmer_density">Farmer Density</option>
                     <option value="ready_to_sell">{translateInterfaceText("Ready-to-Sell Swine")}</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
-                    <option value="registry_activity">Registry Activity Index</option>
+                    <option value="registry_activity">Registrations (last 30 days)</option>
                   </select>
                 </div>
                 <HeatmapClassificationFilters selectedClasses={heatmapClasses} onChange={setHeatmapClasses}
@@ -1012,18 +1025,19 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
                     </div>
                     <div>
                       <span className="text-stone-500"><InterfaceText source="Age:" /></span>{' '}
-                      <strong>{selectedSwineRecord.ageDays || 0} days</strong>
+                      <strong>{selectedSwineRecord.birthDate ? calculateSwineAge(selectedSwineRecord.birthDate).display : selectedSwineRecord.ageDays > 0 ? `${selectedSwineRecord.ageDays} days` : 'Not recorded'}</strong>
                     </div>
                     <div>
                       <span className="text-stone-500">Weight:</span>{' '}
                       <strong>
-                        {selectedSwineRecord.actualWeightKg
-                          ? `${selectedSwineRecord.actualWeightKg} kg (Actual)`
-                          : selectedSwineRecord.estimatedWeightKg || 'N/A'}
+                        {selectedSwineRecord.actualWeightKg != null ? `${selectedSwineRecord.actualWeightKg} kg` : 'Not recorded'}
                       </strong>
                     </div>
                   </div>
 
+                  <div className="text-xs">Registered: {selectedSwineRecord.registeredAt || 'Not recorded'}</div>
+                  <div className="text-xs">Ready to sell: {selectedSwineRecord.readyToSell || selectedSwineRecord.status === 'ready_to_sell' ? 'Yes' : 'No'}</div>
+                  {selectedSwineRecord.photoUrl && /^https?:\/\//i.test(selectedSwineRecord.photoUrl) && <img src={selectedSwineRecord.photoUrl} alt="Record photo" className="max-h-36 max-w-full object-contain" />}
                   {onViewSwineRecord && (
                     <button
                       onClick={() => {
@@ -1140,6 +1154,14 @@ export const GoogleGisMap: React.FC<GoogleGisMapProps> = ({
             </div>
           </div>
 
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+            <span>Total registered records: {allBarangayMetrics.find(metric => metric.barangayName === selectedBarangayData.barangayName)?.totalRegisteredSwine || 0}</span>
+            <span>Active swine: {selectedBarangayData.activeSwine}</span>
+            <span>Farms with GPS: {selectedBarangayData.farmsWithGps}</span>
+            <span>Records with GPS: {selectedBarangayData.swineWithGps}</span>
+            <span>Missing GPS: {selectedBarangayData.swineWithoutGps}</span>
+            <span>Registrations (30 days): {selectedBarangayData.registrationActivity}</span>
+          </div>
           {selectedBarangayData.swineWithoutGps > 0 && (
             <div className="mt-2 p-2 bg-stone-800/60 rounded-xl border border-stone-700 text-[10px] text-stone-300">
               <span className="text-amber-400 font-semibold block mb-0.5">ℹ Geographic Polygon Association:</span>

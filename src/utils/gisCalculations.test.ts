@@ -197,7 +197,8 @@ const modes: HeatmapMode[] = [
 ];
 
 modes.forEach(mode => {
-  const result = generateHeatmapPoints(allMetrics, mode);
+  const activityMetrics = computeBarangayGisMetrics(mockBarangays, mockTestSwineRecords.map(s => ({...s, registeredAt: new Date().toISOString()})));
+  const result = generateHeatmapPoints(mode === 'registry_activity' ? activityMetrics : allMetrics, mode);
   assert(result.points.length > 0, `Heatmap points generated for mode: ${mode}`);
   assert(result.maxVal >= 0, `Heatmap maxVal calculated for ${mode}: ${result.maxVal}`);
   assert(

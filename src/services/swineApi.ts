@@ -44,6 +44,16 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export const swineApi = {
+  async getRealtimeCapability(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/swine-records/realtime-status', {
+        headers: getAuthHeaders(), signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) return false;
+      const result = await response.json();
+      return result.success === true && result.supported === true;
+    } catch { return false; }
+  },
   /**
    * Fetch all swine records from the database via backend API.
    */
@@ -135,7 +145,9 @@ export const swineApi = {
       throw new Error(data.error || 'Unable to save swine record to the database.');
     }
 
-    return (data.data || data.record || record) as SwineRecord;
+    const saved = data.data || data.record;
+    if (!saved?.id) throw new Error('The database did not confirm the saved swine record. Refresh records before retrying.');
+    return saved;
   },
 
   /**
@@ -153,7 +165,9 @@ export const swineApi = {
       throw new Error(data.error || 'Unable to update swine record in the database.');
     }
 
-    return (data.data || data.record || record) as SwineRecord;
+    const saved = data.data || data.record;
+    if (!saved?.id) throw new Error('The database did not confirm the saved swine record. Refresh records before retrying.');
+    return saved;
   },
 
   /**

@@ -139,6 +139,8 @@ export const storageService = {
 
   // Swine Records
   getSwineRecords(): SwineRecord[] {
+    const owner = this.getCurrentUser();
+    if (!owner || getItem<string | null>(`${STORAGE_KEYS.SWINE}:owner`, null) !== JSON.stringify([owner.authUserId || owner.id, owner.role, owner.assignedBarangay || owner.barangay_id || ''])) return [];
     const stored = getItem<SwineRecord[] | null>(STORAGE_KEYS.SWINE, null);
     if (stored === null || stored.length === 0) {
       return [];
@@ -162,7 +164,7 @@ export const storageService = {
     return normalized;
   },
 
-  async fetchSwineRecords(params?: { barangay?: string; search?: string; status?: string; readyToSell?: boolean; isArchived?: boolean; page?: number; perPage?: number }): Promise<{ records: SwineRecord[]; total: number }> {
+  async fetchSwineRecords(params?: { barangay?: string; search?: string; status?: string; readyToSell?: boolean; isArchived?: boolean; page?: number; perPage?: number }, publish = true): Promise<{ records: SwineRecord[]; total: number }> {
     if (this.isEffectiveOffline()) {
       let records = this.getSwineRecords();
 
@@ -203,6 +205,7 @@ export const storageService = {
       return { records, total: records.length };
     }
 
+    const requestOwner = JSON.stringify(this.getCurrentUser());
     try {
       const searchParams = new URLSearchParams();
 
@@ -265,16 +268,17 @@ export const storageService = {
         );
       }
 
+      if (requestOwner !== JSON.stringify(this.getCurrentUser())) throw new Error('Registry session changed during retrieval.');
       const records: SwineRecord[] = json.data.map((record:SwineRecord)=>({...record,isSynced:true}));
 
       // Cache only records that were successfully retrieved from the cloud.
-      this.saveSwineRecords(records);
+      if (publish) this.saveSwineRecords(records);
 
-      if (typeof window !== 'undefined') {
+      if (publish && typeof window !== 'undefined') {
         window.dispatchEvent(
-          new CustomEvent('swine_records_updated', {
+          Object.assign(new CustomEvent('swine_records_updated', {
             detail: records,
-          })
+          }), { registrySnapshot: true })
         );
       }
 
@@ -302,23 +306,43 @@ export const storageService = {
       return this.fetchSwineRecords(params);
     }
 
+    const requestOwner = JSON.stringify(this.getCurrentUser());
     const [active, archived] = await Promise.all([
-      this.fetchSwineRecords({ ...params, isArchived: false }),
-      this.fetchSwineRecords({ ...params, isArchived: true }),
+      this.fetchSwineRecords({ ...params, isArchived: false }, false),
+      this.fetchSwineRecords({ ...params, isArchived: true }, false),
     ]);
+    if (requestOwner !== JSON.stringify(this.getCurrentUser())) throw new Error('Registry session changed during retrieval.');
     const recordsById = new Map<string, SwineRecord>();
     for (const record of [...active.records, ...archived.records]) {
       recordsById.set(record.id, record);
     }
+    // A cloud refresh must not overwrite pending local edits or resurrect queued deletes.
+    const owner = this.getCurrentUser();
+    const queue = await indexedDbService.getPendingSyncQueue();
+    const local = new Map<string, SwineRecord>(this.getSwineRecords().map((record: SwineRecord) => [record.id, record]));
+    for (const item of queue) {
+      if (item.entity !== 'swine' || item.ownerUserId !== (owner?.authUserId || owner?.id)) continue;
+      if (item.operation === 'delete') recordsById.delete(item.entityId);
+      else {
+        const draft = local.get(item.entityId);
+        if (draft && (owner?.role !== 'focal' || draft.barangay?.toLowerCase() === owner.assignedBarangay?.toLowerCase()) && owner?.role !== 'agent') {
+          recordsById.set(draft.id, {...draft, isSynced: false});
+        }
+      }
+    }
+    if (requestOwner !== JSON.stringify(this.getCurrentUser())) throw new Error('Registry session changed during retrieval.');
     const records = Array.from(recordsById.values());
     this.saveSwineRecords(records);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: records }));
+      window.dispatchEvent(Object.assign(new CustomEvent('swine_records_updated', { detail: records }), { registrySnapshot: true }));
     }
     return { records, total: active.total + archived.total };
   },
 
   saveSwineRecords(records: SwineRecord[]): void {
+    const owner = this.getCurrentUser();
+    if (!owner) return;
+    setItem(`${STORAGE_KEYS.SWINE}:owner`, JSON.stringify([owner.authUserId || owner.id, owner.role, owner.assignedBarangay || owner.barangay_id || '']));
     setItem(STORAGE_KEYS.SWINE, records);
     if (typeof window !== 'undefined') {
       indexedDbService.putBatch('swineRecords', records).catch(() => {});
@@ -482,7 +506,8 @@ export const storageService = {
         throw new Error(resData?.error || 'Failed to save record to cloud database.');
       }
 
-      const savedRecord: SwineRecord = resData.data || resData.record || fullRecord;
+      const savedRecord: SwineRecord = resData.data || resData.record;
+      if (!savedRecord || typeof savedRecord.id !== 'string') throw new Error('The database did not confirm the saved swine record. Refresh records before retrying.');
       savedRecord.isSynced = true;
 
       const currentRecords = this.getSwineRecords();
@@ -510,28 +535,11 @@ export const storageService = {
       return savedRecord;
     }
 
-    // Offline fallback
+    // Use the existing durable queue and wait for its IndexedDB transaction.
     fullRecord.isSynced = false;
-    const currentRecords = this.getSwineRecords();
-    if (isEdit) {
-      const idx = currentRecords.findIndex(r => r.id === fullRecord.id);
-      if (idx !== -1) currentRecords[idx] = fullRecord;
-      else currentRecords.unshift(fullRecord);
-    } else {
-      currentRecords.unshift(fullRecord);
-    }
-    this.saveSwineRecords(currentRecords);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('swine_records_updated', { detail: currentRecords }));
-    }
-
-    this.enqueueOfflineAction({
-      id: 'queue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-      action: isEdit ? 'update' : 'create',
-      entity: 'swine',
-      data: fullRecord,
-      timestamp: new Date().toISOString(),
-    });
+    const { offlineSyncEngine } = await import('./offlineSyncEngine');
+    if (isEdit) await offlineSyncEngine.queueSwineUpdate(fullRecord);
+    else await offlineSyncEngine.queueSwineCreate(fullRecord);
 
     return fullRecord;
   },

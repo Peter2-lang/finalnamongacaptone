@@ -61,7 +61,7 @@ import {
 } from '../common/ContactNumberInput';
 import { GisMap } from '../gis/GisMap';
 import { getBarangayCoordinates, HINUNANGAN_BARANGAYS } from '../../data/barangays';
-import { findBarangayContainingPoint } from '../../utils/gisCalculations';
+import { findBarangayContainingPoint, hasValidGisLocation } from '../../utils/gisCalculations';
 import { SwineMatrixModal } from './SwineMatrixModal';
 import {
   calculateAgeFromBirthDate,
@@ -276,9 +276,9 @@ export const SwineForm: React.FC<SwineFormProps> = ({
   };
 
   // GIS Pen Coordinates & Setback Buffers
-  const defaultBgObj = barangays.find(b => b.name === defaultBarangay) || barangays[0];
-  const [latitude, setLatitude] = useState<number>(initialCoordinates?.latitude || initialData?.latitude || defaultBgObj?.latitude || 10.3969);
-  const [longitude, setLongitude] = useState<number>(initialCoordinates?.longitude || initialData?.longitude || defaultBgObj?.longitude || 125.1999);
+  const initialLocation = initialCoordinates || initialData;
+  const [latitude, setLatitude] = useState<number>(initialLocation && hasValidGisLocation(initialLocation) ? initialLocation.latitude : NaN);
+  const [longitude, setLongitude] = useState<number>(initialLocation && hasValidGisLocation(initialLocation) ? initialLocation.longitude : NaN);
   const [showMapPicker, setShowMapPicker] = useState(true);
   const [allExistingSwine, setAllExistingSwine] = useState<SwineRecord[]>(() => storageService.getSwineRecords());
 
@@ -439,17 +439,14 @@ export const SwineForm: React.FC<SwineFormProps> = ({
   const handleBarangayChange = (newBg: string) => {
     setBarangay(newBg);
     if (hasSelectedLocationRef.current) return;
-    const coords = getBarangayCoordinates(newBg);
-    setLatitude(coords.latitude);
-    setLongitude(coords.longitude);
+
   };
 
-  // Re-center to Brgy GPS
+  // Clear selected GPS
   const handleRecenterToBrgyGps = () => {
     hasSelectedLocationRef.current = false;
-    const coords = getBarangayCoordinates(barangay);
-    setLatitude(coords.latitude);
-    setLongitude(coords.longitude);
+    setLatitude(NaN);
+    setLongitude(NaN);
   };
 
   const handleGetLiveGps = () => {
@@ -459,8 +456,20 @@ export const SwineForm: React.FC<SwineFormProps> = ({
     }
     navigator.geolocation.getCurrentPosition(
       pos => {
-        setLatitude(Number(pos.coords.latitude.toFixed(6)));
-        setLongitude(Number(pos.coords.longitude.toFixed(6)));
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const detected = findBarangayContainingPoint(lat, lng);
+        if (!detected || !isPointInsideHinunangan(lat, lng)) {
+          alert('Current GPS is outside configured Hinunangan boundaries. Select the farm location manually.');
+          return;
+        }
+        if (currentUser?.role === 'focal' && detected.toLowerCase() !== (currentUser.assignedBarangay || '').toLowerCase()) {
+          alert('Select a location inside your assigned barangay.');
+          return;
+        }
+        hasSelectedLocationRef.current = true;
+        setLatitude(lat);
+        setLongitude(lng);
+        setBarangay(detected);
       },
       err => {
         alert('Could not acquire current GPS: ' + err.message);
@@ -1485,10 +1494,10 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                 type="button"
                 onClick={handleRecenterToBrgyGps}
                 className="bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="Reset coordinates to official Barangay centroid GPS"
+                title="Clear coordinates and select the actual farm location"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-stone-600" />
-                <span>Re-center to Brgy GPS</span>
+                <span>Clear selected GPS</span>
               </button>
               <button
                 type="button"
@@ -1557,7 +1566,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs shrink-0 flex items-center gap-1.5 transition cursor-pointer self-start sm:self-center"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Snap to Brgy. {barangay} GPS</span>
+                  <span>Clear GPS and select farm location</span>
                 </button>
               )}
             </div>
@@ -1599,8 +1608,8 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                 type="number"
                 step="0.000001"
                 required
-                value={latitude}
-                onChange={e => setLatitude(Number(e.target.value))}
+                value={Number.isFinite(latitude) ? latitude : ''}
+                onChange={e => { hasSelectedLocationRef.current = true; setLatitude(e.target.value === '' ? NaN : Number(e.target.value)); }}
                 placeholder="10.3969"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono font-bold text-stone-900 bg-stone-50/50 focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
               />
@@ -1614,8 +1623,8 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                 type="number"
                 step="0.000001"
                 required
-                value={longitude}
-                onChange={e => setLongitude(Number(e.target.value))}
+                value={Number.isFinite(longitude) ? longitude : ''}
+                onChange={e => { hasSelectedLocationRef.current = true; setLongitude(e.target.value === '' ? NaN : Number(e.target.value)); }}
                 placeholder="125.1999"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono font-bold text-stone-900 bg-stone-50/50 focus:ring-2 focus:ring-emerald-600 focus:outline-hidden"
               />
@@ -1758,8 +1767,12 @@ export const SwineForm: React.FC<SwineFormProps> = ({
                   currentUser={currentUser}
                   currentRole={currentUser?.role || 'admin'}
                   isLocationPicker={true}
-                  initialCenter={[latitude, longitude]}
+                  initialCenter={Number.isFinite(latitude) && Number.isFinite(longitude) ? [latitude, longitude] : undefined}
                   onPickLocation={(lat, lng, closestBg) => {
+                    // Keep fields aligned with the displayed pin, including invalid selections.
+                    hasSelectedLocationRef.current = true;
+                    setLatitude(lat);
+                    setLongitude(lng);
                     if (!closestBg || !isPointInsideHinunangan(lat, lng)) {
                       alert('Selected location is outside configured Hinunangan barangay boundaries. Please select a valid barangay location.');
                       return;
@@ -2374,7 +2387,7 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       alert(
         `LOCATION OUTSIDE THE REGISTRY AREA\n\n` +
           `The specified pen GPS coordinates (${Number(latitude).toFixed(5)}, ${Number(longitude).toFixed(5)}) are outside the configured Hinunangan barangay boundaries.\n\n` +
-          `Select a point within the selected authorized barangay or click "Re-center to Brgy GPS".`
+          `Select a point within the selected authorized barangay or click "Clear selected GPS".`
       );
       stopSubmission();
       return;
@@ -2595,6 +2608,8 @@ export const SwineForm: React.FC<SwineFormProps> = ({
       const saved = await storageService.saveSwineRecordCloud(newRecord, Boolean(initialData));
       saveCompletedRef.current = true;
       setHasUnsavedChanges(false);
+      if (saved.isSynced === false) alert('Saved on this device and queued for synchronization. This record has not yet been saved to Supabase.');
+      else alert('Swine record successfully saved to Supabase.');
       onSuccess(saved);
     } catch (err: any) {
       if (uploadedPhotoPath) {

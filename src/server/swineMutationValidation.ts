@@ -1,3 +1,5 @@
+import { findBarangayContainingPoint } from '../utils/gisLocation.ts';
+
 /** All write paths preserve identifiers, including offline replay. */
 export function assertImmutableSwineIdentity(existing:Record<string,any>, patch:Record<string,any>) {
   for(const field of ['id','pigIdTag','earTagNo','computedPigId']){
@@ -25,6 +27,18 @@ export function validateSwineMutation(record: unknown) {
   for (const [field,limit] of [['latitude',90],['longitude',180]] as const) {
     const value = data[field];
     if (value !== undefined && value !== null && (value === '' || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > limit)) throw new Error(`${field} is outside the valid coordinate range.`);
+  }
+  if (Object.hasOwn(data, 'latitude') && Object.hasOwn(data, 'longitude') &&
+      ((data.latitude == null) !== (data.longitude == null))) {
+    throw new Error('Latitude and longitude must be provided together.');
+  }
+  // Preserve legacy missing GPS (null/zero); never accept invented or out-of-area farm GPS.
+  if (data.latitude != null && data.longitude != null && (Number(data.latitude) !== 0 || Number(data.longitude) !== 0)) {
+    const detected = findBarangayContainingPoint(Number(data.latitude), Number(data.longitude));
+    if (!detected) throw new Error('Farm GPS must be inside configured Hinunangan barangay boundaries.');
+    if (typeof data.barangay === 'string' && detected.toLowerCase() !== data.barangay.trim().toLowerCase()) {
+      throw new Error(`Farm GPS is inside ${detected}, which differs from the selected barangay.`);
+    }
   }
   const birthDate = data.birthDate || data.dateOfBirth || data.date_of_birth || data.dob;
   if (birthDate) {

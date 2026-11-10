@@ -1,6 +1,7 @@
+import { hasValidGisLocation } from './gisLocation';
+export { hasValidGisLocation, findBarangayContainingPoint } from './gisLocation';
 import { SwineRecord, Barangay, ASFZone } from '../types';
-import { HINUNANGAN_BARANGAYS, HinunanganBarangayGeo } from '../data/barangays';
-import { HINUNANGAN_BARANGAY_BOUNDARIES } from '../data/hinunanganBoundariesGeoJSON';
+import { HINUNANGAN_BARANGAYS } from '../data/barangays';
 import { scaleSequential } from 'd3-scale';
 import { interpolateRgbBasis } from 'd3-interpolate';
 
@@ -46,6 +47,10 @@ export interface BarangayGisMetrics {
   longitude: number;
   registeredFarmers: number;
   totalSwine: number;
+  totalRegisteredSwine: number;
+  activeSwine: number;
+  farmsWithGps: number;
+  registrationActivity: number;
   populationClass: PopulationClass;
   breedingBoars: number;
   breedingSows: number;
@@ -88,22 +93,6 @@ export function filterSwineForHeatmap(
   });
 }
 
-/** Return the configured barangay polygon containing a Hinunangan coordinate. */
-export function findBarangayContainingPoint(lat: number, lng: number): string | undefined {
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
-  for (const [name, points] of Object.entries(HINUNANGAN_BARANGAY_BOUNDARIES)) {
-    let inside = false;
-    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-      const [yi, xi] = points[i];
-      const [yj, xj] = points[j];
-      const crosses = (yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
-      if (crosses) inside = !inside;
-    }
-    if (inside) return name;
-  }
-  return undefined;
-}
-
 /**
  * Filter swine records strictly by focal person authorization if applicable
  */
@@ -112,6 +101,7 @@ export function filterSwineByAuthorization(
   role: string | undefined,
   assignedBarangay: string | undefined
 ): SwineRecord[] {
+  if (role === 'landing' || !role) return [];
   if (role === 'agent') return swineList.filter(s => {
     const status = String(s.status || '').trim().toLowerCase().replace(/[ -]+/g, '_');
     return (s.readyToSell === true || status === 'ready_to_sell') && !s.isArchived && status !== 'sold' && status !== 'deceased';
@@ -138,14 +128,15 @@ export function computeBarangayGisMetrics(
 
   const metrics = targetList.map(geo => {
     const liveBg = barangays.find(b => b.name.toLowerCase() === geo.name.toLowerCase());
-    const bgSwine = swineList.filter(s => {
+    const registered = swineList.filter(s => (s.barangay || '').trim().toLowerCase() === geo.name.toLowerCase());
+    const bgSwine = registered.filter(s => {
       const status = String(s.status || '').trim().toLowerCase().replace(/[ -]+/g, '_');
       return (s.barangay || '').trim().toLowerCase() === geo.name.toLowerCase() &&
         !s.isArchived && status !== 'sold' && status !== 'deceased';
     });
 
     const farmersSet = new Set(
-      bgSwine.map(s => (s.farmerName || s.farmerContact || '').trim().toLowerCase()).filter(Boolean)
+      bgSwine.map(s => (s.farmerId || s.farmerContact || s.farmerName || '').trim().toLowerCase()).filter(Boolean)
     );
 
     const boars = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'boar').length;
@@ -155,7 +146,7 @@ export function computeBarangayGisMetrics(
     const fatteners = bgSwine.filter(s => normalizeSwineClass(s.swineType) === 'finisher').length;
     const readyForSale = bgSwine.filter(s => s.readyToSell || s.status === 'ready_to_sell').length;
 
-    const withGps = bgSwine.filter(s => typeof s.latitude === 'number' && typeof s.longitude === 'number' && s.latitude > 0 && s.longitude > 0).length;
+    const withGps = bgSwine.filter(s => hasValidGisLocation(s)).length;
     const withoutGps = bgSwine.length - withGps;
 
     const riskLevel = (liveBg?.riskLevel || geo.defaultRiskLevel) as 'green' | 'yellow' | 'red';
@@ -170,6 +161,14 @@ export function computeBarangayGisMetrics(
       longitude: geo.longitude,
       registeredFarmers: farmersSet.size,
       totalSwine: bgSwine.length,
+      totalRegisteredSwine: registered.length,
+      activeSwine: bgSwine.length,
+      farmsWithGps: new Set(bgSwine.filter(hasValidGisLocation).map(s => s.farmerId || `${s.farmerContact || s.farmerName}:${s.latitude}:${s.longitude}`)).size,
+      registrationActivity: registered.filter(s => {
+        const registeredAt = Date.parse(s.registeredAt);
+        const age = Date.now() - registeredAt;
+        return Number.isFinite(registeredAt) && age >= 0 && age <= 30 * 86400000;
+      }).length,
       populationClass: 'very_low' as PopulationClass,
       breedingBoars: boars,
       breedingSows: sows,
@@ -231,7 +230,7 @@ export function generateHeatmapPoints(
         raw = m.breedingBoars;
         break;
       case 'registry_activity':
-        raw = m.totalSwine + m.readyForSale * 1.5 + m.registeredFarmers * 2;
+        raw = m.registrationActivity;
         break;
     }
 
@@ -240,7 +239,7 @@ export function generateHeatmapPoints(
   });
 
   if (minVal === Infinity) minVal = 0;
-  if (maxVal === 0) maxVal = 1;
+
 
   // 2. Plot actual farm coordinates; aggregate only records without GPS at barangay level.
   metrics.forEach(m => {
@@ -259,7 +258,7 @@ export function generateHeatmapPoints(
         raw = m.breedingBoars;
         break;
       case 'registry_activity':
-        raw = m.totalSwine + m.readyForSale * 1.5 + m.registeredFarmers * 2;
+        raw = m.registrationActivity;
         break;
     }
 
@@ -276,7 +275,7 @@ export function generateHeatmapPoints(
     });
     const withGps = mode === 'farmer_density' || mode === 'registry_activity'
       ? []
-      : eligible.filter(s => s.latitude && s.longitude && s.latitude > 0 && s.longitude > 0);
+      : eligible.filter(s => hasValidGisLocation(s));
     const withoutGpsCount = Math.max(0, raw - withGps.length);
 
     if (withoutGpsCount > 0 || (mode === 'farmer_density' && withGps.length === 0)) {

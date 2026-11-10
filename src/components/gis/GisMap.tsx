@@ -48,6 +48,7 @@ import {
 import {
   HeatmapMode,
   computeBarangayGisMetrics,
+  hasValidGisLocation,
   filterSwineByAuthorization,
   generateHeatmapPoints,
   getHeatmapColor,
@@ -58,7 +59,7 @@ import {
   BarangayGisMetrics,
 } from '../../utils/gisCalculations';
 import { HeatmapClassificationFilters } from './HeatmapClassificationFilters';
-import { calculateSwineAge, formatDobDisplay } from '../../utils/swineRegistryLogic';
+import { calculateSwineAge } from '../../utils/swineRegistryLogic';
 import { GoogleGisMap } from './GoogleGisMap';
 
 // Custom 3D Swine Marker Icon with 🐖
@@ -143,6 +144,7 @@ const createBarangayTextLabel = (
 };
 
 export interface GisMapProps {
+  syncStatus?: string;
   swineList: SwineRecord[];
   barangays: Barangay[];
   selectedBarangay?: string;
@@ -165,7 +167,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
   barangays,
   selectedBarangay,
   currentUser,
-  currentRole = currentUser?.role || 'admin',
+  currentRole = currentUser?.role || 'landing',
   onViewSwineRecord,
   onPickLocation,
   isLocationPicker = false,
@@ -290,24 +292,11 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     return computeBarangayGisMetrics(barangays, swineList, authorizedBarangayName);
   }, [barangays, swineList, authorizedBarangayName]);
 
-  const heatmapSwine = useMemo(
-    () => filterSwineForHeatmap(selectedBarangayFilter === 'all' ? swineList : swineList.filter(s => s.barangay.trim().toLowerCase() === selectedBarangayFilter.trim().toLowerCase()), heatmapClasses, heatmapReadyOnly),
-    [swineList, selectedBarangayFilter, heatmapClasses, heatmapReadyOnly]
-  );
-  const heatmapBarangayMetrics = useMemo(
-    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
-    [barangays, heatmapSwine, authorizedBarangayName]
-  );
-
-  // Compute Heatmap Points
-  const heatmapData = useMemo(() => {
-    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
-  }, [heatmapBarangayMetrics, heatmapMode]);
-
   // Filtered Swine Records for Display
   const filteredSwineRecords = useMemo(() => {
     return swineList.filter(s => {
       if (s.isArchived) return false;
+      if (selectedMarketStatus !== 'sold' && ['sold', 'deceased'].includes(String(s.status).toLowerCase())) return false;
 
       // 1. Strict Focal Person Restriction
       if (authorizedBarangayName) {
@@ -363,10 +352,24 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     allBarangayMetrics,
   ]);
 
+  const heatmapSwine = useMemo(
+    () => filterSwineForHeatmap(filteredSwineRecords, heatmapClasses, heatmapReadyOnly),
+    [filteredSwineRecords, heatmapClasses, heatmapReadyOnly]
+  );
+  const heatmapBarangayMetrics = useMemo(
+    () => computeBarangayGisMetrics(barangays, heatmapSwine, authorizedBarangayName),
+    [barangays, heatmapSwine, authorizedBarangayName]
+  );
+
+  // Compute Heatmap Points
+  const heatmapData = useMemo(() => {
+    return generateHeatmapPoints(heatmapBarangayMetrics, heatmapMode);
+  }, [heatmapBarangayMetrics, heatmapMode]);
+
   // Swine with valid GPS coordinates
   const swineWithGps = useMemo(() => {
     return filteredSwineRecords.filter(
-      s => typeof s.latitude === 'number' && typeof s.longitude === 'number' && s.latitude > 0 && s.longitude > 0
+      s => hasValidGisLocation(s)
     );
   }, [filteredSwineRecords]);
 
@@ -743,18 +746,13 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
       swineMarkersRef.current.set(swine.id, marker);
 
       // Swine Info Popup
-      const weightDisplay = swine.actualWeightKg
-        ? `${swine.actualWeightKg} kg (Actual)`
-        : swine.estimatedWeightKg || (swine.weightKg ? `${swine.weightKg} kg` : 'N/A');
+      const weightDisplay = swine.actualWeightKg != null ? `${swine.actualWeightKg} kg` : 'Not recorded';
       const statusBadge = isReady
         ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">READY FOR SALE</span>'
         : `<span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase;">${escapeHtml(swine.status)}</span>`;
 
       const dobVal = swine.birthDate || swine.dateOfBirth || swine.date_of_birth || swine.dob;
       const calculatedAge = calculateSwineAge(dobVal);
-      const dobDisplay = formatDobDisplay(dobVal);
-      const sexDisplay = swine.gender ? swine.gender.toUpperCase() : (swine.sex ? swine.sex.toUpperCase() : 'Not recorded');
-      const breedDisplay = swine.breed || 'Standard Commercial';
       const swineIdDisplay = swine.registry_id || swine.pigIdTag || swine.earTagNo || 'N/A';
 
       const popupHtml = `
@@ -766,12 +764,13 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
           <div style="font-size: 11px; line-height: 1.6; margin-bottom: 10px;">
             <div><span style="color: #71717a;">Farmer:</span> <strong>${escapeHtml(swine.farmerName)}</strong></div>
             <div><span style="color: #71717a;">Barangay:</span> <strong>${escapeHtml(swine.barangay)}</strong></div>
-            <div><span style="color: #71717a;">Breed:</span> <strong>${escapeHtml(breedDisplay)}</strong></div>
-            <div><span style="color: #71717a;">Sex:</span> <strong>${escapeHtml(sexDisplay)}</strong></div>
-            <div><span style="color: #71717a;">Date of Birth:</span> <strong>${dobDisplay}</strong></div>
+            <div><span style="color: #71717a;">Swine Type:</span> <strong>${escapeHtml(swine.swineType)}</strong></div>
+            <div><span style="color: #71717a;">Registered:</span> <strong>${escapeHtml(swine.registeredAt || 'Not recorded')}</strong></div>
+            <div><span style="color: #71717a;">Ready to sell:</span> <strong>${isReady ? 'Yes' : 'No'}</strong></div>
+            ${swine.photoUrl && /^https?:\/\//i.test(swine.photoUrl) ? `<img src="${escapeHtml(swine.photoUrl)}" alt="Record photo" style="max-width:100%;max-height:140px;object-fit:contain" />` : ''}
             <div style="background: #ecfdf5; padding: 4px 6px; border-radius: 6px; margin: 4px 0; border: 1px solid #a7f3d0;">
               <span style="color: #065f46; font-weight: bold;">Age:</span>
-              <strong style="color: #064e3b; margin-left: 4px;">${calculatedAge.display}</strong>
+              <strong style="color: #064e3b; margin-left: 4px;">${escapeHtml(calculatedAge.isValid ? calculatedAge.display : swine.ageDays > 0 ? `${swine.ageDays} days` : 'Not recorded')}</strong>
             </div>
             <div><span style="color: #71717a;">Weight:</span> <strong>${escapeHtml(weightDisplay)}</strong></div>
             <div><span style="color: #71717a;">Status:</span> <strong style="text-transform: uppercase;">${escapeHtml(isReady ? 'Ready for Sale' : swine.status)}</strong></div>
@@ -782,7 +781,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
         </div>
       `;
 
-      if (!marker.getPopup()) marker.bindPopup(popupHtml);
+      if (!marker.getPopup()) marker.bindPopup(popupHtml, {maxWidth: 280, autoPan: false});
       else if (marker.getPopup()!.getContent() !== popupHtml) marker.setPopupContent(popupHtml);
       const bindRecordAction = () => {
         const btn = document.getElementById(`btn-view-swine-${swine.id}`);
@@ -876,9 +875,10 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
     }
   }, [selectedBarangay, allBarangayMetrics]);
 
-  // 8. Reactive Synchronize map camera and pin when initialCenter coordinates change
+  // 8. Synchronize selected coordinates without moving a location-picker camera.
   useEffect(() => {
-    if (initialCenter && initialCenter[0] && initialCenter[1]) {
+    if (isLocationPicker && !initialCenter) setDroppedPin(null);
+    if (initialCenter && Number.isFinite(initialCenter[0]) && Number.isFinite(initialCenter[1])) {
       if (isLocationPicker || initialManualPinMode) {
         setDroppedPin({
           lat: initialCenter[0],
@@ -1213,7 +1213,7 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
                     <option value="farmer_density">Farmer Density</option>
                     <option value="ready_to_sell">{translateInterfaceText("Ready-to-Sell Swine")}</option>
                     <option value="breeding_boar">Breeding Boar Density</option>
-                    <option value="registry_activity">Registry Activity Index</option>
+                    <option value="registry_activity">Registrations (last 30 days)</option>
                   </select>
                 </div>
 
@@ -1375,6 +1375,14 @@ const LeafletGisMap: React.FC<LeafletGisMapProps> = ({
             </div>
           </div>
 
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+            <span>Total registered records: {allBarangayMetrics.find(metric => metric.barangayName === selectedBarangayData.barangayName)?.totalRegisteredSwine || 0}</span>
+            <span>Active swine: {selectedBarangayData.activeSwine}</span>
+            <span>Farms with GPS: {selectedBarangayData.farmsWithGps}</span>
+            <span>Records with GPS: {selectedBarangayData.swineWithGps}</span>
+            <span>Missing GPS: {selectedBarangayData.swineWithoutGps}</span>
+            <span>Registrations (30 days): {selectedBarangayData.registrationActivity}</span>
+          </div>
           {selectedBarangayData.swineWithoutGps > 0 && (
             <div className="mt-2 p-2 bg-stone-800/60 rounded-xl border border-stone-700 text-[10px] text-stone-300">
               <span className="text-amber-400 font-semibold block mb-0.5">ℹ Geographic Polygon Association:</span>
@@ -1521,14 +1529,16 @@ class GoogleMapErrorBoundary extends React.Component<GoogleMapErrorBoundaryProps
 
 export const GisMap: React.FC<GisMapProps> = props => {
   const [engine, setEngine] = useState<'google' | 'leaflet'>('leaflet');
-
-  if (engine === 'google') {
-    return (
+  const authorized = filterSwineByAuthorization(props.swineList, props.currentRole || props.currentUser?.role, props.currentUser?.assignedBarangay);
+  const missing = authorized.filter(s => !s.isArchived && !hasValidGisLocation(s)).length;
+  return <div className="relative h-full min-h-[500px] w-full">
+    {!props.isLocationPicker && <div role="status" className="absolute bottom-1 left-2 z-40 max-w-[90%] rounded bg-stone-950/90 px-2 py-1 text-xs text-white">
+      {props.syncStatus || 'RECORD SNAPSHOT'} · {missing} records without valid GPS
+    </div>}
+    {engine === 'google' ? (
       <GoogleMapErrorBoundary onFallback={() => setEngine('leaflet')}>
         <GoogleGisMap {...props} onSwitchToLeaflet={() => setEngine('leaflet')} />
       </GoogleMapErrorBoundary>
-    );
-  }
-
-  return <LeafletGisMap {...props} onSwitchToGoogle={() => setEngine('google')} />;
+    ) : <LeafletGisMap {...props} onSwitchToGoogle={() => setEngine('google')} />}
+  </div>;
 };

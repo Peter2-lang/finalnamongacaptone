@@ -1113,6 +1113,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         isOpen={isFarmRegModalOpen}
         onClose={() => setIsFarmRegModalOpen(false)}
         barangays={barangays}
+        currentUser={currentUser}
+        onOpenBatchModal={onOpenBatchModal}
       />
     </div>
   );

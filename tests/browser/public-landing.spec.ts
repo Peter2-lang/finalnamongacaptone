@@ -27,11 +27,12 @@ test('public data states, ranking, filters, refresh, CMS and chatbot lifecycle',
  await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(40);
  const launcher=page.locator('.biosecurity-assistant-launcher');
  await launcher.click();const panel=page.locator('.biosecurity-assistant-panel');await expect(panel).toBeVisible();
- const chatInput=panel.locator('input').last();await chatInput.fill('Explain the public registry');await chatInput.press('Enter');await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();
+ const chatInput=panel.getByRole('textbox').last();await chatInput.fill('Explain the public registry');await chatInput.press('Enter');await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Minimize assistant',exact:true}).click();
- await expect(page.getByRole('button',{name:'Expand assistant',exact:true})).toBeVisible();
+ await expect(panel).toHaveCount(0);await expect(launcher).toBeVisible();
+ await launcher.click();await expect(panel).toBeVisible();
  await page.getByRole('button',{name:'Close assistant',exact:true}).click();await expect(panel).toHaveCount(0);await expect(launcher).toHaveCount(1);
- const box=await launcher.boundingBox();const viewport=page.viewportSize()!;expect(viewport.width-box!.x-box!.width).toBeGreaterThanOrEqual(16);expect(viewport.width-box!.x-box!.width).toBeLessThan(40);expect(viewport.height-box!.y-box!.height).toBeLessThan(40);
+ const box=await launcher.boundingBox();const viewport=page.viewportSize()!;expect(viewport.width-box!.x-box!.width).toBeGreaterThanOrEqual(16);expect(viewport.width-box!.x-box!.width).toBeLessThan(40);expect(viewport.height-box!.y-box!.height).toBeCloseTo(viewport.width<640?88:24,0);
  await launcher.click();await expect(panel).toBeVisible();await expect(page.getByText('Verified public fixture response.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
  cms.heroTitle='Updated published CMS title';zero=true;await page.reload();await expect(page.getByText('Updated published CMS title',{exact:true})).toBeVisible();await expect(page.getByText(/No active swine records registered/)).toBeVisible();await page.getByRole('button',{name:'All 40 Barangays'}).click();await expect(page.getByText('Biosecurity details',{exact:true})).toHaveCount(40);
  zero=false;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('#barangays').getByText('820',{exact:true})).toBeVisible();
