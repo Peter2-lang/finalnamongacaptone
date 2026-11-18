@@ -1,0 +1,189 @@
+import { createHash } from 'node:crypto';
+import { and, eq, or, sql } from 'drizzle-orm';
+import type { RegistryFormSchema, SwineRecord } from '../types.ts';
+import { farmerProfileFields, MAX_FARMER_SWINE_BATCH, registrationStatuses } from '../utils/farmerSwineRegistration.ts';
+import { getFieldValue } from '../utils/registryFieldUtils.ts';
+import { calculateSwineAge, getBarangayASFZone } from '../utils/swineRegistryLogic.ts';
+import { validateSwineMutation } from '../server/swineMutationValidation.ts';
+import { db } from './index.ts';
+import { barangays, farmers, swineRecords, systemSettings } from './schema.ts';
+import { getNextAuthoritativePigIdTag, mapSwineToDb } from './swine.ts';
+
+type RegistrationUser = {
+  userId: string;
+  username: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isFocal: boolean;
+  assignedBarangay: string;
+};
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export class FarmerSwineError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
+}
+
+export async function getRegistrationFarmer(id: string, user: RegistrationUser, tx: typeof db | Transaction = db) {
+  if (!user.userId || (!user.isAdmin && (!user.isFocal || !user.assignedBarangay))) {
+    throw new FarmerSwineError(403, 'Your account cannot register swine for this farmer.');
+  }
+  if (!uuid.test(id)) throw new FarmerSwineError(400, 'Invalid farmer ID.');
+
+  const [row] = await tx.select({ farmer: farmers, barangay: barangays.name })
+    .from(farmers).innerJoin(barangays, eq(farmers.barangayId, barangays.id))
+    .where(and(eq(farmers.id, id), eq(farmers.isActive, true), eq(farmers.isArchived, false)));
+  if (!row) throw new FarmerSwineError(404, 'The selected farmer is unavailable.');
+  if (!user.isSuperAdmin && (user.isFocal || user.assignedBarangay.trim()) &&
+      row.barangay.toLowerCase() !== user.assignedBarangay.trim().toLowerCase()) {
+    throw new FarmerSwineError(403, 'You can only register swine in your assigned barangay.');
+  }
+  const { farmer, barangay } = row;
+  const metadata = farmer.metadata as Record<string, unknown>;
+  const legacyName = typeof metadata?.legacy_farmer_name === 'string' ? metadata.legacy_farmer_name : '';
+  const nameParts = farmer.firstName === farmer.lastName && !farmer.middleName
+    ? [farmer.firstName, farmer.suffix]
+    : [farmer.firstName, farmer.middleName, farmer.lastName, farmer.suffix];
+
+  return {
+    id: farmer.id,
+    barangayId: farmer.barangayId,
+    farmerName: legacyName || nameParts.filter(Boolean).join(' '),
+    farmerContact: farmer.contactNumber || '',
+    farmerAddress: farmer.farmAddress || '',
+    farmName: farmer.farmName || '',
+    barangay,
+    email: farmer.email || '',
+  };
+}
+
+function prepareRecord(input: SwineRecord, farmer: Awaited<ReturnType<typeof getRegistrationFarmer>>, user: RegistrationUser, schema: RegistryFormSchema) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Enter a valid swine record.');
+  if (!uuid.test(input.id)) throw new Error('A valid entry ID is required.');
+  if (!registrationStatuses.includes(input.status)) throw new Error('Select a valid swine status.');
+  if (typeof input.readyToSell !== 'boolean' || (input.status === 'ready_to_sell') !== input.readyToSell) {
+    throw new Error('Swine status and Ready to Sell must agree.');
+  }
+  if (input.earTagNo != null && typeof input.earTagNo !== 'string') throw new Error('Ear Tag Number must be text.');
+  if (input.earTagNo?.trim().length > 100) throw new Error('Ear tag numbers may contain at most 100 characters.');
+  if (input.customFields != null && (typeof input.customFields !== 'object' || Array.isArray(input.customFields))) {
+    throw new Error('Custom fields must be an object.');
+  }
+  if (typeof input.breed !== 'string' || !input.breed.trim()) throw new Error('Select a swine breed.');
+  if (!['grower', 'finisher', 'sow', 'boar', 'piglet'].includes(input.swineType)) throw new Error('Select a valid swine type.');
+  if (!['male', 'female', 'castrated'].includes(input.gender)) throw new Error('Select a valid sex.');
+  const { id: farmerId, barangayId, ...profile } = farmer;
+  const age = calculateSwineAge(input.birthDate);
+  const record: SwineRecord = {
+    ...input,
+    ...profile,
+    farmerId,
+    barangay_id: barangayId,
+    pigIdTag: '',
+    earTagNo: input.earTagNo?.trim() || '',
+    rsbsaId: '',
+    residentialAddress: '',
+    isArchived: false,
+    asfZone: getBarangayASFZone(profile.barangay),
+    ageDays: age.totalDays,
+    ageMonths: age.totalMonths,
+    registeredBy: user.username,
+    registeredAt: new Date().toISOString(),
+  };
+  validateSwineMutation(record);
+  for (const section of schema.sections) {
+    if (section.visible === false) continue;
+    for (const field of section.fields) {
+      if (field.visible === false || field.isFixed || field.isAutoGenerated || farmerProfileFields.has(field.id) ||
+          ['fld_gps_coordinates', 'fld_governing_ordinance', 'governingOrdinance'].includes(field.id)) continue;
+      const value = getFieldValue(record, field);
+      const empty = value == null || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && !value.length);
+      if (!empty && (field.type === 'file' || field.type === 'image')) {
+        const valid = field.id === 'fld_swine_photo' ? typeof value === 'string' && /^https:\/\//.test(value) :
+          typeof value === 'object' && !Array.isArray(value) && ['storagePath', 'path', 'url'].some(key => typeof value[key] === 'string' && value[key]);
+        if (!valid) throw new Error(`${field.label} requires an uploaded attachment.`);
+      }
+      if (field.required && (empty || (field.type === 'checkbox' && value !== true && value !== 'true'))) {
+        throw new Error(`${field.label} is required.`);
+      }
+      if (!empty && field.type === 'number' && !Number.isFinite(Number(value))) throw new Error(`${field.label} must be a number.`);
+      if (!empty && field.type === 'date' && !Number.isFinite(Date.parse(String(value)))) throw new Error(`${field.label} must be a valid date.`);
+      if (!empty && field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) throw new Error(`${field.label} must be a valid email address.`);
+    }
+  }
+  const hasCoordinates = record.latitude != null && record.longitude != null && (record.latitude !== 0 || record.longitude !== 0);
+  if (!hasCoordinates && schema.sections.some(section => section.visible !== false &&
+    section.fields.some(field => field.id === 'fld_gps_coordinates' && field.visible !== false && field.required))) {
+    throw new Error('Select a GPS location within the farmer’s barangay.');
+  }
+  return record;
+}
+
+export async function registerFarmerSwine(
+  farmerId: string, batchId: unknown, records: unknown, user: RegistrationUser, schema: RegistryFormSchema,
+) {
+  if (typeof batchId !== 'string' || !uuid.test(batchId) || !Array.isArray(records) ||
+      !records.length || records.length > MAX_FARMER_SWINE_BATCH) {
+    throw new FarmerSwineError(400, `Provide a batch ID and 1–${MAX_FARMER_SWINE_BATCH} swine entries.`);
+  }
+
+  const receiptKey = `farmer_swine:${user.userId}:${batchId}`;
+  const requestHash = createHash('sha256').update(JSON.stringify({ farmerId, records })).digest('hex');
+
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${receiptKey}))`);
+    const farmer = await getRegistrationFarmer(farmerId, user, tx);
+    const [receipt] = await tx.select({ value: systemSettings.value }).from(systemSettings).where(eq(systemSettings.key, receiptKey));
+    if (receipt) {
+      const saved = receipt.value as { requestHash: string; count: number };
+      if (saved.requestHash !== requestHash) throw new FarmerSwineError(409, 'This batch ID is already registered with different entries.');
+      return saved.count;
+    }
+
+    const prepared = records.map((input, index) => {
+      try { return prepareRecord(input, farmer, user, schema); }
+      catch (error) { throw new FarmerSwineError(400, `Swine ${index + 1}: ${(error as Error).message}`); }
+    });
+    if (new Set(prepared.map(record => record.id)).size !== prepared.length) {
+      throw new FarmerSwineError(400, 'Each swine must have its own entry ID.');
+    }
+
+    const rows = [];
+    for (const record of prepared) {
+      let tag: string;
+      // Older, manually assigned tags may be ahead of the sequence.
+      do {
+        tag = await getNextAuthoritativePigIdTag(async () => {
+          const result = await tx.execute<{ seq: string }>(sql`SELECT nextval('public.swine_tag_seq'::regclass) AS seq`);
+          return result.rows[0]?.seq;
+        });
+      } while ((await tx.select({ id: swineRecords.id }).from(swineRecords).where(or(
+        eq(swineRecords.pigIdTag, tag), eq(swineRecords.computedPigId, tag), eq(swineRecords.earTagNo, tag),
+      )).limit(1)).length);
+
+      rows.push({
+        ...mapSwineToDb({ ...record, pigIdTag: tag, earTagNo: record.earTagNo?.trim() || tag }),
+        barangayId: farmer.barangayId,
+        farmerId: farmer.id,
+      });
+    }
+
+    // Use the restricted writer role so PostgreSQL independently checks the farmer scope.
+    await tx.execute(sql`SELECT set_config('request.jwt.claim.sub', ${user.userId}, true), set_config('request.jwt.claims', ${JSON.stringify({ sub: user.userId, role: 'authenticated' })}, true)`);
+    await tx.execute(sql`SET LOCAL ROLE registry_farmer_swine_writer`);
+    try {
+      await tx.insert(swineRecords).values(rows);
+    } catch (error) {
+      const diagnostic = (error as { cause?: { code?: string } }).cause;
+      if (diagnostic?.code === '42501') throw new FarmerSwineError(403, 'The database denied registration for this farmer.');
+      if (diagnostic?.code === '23505') throw new FarmerSwineError(409, 'A swine entry ID is already registered.');
+      throw error;
+    }
+    await tx.execute(sql`RESET ROLE`);
+    await tx.insert(systemSettings).values({ key: receiptKey, value: { requestHash, count: rows.length }, updatedAt: new Date() });
+    return rows.length;
+  });
+}

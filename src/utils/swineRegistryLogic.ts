@@ -382,27 +382,30 @@ export function validateSwineRecordForSave(
     biosecurityWarningAcknowledged?: boolean;
   },
   existingRecords: SwineRecord[] = [],
-  currentRecordId?: string
+  currentRecordId?: string,
+  assignTagOnSave = false
 ): SwineValidationResult {
   const errors: Record<string, string> = {};
 
   // 1. Pig ID Tag Validation
-  const idTag = (data.pigIdTag || data.earTagNo || '').trim();
-  if (!idTag) {
-    errors.pigIdTag = 'Pig ID Tag is required.';
-  } else if (!isValidPigIdTag(idTag) && !/^HNG-[A-Z0-9]+-\d{4}-\d+$/i.test(idTag)) {
-    errors.pigIdTag = `Invalid Pig ID format: "${idTag}". Must follow HIN-YYYY-XXXX (e.g. HIN-2026-0001).`;
-  } else {
-    // Check uniqueness across records
-    const isDuplicate = existingRecords.some(r => {
-      if (currentRecordId && r.id === currentRecordId) return false;
-      return (
-        (r.pigIdTag && r.pigIdTag.toUpperCase() === idTag.toUpperCase()) ||
-        (r.earTagNo && r.earTagNo.toUpperCase() === idTag.toUpperCase())
-      );
-    });
-    if (isDuplicate) {
-      errors.pigIdTag = `Pig ID Tag "${idTag}" is already assigned to another swine record. Must be unique.`;
+  if (!assignTagOnSave) {
+    const idTag = (data.pigIdTag || data.earTagNo || '').trim();
+    if (!idTag) {
+      errors.pigIdTag = 'Pig ID Tag is required.';
+    } else if (!isValidPigIdTag(idTag) && !/^HNG-[A-Z0-9]+-\d{4}-\d+$/i.test(idTag)) {
+      errors.pigIdTag = `Invalid Pig ID format: "${idTag}". Must follow HIN-YYYY-XXXX (e.g. HIN-2026-0001).`;
+    } else {
+      // Check uniqueness across records
+      const isDuplicate = existingRecords.some(r => {
+        if (currentRecordId && r.id === currentRecordId) return false;
+        return (
+          (r.pigIdTag && r.pigIdTag.toUpperCase() === idTag.toUpperCase()) ||
+          (r.earTagNo && r.earTagNo.toUpperCase() === idTag.toUpperCase())
+        );
+      });
+      if (isDuplicate) {
+        errors.pigIdTag = `Pig ID Tag "${idTag}" is already assigned to another swine record. Must be unique.`;
+      }
     }
   }
 

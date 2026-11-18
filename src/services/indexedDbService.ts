@@ -11,7 +11,7 @@ export interface OfflineSyncQueueRecord {
   clientOperationId: string;
   ownerUserId?: string;
   operation: 'create' | 'update' | 'delete' | 'archive' | 'sell' | 'upload_media';
-  entity: 'swine' | 'farmer' | 'barangay' | 'media' | 'message' | 'certificate' | 'setting' | 'user';
+  entity: 'farmer_swine_batch' | 'swine' | 'farmer' | 'barangay' | 'media' | 'message' | 'certificate' | 'setting' | 'user';
   entityId: string;
   payload: any;
   createdAt: string;

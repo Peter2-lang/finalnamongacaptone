@@ -1,3 +1,4 @@
+import { FarmerSwineError, getRegistrationFarmer, registerFarmerSwine } from '../db/farmerSwineRegistration.ts';
 import { loadRegistryRealtimeCapability } from './registryRealtime.ts';
 import { loadPublicRegistrySummary } from './publicRegistry.ts';
 import { assistantErrorCode, assistantErrorMessage } from './assistantErrors.ts';
@@ -2007,6 +2008,34 @@ export function createApp(options: { assistantGenerate?: Generate } = {}) {
   // 3. FARMERS API (DATABASE-DERIVED)
   // 3. FARMERS API (DATABASE-DERIVED, STRICTLY AUTHENTICATED & RBAC SCOPED)
   // =========================================================================
+  app.route('/api/farmers/:farmerId/swine-registration')
+    .get(async (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      try {
+        const data = await getRegistrationFarmer(req.params.farmerId, getUserSecurityContext(req));
+        return res.json({ success: true, data });
+      } catch (error) {
+        if (error instanceof FarmerSwineError) return res.status(error.status).json({ success: false, error: error.message });
+        console.error('Unable to load farmer for swine registration:', getDatabaseDiagnostic(error));
+        return res.status(500).json({ success: false, error: 'Unable to load the farmer profile.' });
+      }
+    })
+    .post(async (req, res) => {
+      const user = getUserSecurityContext(req);
+      if (!user.isAdmin && (!user.isFocal || !user.assignedBarangay)) {
+        return res.status(403).json({ success: false, error: 'Your account cannot register swine for this farmer.' });
+      }
+      try {
+        const schema = await getFullRegistrySchemaFromDb();
+        const count = await registerFarmerSwine(req.params.farmerId, req.body?.batchId, req.body?.records, user, schema);
+        return res.status(201).json({ success: true, count });
+      } catch (error) {
+        if (error instanceof FarmerSwineError) return res.status(error.status).json({ success: false, error: error.message });
+        console.error('Unable to register swine batch:', getDatabaseDiagnostic(error));
+        return res.status(500).json({ success: false, error: 'Unable to confirm registration with the database.' });
+      }
+    });
+
   app.get('/api/farmers', async (req, res) => {
     const user = getUserSecurityContext(req);
     if (!user.isAuthenticated) {

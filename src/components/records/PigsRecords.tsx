@@ -1,3 +1,4 @@
+import { AddFarmerSwineModal } from './AddFarmerSwineModal';
 import {usePagePreference,text,tagQuery,choice,flag,integer,dateFilter,recordReference,preferenceNavigationVersion} from '../../hooks/usePagePreference';
 import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
@@ -171,6 +172,7 @@ type EnhancedSwineRecord = SwineRecord & {
 type SwineRecordAction =
   | 'view'
   | 'farmer'
+  | 'add-swine'
   | 'map'
   | 'print'
   | 'pdf'
@@ -190,6 +192,7 @@ interface RecordActionOption {
 const recordActionIcons: Record<SwineRecordAction, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   view: Eye,
   farmer: User,
+  'add-swine': Plus,
   map: MapPin,
   print: Printer,
   pdf: FileDown,
@@ -397,6 +400,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
   const [archiveConfirmRecord, setArchiveConfirmRecord] = useState<SwineRecord | null>(null);
   const [restoreConfirmRecord, setRestoreConfirmRecord] = useState<SwineRecord | null>(null);
   const [permanentDeleteConfirmRecord, setPermanentDeleteConfirmRecord] = useState<SwineRecord | null>(null);
+  const [addSwineSource, setAddSwineSource] = useState<SwineRecord | null>(null);
   const [recordActionNotice, setRecordActionNotice] = useState<{ message: string; success: boolean } | null>(null);
   const [isSavingRecordAction, setIsSavingRecordAction] = useState(false);
   const [permanentDeleteConfirmation, setPermanentDeleteConfirmation] = useState('');
@@ -1230,6 +1234,12 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     else setArchiveConfirmRecord(record);
   };
 
+  const canAddSwine = (record: SwineRecord) => Boolean(currentUser && record.farmerId && !record.isArchived &&
+    (currentUser.role === 'super_admin' ||
+      (currentUser.role === 'admin' && !currentUser.assignedBarangay?.trim()) ||
+      ((currentUser.role === 'admin' || currentUser.role === 'focal') &&
+        currentUser.assignedBarangay?.trim().toLowerCase() === record.barangay.trim().toLowerCase())));
+
   const getRecordActionOptions = (
     record: SwineRecord,
     farmerKey: string
@@ -1246,6 +1256,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
     : [
         { action: 'view', label: 'View Details' },
         ...(farmerKey ? [{ action: 'farmer' as const, label: 'View Farmer’s Swine' }] : []),
+        ...(canAddSwine(record) ? [{ action: 'add-swine' as const, label: 'Add Swine' }] : []),
         ...(currentRole !== 'agent' ? [{ action: 'edit' as const, label: 'Edit Record' }] : []),
         ...(onViewOnMap ? [{ action: 'map' as const, label: 'View on GIS Map' }] : []),
         { action: 'print', label: 'Print Record' },
@@ -1276,6 +1287,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
         });
       }
     }
+    else if (action === 'add-swine' && canAddSwine(swine)) setAddSwineSource(swine);
     else if (action === 'map' && onViewOnMap) onViewOnMap(swine);
     else if (action === 'print') setPrintSingleRecord(swine);
     else if (action === 'pdf') requestRecordPdfDownload(swine);
@@ -1608,6 +1620,18 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
 
   return (
     <div className="swine-records-page mx-auto max-w-7xl space-y-6 px-3 py-6 sm:px-4">
+      {addSwineSource && currentUser && canAddSwine(addSwineSource) && (
+        <AddFarmerSwineModal source={addSwineSource} barangays={barangays} user={currentUser}
+          onClose={() => setAddSwineSource(null)}
+          onSaved={(count, pending) => {
+            setAddSwineSource(null);
+            setRecordActionNotice({
+              message: pending ? `${count} swine · Pending Sync` : `${count} swine saved to the registry.`,
+              success: true,
+            });
+            if (!pending) void handleFetchFromDatabase(true);
+          }} />
+      )}
       {/* Top Header & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <div>

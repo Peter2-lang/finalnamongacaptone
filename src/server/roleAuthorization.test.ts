@@ -46,6 +46,9 @@ test('agent writes and focal administrative and cross-barangay operations are de
  role='admin';assert.equal((await request('/api/settings','PUT',{key:'api_configuration',value:{}})).status,403);
  assert.equal((await request('/api/swine-records/record','DELETE')).status,403,'admin needs an explicit permanent-delete grant');
  role='agent';
+ const registration = `/api/farmers/${userId}/swine-registration`;
+ assert.equal((await request(registration)).status,403);
+ assert.equal((await request(registration,'POST',{})).status,403);
  for(const [path,method,body] of [['/api/swine-records','POST',{}],['/api/swine-records/record','PUT',{}],['/api/swine-records/record','DELETE',undefined],['/api/swine-records/import','POST',{records:[{}]}],['/api/messages','POST',{body:'Unauthorized broadcast'}]] as const){
   assert.equal((await request(path,method,body)).status,403,`${method} ${path}`);
  }

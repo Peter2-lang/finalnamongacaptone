@@ -960,12 +960,14 @@ export async function getAllSwineRecords(
  * Atomic, concurrency-safe Pig ID Tag generator using PostgreSQL sequence.
  * Format: HIN-YYYY-XXXX (e.g. HIN-2026-0001)
  */
-export async function getNextAuthoritativePigIdTag(): Promise<string> {
+export async function getNextAuthoritativePigIdTag(readSequence = async () => {
+  const result = await pool.query("SELECT nextval('public.swine_tag_seq'::regclass) AS seq");
+  return result.rows[0]?.seq;
+}): Promise<string> {
   const currentYear = new Date().getFullYear();
   try {
     // The sequence is created and initialized by an explicitly reviewed migration.
-    const res = await pool.query("SELECT nextval('public.swine_tag_seq'::regclass) AS seq");
-    const value = String(res.rows[0]?.seq || '');
+    const value = String(await readSequence() || '');
     if (!/^[1-9][0-9]*$/.test(value)) throw new Error('Invalid sequence result.');
     return `HIN-${currentYear}-${value.padStart(4, '0')}`;
   } catch (error) {

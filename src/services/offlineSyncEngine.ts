@@ -1,3 +1,5 @@
+import { prepareFarmerSwineUploads, submitFarmerSwine } from './farmerSwineApi';
+import type { FarmerSwineBatch } from '../utils/farmerSwineRegistration';
 import { requireSyncAuthorization, assertQueueOwnership } from './syncAuthorization.ts';
 import { getConnectivityState } from './connectivityState.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -254,7 +256,27 @@ export class OfflineSyncEngine {
       // -------------------------------------------------------------
       // STEP 1: PUSH PENDING OPERATIONS QUEUE
       // -------------------------------------------------------------
-      const pendingQueue = await indexedDbService.getPendingSyncQueue();
+      const queue = await indexedDbService.getPendingSyncQueue();
+      const pendingQueue = queue.filter(item => item.entity !== 'farmer_swine_batch');
+      let batchError: unknown;
+      for (const item of queue.filter(item => item.entity === 'farmer_swine_batch' && item.ownerUserId === authorization.userId)) {
+        const synchronize = async () => {
+          const current = await indexedDbService.get<OfflineSyncQueueRecord>('syncQueue', item.id);
+          if (!current) return;
+          const batch: FarmerSwineBatch = current.payload;
+          try {
+            await prepareFarmerSwineUploads(batch, () => indexedDbService.put('syncQueue', current));
+            const count = await submitFarmerSwine(batch, authorization.headers);
+            await indexedDbService.removeQueueItem(current.id);
+            pushedCount += count;
+          } catch (error) {
+            await indexedDbService.updateQueueItemStatus(current.id, 'FAILED', (error as Error).message);
+            batchError = error;
+          }
+        };
+        if (navigator.locks) await navigator.locks.request(`farmer-swine:${item.entityId}`, synchronize);
+        else await synchronize();
+      }
 
       if (pendingQueue.length > 0) {
         assertQueueOwnership(pendingQueue, authorization.userId);
@@ -350,6 +372,7 @@ export class OfflineSyncEngine {
       // -------------------------------------------------------------
       // STEP 3: UPDATE METADATA & COMPLETE
       // -------------------------------------------------------------
+      if (batchError) throw batchError;
       const now = new Date().toISOString();
       this.lastSyncedAt = now;
       this.lastError = null;
@@ -388,6 +411,13 @@ export class OfflineSyncEngine {
     const user=storageService.getCurrentUser();
     if(!user)throw new Error('Sign in before creating offline changes.');
     return user.authUserId || user.id;
+  }
+
+  public async queueFarmerSwineBatch(batch: FarmerSwineBatch, owner: string): Promise<void> {
+    if (this.queueOwner() !== owner) throw new Error('The registry session changed during registration.');
+    await indexedDbService.enqueueSyncItem('create', 'farmer_swine_batch', batch.batchId, batch, 2, owner);
+    this.broadcastStatus();
+    void this.checkConnectivityAndAutoSync('farmer_swine_batch');
   }
 
   public async queueSwineCreate(record: SwineRecord): Promise<void> {
