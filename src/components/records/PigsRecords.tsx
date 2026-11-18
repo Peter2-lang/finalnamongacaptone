@@ -4,7 +4,7 @@ import { LocalizedFeedback } from '../../i18n/LocalizedFeedback';
 import { registryFieldLabel, registrySectionTitle } from '../../i18n/registryLabels';
 import { InterfaceText, translateInterfaceText } from '../../i18n/interfaceText';
 import {csvCell, escapeHtml} from '../../utils/exportEncoding';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search,
@@ -204,6 +204,9 @@ const recordActionIcons: Record<SwineRecordAction, React.ComponentType<React.SVG
   delete: Trash2,
 };
 
+const RECORD_ACTION_MENU_OPENED = 'da_record_action_menu_opened';
+const actionsColumnClass = 'sticky right-0 w-[120px] min-w-[120px] max-w-[120px] border-l border-stone-200 px-2 text-center shadow-2xs';
+
 const RecordActionMenu: React.FC<{
   label: string;
   actions: RecordActionOption[];
@@ -211,31 +214,52 @@ const RecordActionMenu: React.FC<{
   disabled?: boolean;
 }> = ({ label, actions, onAction, disabled = false }) => {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeMenu = () => setOpen(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+
+    const viewport = window.visualViewport;
     const updatePosition = () => {
-      const bounds = triggerRef.current?.getBoundingClientRect();
-      if (!bounds) return;
-      const width = Math.min(288, window.innerWidth - 24);
-      const maxHeight = Math.min(480, window.innerHeight - 24);
-      const estimatedHeight = Math.min(actions.length * 44 + 12, maxHeight);
-      const opensAbove = bounds.bottom + estimatedHeight + 8 > window.innerHeight;
-      setPosition({
-        position: 'fixed',
-        zIndex: 100,
-        width,
-        maxHeight,
-        overflowY: 'auto',
-        left: Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12)),
-        top: opensAbove
-          ? Math.max(12, bounds.top - estimatedHeight - 8)
-          : bounds.bottom + 4,
-      });
+      const bounds = trigger.getBoundingClientRect();
+      const header = document.querySelector('.app-header')?.getBoundingClientRect();
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const padding = 12;
+      const gap = 6;
+      const top = Math.max(viewportTop + padding, (header?.bottom ?? 0) + gap);
+      const bottom = viewportTop + viewportHeight - padding;
+      const left = viewportLeft + padding;
+      const right = viewportLeft + viewportWidth - padding;
+      if (!bounds.width || bounds.bottom <= top || bounds.top >= bottom ||
+          bounds.right <= left || bounds.left >= right) {
+        closeMenu();
+        return;
+      }
+
+      const width = Math.min(240, right - left);
+      menu.style.width = `${width}px`;
+      const naturalHeight = menu.scrollHeight + menu.offsetHeight - menu.clientHeight;
+      const desiredHeight = Math.min(naturalHeight, viewportHeight * 0.7);
+      const spaceBelow = Math.max(0, bottom - bounds.bottom - gap);
+      const spaceAbove = Math.max(0, bounds.top - gap - top);
+      const opensAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
+      const height = Math.min(desiredHeight, opensAbove ? spaceAbove : spaceBelow);
+
+      menu.style.left = `${Math.max(left, Math.min(bounds.right - width, right - width))}px`;
+      menu.style.maxHeight = `${height}px`;
+      menu.style.top = `${opensAbove ? bounds.top - gap - menu.offsetHeight : bounds.bottom + gap}px`;
+      menu.style.visibility = height > 0 ? 'visible' : 'hidden';
+    };
+    const onOtherMenuOpened = (event: Event) => {
+      if ((event as CustomEvent<HTMLButtonElement>).detail !== trigger) closeMenu();
     };
     const onOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Node) ||
@@ -246,16 +270,22 @@ const RecordActionMenu: React.FC<{
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeMenu();
-        triggerRef.current?.focus();
+        trigger.focus({ preventScroll: true });
       }
     };
     updatePosition();
+    document.addEventListener(RECORD_ACTION_MENU_OPENED, onOtherMenuOpened);
     document.addEventListener('pointerdown', onOutsidePointer);
     document.addEventListener('keydown', onEscape);
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
-    requestAnimationFrame(() => menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus());
+    viewport?.addEventListener('resize', updatePosition);
+    viewport?.addEventListener('scroll', updatePosition);
+    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus({ preventScroll: true });
     return () => {
+      document.removeEventListener(RECORD_ACTION_MENU_OPENED, onOtherMenuOpened);
+      viewport?.removeEventListener('resize', updatePosition);
+      viewport?.removeEventListener('scroll', updatePosition);
       document.removeEventListener('pointerdown', onOutsidePointer);
       document.removeEventListener('keydown', onEscape);
       window.removeEventListener('resize', updatePosition);
@@ -288,7 +318,10 @@ const RecordActionMenu: React.FC<{
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen(value => !value)}
+        onClick={event => {
+          if (!open) document.dispatchEvent(new CustomEvent(RECORD_ACTION_MENU_OPENED, { detail: event.currentTarget }));
+          setOpen(!open);
+        }}
         className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-50"
       >
         <MoreVertical className="h-4 w-4" aria-hidden="true" />
@@ -299,9 +332,8 @@ const RecordActionMenu: React.FC<{
           ref={menuRef}
           role="menu"
           aria-label={label}
-          style={position}
           onKeyDown={handleMenuKeyDown}
-          className="rounded-xl border border-stone-200 bg-white p-1.5 shadow-2xl"
+          className="invisible fixed z-[100] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-1.5 shadow-2xl"
         >
           {actions.map(item => {
             const Icon = recordActionIcons[item.action];
@@ -312,7 +344,7 @@ const RecordActionMenu: React.FC<{
                 role="menuitem"
                 onClick={() => {
                   closeMenu();
-                  triggerRef.current?.focus();
+                  triggerRef.current?.focus({ preventScroll: true });
                   onAction(item.action);
                 }}
                 className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium focus-visible:outline-2 focus-visible:outline-emerald-700 ${
@@ -2887,7 +2919,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                 ))}
 
                 {/* Column 13: Sticky Actions */}
-                <th className="sticky right-0 z-30 min-w-[320px] border-l border-stone-200 bg-stone-100 px-4 py-3.5 text-right shadow-2xs">
+                <th scope="col" className={`${actionsColumnClass} z-30 bg-stone-100 py-3.5`}>
                   {t('records_th_actions', 'Actions')}
                 </th>
               </tr>
@@ -3281,7 +3313,7 @@ export const PigsRecords: React.FC<PigsRecordsProps> = ({
                     })}
 
                     {/* Column 13: Actions */}
-                    <td className={`sticky right-0 z-20 min-w-[132px] border-l border-stone-200 px-3 py-3 text-right shadow-2xs ${
+                    <td className={`${actionsColumnClass} z-20 py-3 ${
                       isSelected ? 'bg-amber-50 group-hover:bg-amber-100' : 'bg-white group-hover:bg-emerald-50'
                     }`}>
                       <RecordActionMenu

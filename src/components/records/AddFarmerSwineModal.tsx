@@ -119,8 +119,8 @@ export function AddFarmerSwineModal({ source, barangays, user, onClose, onSaved 
   return (
     <dialog ref={dialog} aria-labelledby="add-farmer-swine-title"
       onCancel={event => { event.preventDefault(); close(); }}
-      className="m-auto max-h-[92dvh] w-[calc(100%-1rem)] max-w-4xl overflow-hidden rounded-2xl bg-white p-0 text-stone-900 shadow-xl backdrop:bg-stone-950/60">
-      <div className="flex max-h-[92dvh] flex-col">
+      className="m-auto max-h-[90dvh] w-[calc(100%-1rem)] max-w-[900px] overflow-hidden rounded-2xl bg-white p-0 text-stone-900 shadow-xl backdrop:bg-stone-950/60">
+      <div className="flex max-h-[90dvh] flex-col">
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-stone-200 px-4 py-3 sm:px-6">
           <div>
             <h2 id="add-farmer-swine-title" className="text-lg font-black text-emerald-950">Add Swine to Existing Farmer</h2>

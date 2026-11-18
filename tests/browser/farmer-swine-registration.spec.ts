@@ -42,13 +42,19 @@ test('existing farmer action validates, removes drafts, and saves one batch', as
   const actions = page.getByRole('button', { name: 'Actions for HIN-2026-0001' }).filter({ visible: true }).first();
   await actions.click();
   const menu = page.getByRole('menu');
-  expect((await menu.getByRole('menuitem').allTextContents()).slice(0, 4)).toEqual([
-    'View Details', 'View Farmer’s Swine', 'Add Swine', 'Edit Record',
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'View Details', 'View Farmer’s Swine', 'Add Swine', 'Edit Record', 'View on GIS Map',
+    'Print Record', 'Download PDF', 'Generate Certificate', 'Remove Ready to Sell', 'Mark as Sold', 'Archive Record',
   ]);
   await menu.getByRole('menuitem', { name: 'Add Swine' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add Swine to Existing Farmer' });
   await expect(dialog.getByText(farmer.farmerAddress)).toBeVisible();
   await expect(dialog.getByText('Old row address')).toHaveCount(0);
+  const modalBounds = (await dialog.boundingBox())!;
+  expect(modalBounds.width).toBeLessThanOrEqual(900);
+  expect(modalBounds.height).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) * 0.9 + 1);
+  await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'Save Swine' })).toBeInViewport();
 
   await dialog.getByRole('button', { name: 'Add Another Swine' }).click();
   await dialog.getByRole('button', { name: 'Add Another Swine' }).click();
@@ -116,4 +122,80 @@ test('offline registration replays the same batch after an unconfirmed response'
   await expect.poll(() => bodies.length).toBe(2);
   await expect(page.getByText('2 Heads', { exact: true })).toBeVisible();
   expect(state.records).toHaveLength(2);
+});
+
+test('Actions stays compact and anchors the menu while the records view scrolls', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const records = Array.from({ length: 12 }, (_, index) => ({
+    ...source,
+    id: crypto.randomUUID(),
+    farmerId: crypto.randomUUID(),
+    farmerName: `Registry Layout Farmer ${index + 1}`,
+    pigIdTag: `HIN-2026-${String(index + 1).padStart(4, '0')}`,
+    earTagNo: `Ear-layout-${index + 1}`,
+  }));
+  await fixture(page, 'admin', { records });
+  await page.goto('/records');
+
+  for (const width of [1440, 820, 390]) {
+    await page.setViewportSize({ width, height: 850 });
+    const trigger = page.getByRole('button', { name: 'Actions for HIN-2026-0007' }).filter({ visible: true }).first();
+    const menu = page.getByRole('menu', { name: 'Actions for HIN-2026-0007' });
+    await expect(trigger).toBeVisible();
+
+    if (width > 600) {
+      const column = page.getByRole('columnheader', { name: 'Actions', exact: true });
+      const cell = trigger.locator('..');
+      const tableScroller = page.locator('.desktop-record-table > .overflow-x-auto');
+      expect((await column.boundingBox())?.width).toBeCloseTo(120, 0);
+      expect((await cell.boundingBox())?.width).toBeCloseTo(120, 0);
+      const { left, scrollLeft } = await tableScroller.evaluate(scroller => {
+        scroller.scrollLeft = scroller.scrollWidth;
+        return { left: scroller.getBoundingClientRect().left, scrollLeft: scroller.scrollLeft };
+      });
+      expect(scrollLeft).toBeGreaterThan(0);
+      const bounds = (await cell.boundingBox())!;
+      const button = (await trigger.boundingBox())!;
+      expect(bounds.x).toBeGreaterThan(left);
+      expect(button.x + button.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+    }
+
+    for (const above of [false, true]) {
+      await trigger.evaluate((button, placeNearBottom) => {
+        const main = button.closest('main')!;
+        const header = document.querySelector('.app-header')!.getBoundingClientRect();
+        const target = placeNearBottom ? innerHeight - 84 : header.bottom + 60;
+        main.scrollTop += button.getBoundingClientRect().top - target;
+      }, above);
+      await trigger.click();
+      await expect(menu).toBeVisible();
+      const bounds = (await menu.boundingBox())!;
+      const button = (await trigger.boundingBox())!;
+      const header = (await page.locator('.app-header').boundingBox())!;
+      const gap = above ? button.y - bounds.y - bounds.height : bounds.y - button.y - button.height;
+      expect(gap).toBeCloseTo(6, 0);
+      expect(bounds.y).toBeGreaterThanOrEqual(header.y + header.height);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(850);
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      await expect(menu.getByRole('menuitem', { name: 'Add Swine', exact: true })).toBeVisible();
+      if (above) await page.mouse.click(4, 4);
+      else await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+      if (!above) await expect(trigger).toBeFocused();
+    }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 850 });
+  const first = page.getByRole('button', { name: 'Actions for HIN-2026-0007' }).filter({ visible: true }).first();
+  const second = page.getByRole('button', { name: 'Actions for HIN-2026-0008' }).filter({ visible: true }).first();
+  await first.evaluate(button => button.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await expect(second).toBeInViewport();
+  await first.click();
+  await expect(page.getByRole('menu', { name: 'Actions for HIN-2026-0007' })).toBeVisible();
+  await second.dispatchEvent('click');
+  await expect(page.getByRole('menu')).toHaveCount(1);
+  await expect(page.getByRole('menu', { name: 'Actions for HIN-2026-0008' })).toBeVisible();
+  expect(errors).toEqual([]);
 });
